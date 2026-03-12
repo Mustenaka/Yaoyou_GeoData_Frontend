@@ -1,0 +1,20 @@
+:root {
+  --sky-bg: #eef5fb;
+  --sky-bg-soft: #f6fbff;
+  --sky-surface: rgba(255, 255, 255, 0.84);
+  --sky-border: rgba(22, 119, 255, 0.12);
+  --sky-text: #10233f;
+  --sky-text-secondary: #4c6489;
+  --sky-text-muted: #7992b8;
+  --sky-blue: #1677ff;
+  --sky-cyan: #11b4d8;
+  --sky-indigo: #4568ff;
+  --sky-green: #00a76f;
+  --sky-amber: #f59f00;
+  --sky-red: #eb3b5a;
+  --sky-shadow: rgba(30, 87, 153, 0.10);
+  --radius-md: 18px;
+  --layout-padding: 20px;
+  --font-display: "Orbitron", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
