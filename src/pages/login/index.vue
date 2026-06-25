@@ -9,10 +9,6 @@
         </div>
       </div>
 
-      <n-alert title="默认管理员账号" type="info" style="margin-bottom: 18px">
-        用户名：admin，密码：Admin@123456
-      </n-alert>
-
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
         <n-form-item label="用户名" path="username">
           <n-input v-model:value="form.username" placeholder="请输入管理员账号" />
@@ -49,8 +45,8 @@ const authStore = useAuthStore()
 const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
 const form = reactive({
-  username: 'admin',
-  password: 'Admin@123456',
+  username: '',
+  password: '',
 })
 
 const rules: FormRules = {
