@@ -14,7 +14,7 @@ const emptyPolicy: LoginPolicy = {
 
 function rolePermissions(roleCode: RoleCode | '') {
   if (roleCode === 'system_admin') {
-    return ['dashboard', 'companies', 'users', 'licenses', 'devices']
+    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'settings']
   }
   if (roleCode === 'enterprise_admin') {
     return ['dashboard', 'companies', 'users', 'devices']

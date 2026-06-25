@@ -550,3 +550,149 @@ export interface RuntimeMetric {
   active_ws: number
   timestamp: number
 }
+
+export interface ServiceHealth {
+  api: string
+  database: string
+  redis: string
+  storage: string
+  overall: string
+}
+
+export interface ExpiringSummary {
+  window_days: number
+  company_count: number
+  license_count: number
+  trial_user_count: number
+  temporary_user_count: number
+}
+
+export interface DashboardSummary {
+  scope: 'system' | 'company' | string
+  company_id?: number | null
+  generated_at: string
+  service_status: ServiceHealth
+  active_company_count: number
+  user_count: number
+  active_session_count: number
+  device_count: number
+  today_upload_count: number
+  today_failed_count: number
+  high_risk_count: number
+  expiring: ExpiringSummary
+}
+
+export interface DashboardStorage {
+  provider: string
+  status: 'normal' | 'soft' | 'warn' | string
+  used_bytes: number
+  used_gb: number
+  soft_limit_gb: number
+  warn_limit_gb: number
+  updated_at: string
+  cache_ttl_seconds: number
+}
+
+export interface DashboardFileEvent {
+  file_id: string
+  company_id?: number | null
+  user_id: number
+  source_client: string
+  object_type: string
+  project_uuid: string
+  original_filename: string
+  upload_status: string
+  parse_status: string
+  parse_message: string
+  created_at: string
+}
+
+export interface DashboardRiskEvent {
+  id: number
+  risk_type: string
+  risk_level: string
+  block_action: string
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  handled_at?: string | null
+  created_at: string
+}
+
+export interface ExpiringLicenseEvent {
+  id: number
+  company_id?: number | null
+  user_id?: number | null
+  username: string
+  client_type: string
+  product_scope: string
+  device_fingerprint_id?: number | null
+  valid_until?: string | null
+  status: string
+}
+
+export interface ExpiringUserEvent {
+  id: number
+  company_id?: number | null
+  username: string
+  role_code: RoleCode | string
+  trial_expires_at?: string | null
+  temporary_expires_at?: string | null
+}
+
+export interface ExpiringCompanyEvent {
+  id: number
+  company_name: string
+  valid_until?: string | null
+  status: number
+}
+
+export interface DashboardRecentEvents {
+  generated_at: string
+  failed_uploads: DashboardFileEvent[]
+  recent_uploads: DashboardFileEvent[]
+  high_risks: DashboardRiskEvent[]
+  expiring_licenses: ExpiringLicenseEvent[]
+  expiring_users: ExpiringUserEvent[]
+  expiring_companies: ExpiringCompanyEvent[]
+}
+
+export interface SystemSettings {
+  storage_soft_limit_gb: number
+  storage_warn_limit_gb: number
+  max_upload_mb: number
+  log_retention_days: number
+  audit_retention_days: number
+  tmp_retention_hours: number
+  min_mobile_version: string
+  min_win_version: string
+  risk_block_enabled: boolean
+  jobs_enabled: boolean
+  backup_enabled: boolean
+  cleanup_enabled: boolean
+  backup_retention_days: number
+}
+
+export type SystemSettingsPayload = Partial<SystemSettings>
+
+export interface MaintenanceBackupResponse {
+  backup_path: string
+  size_bytes: number
+  table_count: number
+  pruned_backups: number
+  runtime_status_id: number
+  created_at: string
+}
+
+export interface MaintenanceCleanupResponse {
+  tmp_files_deleted: number
+  tmp_bytes_deleted: number
+  system_logs_deleted: number
+  client_logs_deleted: number
+  client_log_files_deleted: number
+  audit_logs_deleted: number
+  risk_logs_deleted: number
+  server_time_logs_deleted: number
+  runtime_status_id: number
+  cleaned_at: string
+}

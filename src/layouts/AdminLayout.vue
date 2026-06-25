@@ -130,6 +130,7 @@ const menuOptions: Array<MenuOption & { roles: RoleCode[] }> = [
   { label: '系统日志', key: 'logs-system', icon: renderIcon(FileTrayFullOutline), roles: ['system_admin'] },
   { label: '安全风险', key: 'security-risks', icon: renderIcon(AlertCircleOutline), roles: ['system_admin'] },
   { label: '服务器时间戳', key: 'security-server-time', icon: renderIcon(TimeOutline), roles: ['system_admin'] },
+  { label: '系统设置', key: 'settings', icon: renderIcon(SettingsOutline), roles: ['system_admin'] },
 ]
 
 const visibleMenuOptions = computed<MenuOption[]>(() =>

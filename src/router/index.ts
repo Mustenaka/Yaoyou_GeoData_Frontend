@@ -115,6 +115,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/security/server-time.vue'),
         meta: { title: '服务器时间戳', roles: ['system_admin'] },
       },
+      {
+        path: 'settings',
+        name: 'settings',
+        component: () => import('@/pages/settings/index.vue'),
+        meta: { title: '系统设置', roles: ['system_admin'] },
+      },
     ],
   },
   {

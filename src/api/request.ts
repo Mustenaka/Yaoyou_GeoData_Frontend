@@ -40,6 +40,9 @@ export const errorMessages: Record<number, string> = {
   16002: '请求签名无效',
   16003: '需要联网校验',
   17001: '存储容量已达限制',
+  17002: '系统设置参数无效',
+  17003: '维护任务执行失败',
+  17004: '数据库备份失败',
 }
 
 export class ApiError extends Error {
