@@ -1,141 +1,151 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="客户端日志" subtitle="支持查看文本日志与下载上传文件" />
+    <PageHeader title="客户端日志" subtitle="按企业、用户、设备、项目和版本追踪 Mobile/Win 上传的日志文件。" />
 
-    <div class="glass-panel toolbar">
-      <n-input v-model:value="keyword" clearable placeholder="搜索设备 ID / 版本 / 内容" />
+    <div class="page-card toolbar">
+      <n-select v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
+      <n-input v-model:value="filters.user_id_text" clearable placeholder="用户 ID" style="width: 110px" @keyup.enter="fetchLogs" />
+      <n-input v-model:value="filters.device_id_text" clearable placeholder="设备 ID" style="width: 110px" @keyup.enter="fetchLogs" />
+      <n-input v-model:value="filters.project_uuid" clearable placeholder="project_uuid" style="width: 220px" @keyup.enter="fetchLogs" />
+      <n-select v-model:value="filters.parse_status" clearable :options="parseStatusOptions" placeholder="解析状态" style="width: 130px" />
       <div class="toolbar__spacer" />
-      <n-button @click="fetchLogs" :loading="loading">刷新</n-button>
+      <n-button @click="fetchLogs">查询</n-button>
+      <n-button quaternary @click="resetFilters">重置</n-button>
     </div>
 
-    <div class="glass-panel table-panel">
+    <div class="page-card">
       <n-data-table
+        remote
         :columns="columns"
-        :data="filteredLogs"
+        :data="rows"
         :loading="loading"
-        :pagination="{ pageSize: 10 }"
-        :row-key="(row: ClientLog) => row.id"
+        :pagination="pagination"
+        :row-key="(row: ClientFileItem) => row.file_id"
+        @update:page="handlePage"
+        @update:page-size="handlePageSize"
       />
     </div>
-
-    <n-modal v-model:show="showPreview" preset="card" title="日志内容预览" style="width: 720px">
-      <pre class="log-preview">{{ previewContent }}</pre>
-    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
-import { NButton, useMessage } from 'naive-ui'
-import { logApi } from '@/api/log'
+import { h, onMounted, reactive, ref } from 'vue'
+import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
+import { NButton, NTag } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
-import type { ClientLog } from '@/types/api'
-import { formatDateTime } from '@/utils/format'
+import { companyApi } from '@/api/company'
+import { syncFileApi } from '@/api/syncFile'
+import type { ClientFileItem } from '@/types/api'
+import { formatBytes, formatDateTime, shortHash } from '@/utils/format'
+import { saveBlob } from '@/utils/download'
+import { clientTypeLabel, parseStatusLabel, parseStatusOptions } from '@/utils/labels'
 
-const message = useMessage()
 const loading = ref(false)
-const keyword = ref('')
-const logs = ref<ClientLog[]>([])
-const showPreview = ref(false)
-const previewContent = ref('')
+const rows = ref<ClientFileItem[]>([])
+const companyOptions = ref<SelectOption[]>([])
 
-const filteredLogs = computed(() =>
-  logs.value.filter((item) => {
-    const text = `${item.device_id} ${item.app_version} ${item.log_content}`.toLowerCase()
-    return !keyword.value || text.includes(keyword.value.toLowerCase())
-  }),
-)
+const filters = reactive({
+  company_id: null as number | null,
+  user_id_text: '',
+  device_id_text: '',
+  project_uuid: '',
+  parse_status: '',
+})
 
-const columns = [
-  { title: 'ID', key: 'id', width: 72 },
-  { title: '设备 ID', key: 'device_id', width: 220, render: (row: ClientLog) => h('span', { class: 'mono' }, row.device_id) },
-  { title: '客户端版本', key: 'app_version', width: 140 },
+const pagination = reactive<PaginationProps>({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+})
+
+const columns: DataTableColumns<ClientFileItem> = [
+  { title: '上传时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.server_received_at || row.created_at) },
+  { title: '来源端', key: 'source_client', width: 90, render: (row) => clientTypeLabel(row.source_client) },
+  { title: '企业', key: 'company_id', width: 90, render: (row) => row.company_id ?? '-' },
+  { title: '用户', key: 'user_id', width: 90 },
+  { title: '设备', key: 'device_fingerprint_id', width: 90, render: (row) => row.device_fingerprint_id ?? '-' },
+  { title: '项目', key: 'project_uuid', minWidth: 190, render: (row) => h('span', { class: 'mono' }, row.project_uuid || '-') },
+  { title: '版本', key: 'app_version', width: 120, render: (row) => row.app_version || '-' },
+  { title: '日志文件', key: 'original_filename', minWidth: 200, render: (row) => row.original_filename || row.safe_filename || '-' },
+  { title: '大小', key: 'size_bytes', width: 100, render: (row) => formatBytes(row.size_bytes) },
   {
-    title: '日志时间',
-    key: 'created_at',
-    width: 180,
-    render: (row: ClientLog) => formatDateTime(row.created_at),
+    title: '解析',
+    key: 'parse_status',
+    width: 100,
+    render: (row) =>
+      h(NTag, { type: row.parse_status === 'failed' ? 'error' : row.parse_status === 'parsed' ? 'success' : 'warning', round: true }, { default: () => parseStatusLabel(row.parse_status) }),
   },
-  {
-    title: '内容摘要',
-    key: 'summary',
-    render: (row: ClientLog) => row.log_content?.slice(0, 60) || (row.log_file ? '文件日志' : '-'),
-  },
+  { title: 'SHA-256', key: 'sha256', width: 160, render: (row) => h('span', { class: 'mono' }, shortHash(row.sha256)) },
   {
     title: '操作',
     key: 'actions',
-    width: 170,
-    render: (row: ClientLog) =>
-      h('div', { style: 'display:flex;gap:8px' }, [
-        h(
-          NButton,
-          { size: 'small', ghost: true, onClick: () => previewLog(row) },
-          { default: () => '查看' },
-        ),
-        h(
-          NButton,
-          { size: 'small', type: 'primary', ghost: true, onClick: () => downloadLog(row) },
-          { default: () => '下载' },
-        ),
-      ]),
+    width: 90,
+    fixed: 'right',
+    render: (row) => h(NButton, { size: 'small', onClick: () => downloadLog(row) }, { default: () => '下载' }),
   },
 ]
+
+async function loadCompanies() {
+  const result = await companyApi.list({ page: 1, page_size: 200 })
+  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+}
+
+function numberFilter(value: string) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
 
 async function fetchLogs() {
   loading.value = true
   try {
-    logs.value = await logApi.clientList()
+    const result = await syncFileApi.list({
+      page: pagination.page,
+      page_size: pagination.pageSize,
+      company_id: filters.company_id || undefined,
+      user_id: numberFilter(filters.user_id_text),
+      device_fingerprint_id: numberFilter(filters.device_id_text),
+      project_uuid: filters.project_uuid || undefined,
+      parse_status: filters.parse_status || undefined,
+      object_type: 'client_log',
+    })
+    rows.value = result.list
+    pagination.itemCount = result.total
   } finally {
     loading.value = false
   }
 }
 
-function previewLog(row: ClientLog) {
-  previewContent.value = row.log_content || '该记录以文件形式上传，请使用下载功能查看。'
-  showPreview.value = true
+function resetFilters() {
+  Object.assign(filters, {
+    company_id: null,
+    user_id_text: '',
+    device_id_text: '',
+    project_uuid: '',
+    parse_status: '',
+  })
+  pagination.page = 1
+  fetchLogs()
 }
 
-async function downloadLog(row: ClientLog) {
-  try {
-    const blob = await logApi.downloadClientLog(row.id)
-    const url = window.URL.createObjectURL(blob as Blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${row.device_id || 'client-log'}-${row.id}.log`
-    anchor.click()
-    window.URL.revokeObjectURL(url)
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : '下载失败')
-  }
+function handlePage(page: number) {
+  pagination.page = page
+  fetchLogs()
 }
 
-onMounted(fetchLogs)
+function handlePageSize(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  fetchLogs()
+}
+
+async function downloadLog(row: ClientFileItem) {
+  const blob = await syncFileApi.download(row.file_id)
+  saveBlob(blob, row.original_filename || row.safe_filename || `${row.file_id}.log`)
+}
+
+onMounted(async () => {
+  await Promise.all([loadCompanies(), fetchLogs()])
+})
 </script>
-
-<style scoped>
-.toolbar,
-.table-panel {
-  padding: 16px;
-}
-
-.toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.toolbar__spacer {
-  flex: 1;
-}
-
-.log-preview {
-  margin: 0;
-  max-height: 420px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-}
-</style>

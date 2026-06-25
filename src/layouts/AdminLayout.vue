@@ -64,12 +64,22 @@
 import { computed, h, onBeforeUnmount, ref } from 'vue'
 import { NIcon, type MenuOption } from 'naive-ui'
 import {
+  AlertCircleOutline,
   BusinessOutline,
+  CloudUploadOutline,
   DesktopOutline,
+  DocumentTextOutline,
+  FileTrayFullOutline,
+  FolderOpenOutline,
   GridOutline,
   KeyOutline,
+  LaptopOutline,
+  ListOutline,
   LogOutOutline,
   PeopleOutline,
+  PhonePortraitOutline,
+  SettingsOutline,
+  TimeOutline,
 } from '@vicons/ionicons5'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -110,6 +120,16 @@ const menuOptions: Array<MenuOption & { roles: RoleCode[] }> = [
   { label: '用户管理', key: 'users', icon: renderIcon(PeopleOutline), roles: ['system_admin', 'enterprise_admin'] },
   { label: '授权管理', key: 'licenses', icon: renderIcon(KeyOutline), roles: ['system_admin'] },
   { label: '设备管理', key: 'devices', icon: renderIcon(DesktopOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '文件同步中心', key: 'sync-files', icon: renderIcon(CloudUploadOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '项目档案', key: 'projects', icon: renderIcon(FolderOpenOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: 'Mobile 数据', key: 'mobile-data', icon: renderIcon(PhonePortraitOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: 'Win 数据', key: 'win-data', icon: renderIcon(LaptopOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '配置管理', key: 'configs', icon: renderIcon(SettingsOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '操作记录', key: 'audit', icon: renderIcon(ListOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '客户端日志', key: 'logs-client', icon: renderIcon(DocumentTextOutline), roles: ['system_admin', 'enterprise_admin'] },
+  { label: '系统日志', key: 'logs-system', icon: renderIcon(FileTrayFullOutline), roles: ['system_admin'] },
+  { label: '安全风险', key: 'security-risks', icon: renderIcon(AlertCircleOutline), roles: ['system_admin'] },
+  { label: '服务器时间戳', key: 'security-server-time', icon: renderIcon(TimeOutline), roles: ['system_admin'] },
 ]
 
 const visibleMenuOptions = computed<MenuOption[]>(() =>

@@ -1,4 +1,4 @@
-import request from './request'
+import request, { downloadBlob } from './request'
 import type { ClientLog, SystemLog } from '@/types/api'
 
 export const logApi = {
@@ -9,8 +9,6 @@ export const logApi = {
     return request.get<any, ClientLog[]>('/admin/logs/client')
   },
   downloadClientLog(id: number) {
-    return request.get(`/admin/logs/client/${id}/download`, {
-      responseType: 'blob',
-    })
+    return downloadBlob(`/admin/logs/client/${id}/download`)
   },
 }

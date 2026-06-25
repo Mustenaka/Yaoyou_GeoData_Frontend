@@ -23,6 +23,17 @@ export type ClientType = 'admin' | 'mobile' | 'win'
 export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected'
+export type FileObjectType =
+  | 'project_package'
+  | 'entry_data'
+  | 'global_config'
+  | 'project_config'
+  | 'win_result'
+  | 'client_log'
+  | 'operation_record'
+export type FileUploadStatus = 'initialized' | 'uploaded' | 'failed'
+export type FileParseStatus = 'pending' | 'parsed' | 'failed' | 'skipped'
+export type ConfigScope = 'global' | 'project'
 
 export interface TokenUser {
   id: number
@@ -294,6 +305,197 @@ export interface ListParams {
   client_type?: string
   risk_level?: string
   authorization_status?: string
+}
+
+export interface ClientFileItem {
+  id: number
+  file_id: string
+  company_id?: number | null
+  user_id: number
+  device_fingerprint_id?: number | null
+  device_authorization_id?: number | null
+  source_client: string
+  app_version: string
+  object_type: FileObjectType | string
+  project_uuid: string
+  project_code: string
+  form_type: string
+  original_filename: string
+  safe_filename: string
+  storage_provider: string
+  storage_key: string
+  bucket: string
+  region: string
+  mime_type: string
+  size_bytes: number
+  sha256: string
+  upload_status: FileUploadStatus | string
+  parse_status: FileParseStatus | string
+  parse_message: string
+  server_received_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SyncFileListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  object_type?: string
+  project_uuid?: string
+  project_code?: string
+  upload_status?: string
+  parse_status?: string
+  start_at?: string | null
+  end_at?: string | null
+}
+
+export interface ProjectArchiveItem {
+  id: number
+  company_id?: number | null
+  project_uuid: string
+  project_code: string
+  project_name: string
+  client_name: string
+  uuid_fallback: boolean
+  source_mobile_file_id: string
+  latest_win_result_file_id: string
+  latest_config_file_id: string
+  latest_entry_data_file_id: string
+  last_uploaded_at?: string | null
+  last_parsed_at?: string | null
+  parse_message: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FormDataSnapshot {
+  id: number
+  project_cloud_index_id: number
+  company_id?: number | null
+  project_uuid: string
+  form_type: string
+  row_count: number
+  sample_count: number
+  source_file_id: string
+  snapshot_json: string
+  created_at: string
+}
+
+export interface ConfigSnapshotItem {
+  id: number
+  company_id?: number | null
+  project_uuid: string
+  config_scope: ConfigScope | string
+  config_type: string
+  config_version: string
+  source_file_id: string
+  snapshot_json: string
+  summary_json: string
+  is_latest: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ConfigSnapshotListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  project_uuid?: string
+  config_scope?: string
+  config_type?: string
+  is_latest?: boolean | null
+}
+
+export interface OperationAuditEvent {
+  id: number
+  event_id: string
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  module: string
+  action: string
+  result: string
+  project_uuid: string
+  file_id: string
+  client_ts?: string | null
+  server_ts: string
+  ip: string
+  user_agent: string
+  message: string
+  extra_json?: string | null
+  created_at: string
+}
+
+export interface AuditListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  module?: string
+  action?: string
+  result?: string
+  project_uuid?: string
+  start_at?: string | null
+  end_at?: string | null
+}
+
+export interface SecurityRiskEvent {
+  id: number
+  risk_type: string
+  risk_level: string
+  block_action: string
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  detail_json?: string | null
+  handled_by?: number | null
+  handled_at?: string | null
+  handle_note: string
+  created_at: string
+  updated_at: string
+}
+
+export interface RiskListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  user_id?: number | null
+  risk_type?: string
+  risk_level?: string
+  handled?: boolean | null
+}
+
+export interface RiskHandlePayload {
+  action: 'handle' | 'block' | 'unblock' | string
+  note?: string
+}
+
+export interface ServerTimeLogItem {
+  id: number
+  client_type: string
+  user_id?: number | null
+  client_ts?: string | null
+  server_ts: string
+  delta_ms?: number | null
+  nonce: string
+  is_abnormal: boolean
+  ip: string
+  user_agent: string
+  created_at: string
+}
+
+export interface ServerTimeLogParams {
+  page?: number
+  page_size?: number
+  user_id?: number | null
+  client_type?: string
+  abnormal?: boolean | null
+  start_at?: string | null
+  end_at?: string | null
 }
 
 export interface SystemLog {

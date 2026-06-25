@@ -1,4 +1,13 @@
-import type { AuthorizationStatus, ClientType, DeviceStatus, RoleCode, UserStatus } from '@/types/api'
+import type {
+  AuthorizationStatus,
+  ClientType,
+  DeviceStatus,
+  FileObjectType,
+  FileParseStatus,
+  FileUploadStatus,
+  RoleCode,
+  UserStatus,
+} from '@/types/api'
 
 export const roleOptions: Array<{ label: string; value: RoleCode }> = [
   { label: '系统管理员', value: 'system_admin' },
@@ -38,6 +47,60 @@ export const deviceStatusOptions: Array<{ label: string; value: DeviceStatus }> 
   { label: '阻断', value: 'blocked' },
 ]
 
+export const objectTypeOptions: Array<{ label: string; value: FileObjectType }> = [
+  { label: '项目包', value: 'project_package' },
+  { label: '录入数据', value: 'entry_data' },
+  { label: '全局配置', value: 'global_config' },
+  { label: '项目配置', value: 'project_config' },
+  { label: 'Win 结果', value: 'win_result' },
+  { label: '客户端日志', value: 'client_log' },
+  { label: '操作记录', value: 'operation_record' },
+]
+
+export const uploadStatusOptions: Array<{ label: string; value: FileUploadStatus }> = [
+  { label: '已初始化', value: 'initialized' },
+  { label: '已上传', value: 'uploaded' },
+  { label: '失败', value: 'failed' },
+]
+
+export const parseStatusOptions: Array<{ label: string; value: FileParseStatus }> = [
+  { label: '待解析', value: 'pending' },
+  { label: '已解析', value: 'parsed' },
+  { label: '解析失败', value: 'failed' },
+  { label: '已跳过', value: 'skipped' },
+]
+
+export const configScopeOptions = [
+  { label: '全局', value: 'global' },
+  { label: '项目', value: 'project' },
+]
+
+export const configTypeOptions = [
+  { label: '完整配置', value: 'all' },
+  { label: '操作设置', value: 'app_settings' },
+  { label: '映射规则', value: 'mapping' },
+  { label: '智能填充', value: 'fill_rule' },
+  { label: '器材配置', value: 'equipment' },
+]
+
+export const riskLevelOptions = [
+  { label: '低', value: 'low' },
+  { label: '中', value: 'medium' },
+  { label: '高', value: 'high' },
+  { label: '严重', value: 'critical' },
+]
+
+export const auditResultOptions = [
+  { label: '成功', value: 'success' },
+  { label: '失败', value: 'failed' },
+  { label: '拒绝', value: 'rejected' },
+]
+
+export const booleanFilterOptions = [
+  { label: '是', value: true },
+  { label: '否', value: false },
+]
+
 export function roleLabel(role?: string) {
   return roleOptions.find((item) => item.value === role)?.label || role || '-'
 }
@@ -52,6 +115,34 @@ export function authStatusLabel(status?: string) {
 
 export function deviceStatusLabel(status?: string) {
   return deviceStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function objectTypeLabel(type?: string) {
+  return objectTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function uploadStatusLabel(status?: string) {
+  return uploadStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function parseStatusLabel(status?: string) {
+  return parseStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function configScopeLabel(scope?: string) {
+  return configScopeOptions.find((item) => item.value === scope)?.label || scope || '-'
+}
+
+export function configTypeLabel(type?: string) {
+  return configTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function riskLevelLabel(level?: string) {
+  return riskLevelOptions.find((item) => item.value === level)?.label || level || '-'
+}
+
+export function auditResultLabel(result?: string) {
+  return auditResultOptions.find((item) => item.value === result)?.label || result || '-'
 }
 
 export function clientTypeLabel(type?: string) {
