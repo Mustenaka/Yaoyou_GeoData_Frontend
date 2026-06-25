@@ -1,12 +1,23 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import type { RoleCode } from '@/types/api'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    requiresAuth?: boolean
+    roles?: RoleCode[]
+  }
+}
+
+const adminRoles: RoleCode[] = ['system_admin', 'enterprise_admin']
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
     component: () => import('@/pages/login/index.vue'),
-    meta: { title: 'SKY 管理端登录', requiresAuth: false },
+    meta: { title: '后台登录', requiresAuth: false },
   },
   {
     path: '/',
@@ -18,43 +29,31 @@ const routes: RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/pages/dashboard/index.vue'),
-        meta: { title: '系统控制台' },
+        meta: { title: '系统控制台', roles: adminRoles },
+      },
+      {
+        path: 'companies',
+        name: 'companies',
+        component: () => import('@/pages/company/index.vue'),
+        meta: { title: '企业管理', roles: adminRoles },
       },
       {
         path: 'users',
         name: 'users',
         component: () => import('@/pages/user/index.vue'),
-        meta: { title: '用户管理' },
+        meta: { title: '用户管理', roles: adminRoles },
+      },
+      {
+        path: 'licenses',
+        name: 'licenses',
+        component: () => import('@/pages/license/index.vue'),
+        meta: { title: '授权管理', roles: ['system_admin'] },
       },
       {
         path: 'devices',
         name: 'devices',
         component: () => import('@/pages/device/index.vue'),
-        meta: { title: '设备授权' },
-      },
-      {
-        path: 'collab',
-        name: 'collab',
-        component: () => import('@/pages/collab/index.vue'),
-        meta: { title: '协作监控' },
-      },
-      {
-        path: 'logs/system',
-        name: 'logs-system',
-        component: () => import('@/pages/log/system.vue'),
-        meta: { title: '系统日志' },
-      },
-      {
-        path: 'logs/client',
-        name: 'logs-client',
-        component: () => import('@/pages/log/client.vue'),
-        meta: { title: '客户端日志' },
-      },
-      {
-        path: 'settings',
-        name: 'settings',
-        component: () => import('@/pages/settings/index.vue'),
-        meta: { title: '系统设置' },
+        meta: { title: '设备管理', roles: adminRoles },
       },
     ],
   },
@@ -65,28 +64,39 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHistory('/admin/'),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
-router.beforeEach((to) => {
-  document.title = String(to.meta.title || 'SKY 管理系统')
-  const authStore = useAuthStore()
+router.beforeEach(async (to) => {
+  document.title = `${String(to.meta.title || '后台管理')} - 遥佑 GeoData`
+  const auth = useAuthStore()
 
   if (to.meta.requiresAuth === false) {
-    if (authStore.isLoggedIn && to.name === 'login') {
-      return { name: 'dashboard' }
-    }
-    return true
+    return auth.isLoggedIn && to.name === 'login' ? { name: 'dashboard' } : true
   }
 
-  if (!authStore.isLoggedIn) {
+  if (!auth.isLoggedIn) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
-  if (!authStore.isAdmin) {
-    authStore.clearSession()
+  if (!auth.roleCode) {
+    try {
+      await auth.fetchMe()
+    } catch {
+      auth.clearSession()
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
+  }
+
+  if (!auth.canEnterAdmin) {
+    auth.clearSession()
     return { name: 'login' }
+  }
+
+  const roles = to.meta.roles
+  if (roles?.length && !roles.includes(auth.roleCode as RoleCode)) {
+    return { name: 'dashboard' }
   }
 
   return true

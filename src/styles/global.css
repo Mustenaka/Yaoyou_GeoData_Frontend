@@ -12,12 +12,9 @@ body,
 }
 
 body {
-  color: var(--sky-text);
+  color: var(--yy-text);
   font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(39, 127, 255, 0.20), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(17, 180, 216, 0.16), transparent 28%),
-    linear-gradient(160deg, #dde9f7 0%, #eef5fb 44%, #f7fbff 100%);
+  background: var(--yy-bg);
 }
 
 a {
@@ -25,67 +22,70 @@ a {
   text-decoration: none;
 }
 
-.glass-panel {
-  background: var(--sky-surface);
-  border: 1px solid var(--sky-border);
-  box-shadow: 0 16px 36px var(--sky-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius-md);
+.mono {
+  font-family: var(--font-mono);
 }
 
 .page-shell {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   padding: var(--layout-padding);
+}
+
+.page-card {
+  padding: 16px;
+  background: var(--yy-surface);
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 20px var(--yy-shadow);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar__spacer {
+  flex: 1;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
 }
 
 .page-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .page-grid-4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.mono {
-  font-family: var(--font-mono);
+  gap: 14px;
 }
 
 .page-enter-active,
 .page-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .page-enter-from,
 .page-leave-to {
   opacity: 0;
-  transform: translateY(8px);
-}
-
-@keyframes pulse-dot {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.4);
-    opacity: 0.45;
-  }
-}
-
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 rgba(22, 119, 255, 0.1);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(22, 119, 255, 0.22);
-  }
+  transform: translateY(6px);
 }
 
 @media (max-width: 1280px) {
@@ -101,6 +101,6 @@ a {
   }
 
   .page-shell {
-    padding: 14px;
+    padding: 12px;
   }
 }

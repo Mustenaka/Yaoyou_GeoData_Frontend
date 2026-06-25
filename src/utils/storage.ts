@@ -1,7 +1,15 @@
 export const storageKeys = {
-  accessToken: 'sky_access_token',
-  refreshToken: 'sky_refresh_token',
-  username: 'sky_username',
-  userRole: 'sky_user_role',
-  userId: 'sky_user_id',
+  accessToken: 'yaoyou_access_token',
+  refreshToken: 'yaoyou_refresh_token',
+  userId: 'yaoyou_user_id',
+  username: 'yaoyou_username',
+  roleCode: 'yaoyou_role_code',
+  companyId: 'yaoyou_company_id',
+  companyName: 'yaoyou_company_name',
+  permissions: 'yaoyou_permissions',
+  policy: 'yaoyou_policy',
+}
+
+export function clearSessionStorage() {
+  Object.values(storageKeys).forEach((key) => localStorage.removeItem(key))
 }

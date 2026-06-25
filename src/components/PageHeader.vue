@@ -24,13 +24,13 @@ defineProps<{
 }
 
 .page-header__title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 
 .page-header__subtitle {
   margin-top: 6px;
-  color: var(--sky-text-secondary);
+  color: var(--yy-text-secondary);
   font-size: 13px;
 }
 </style>

@@ -1,17 +1,17 @@
 <template>
   <div class="login-page">
-    <div class="login-panel glass-panel">
-      <div class="login-panel__header">
-        <div class="login-panel__logo">SKY</div>
+    <section class="login-panel">
+      <div class="login-header">
+        <div class="login-logo">YY</div>
         <div>
-          <div class="login-panel__title">岩土智能云控平台</div>
-          <div class="login-panel__subtitle">后台管理系统</div>
+          <h1>遥佑 GeoData</h1>
+          <p>后台管理端</p>
         </div>
       </div>
 
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
-        <n-form-item label="用户名" path="username">
-          <n-input v-model:value="form.username" placeholder="请输入管理员账号" />
+        <n-form-item label="账号" path="username">
+          <n-input v-model:value="form.username" clearable placeholder="请输入后台账号" />
         </n-form-item>
         <n-form-item label="密码" path="password">
           <n-input
@@ -23,22 +23,23 @@
           />
         </n-form-item>
         <n-button type="primary" block size="large" :loading="submitting" @click="handleLogin">
-          登录管理端
+          登录
         </n-button>
       </n-form>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { reactive, ref } from 'vue'
 import type { FormInst, FormRules } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 
-const router = useRouter()
 const route = useRoute()
+const router = useRouter()
 const message = useMessage()
 const authStore = useAuthStore()
 
@@ -50,7 +51,7 @@ const form = reactive({
 })
 
 const rules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: ['blur', 'input'] }],
+  username: [{ required: true, message: '请输入账号', trigger: ['blur', 'input'] }],
   password: [{ required: true, message: '请输入密码', trigger: ['blur', 'input'] }],
 }
 
@@ -58,8 +59,18 @@ async function handleLogin() {
   await formRef.value?.validate()
   submitting.value = true
   try {
-    const response = await authApi.login(form.username, form.password)
-    authStore.setSession(response)
+    const session = await authApi.login({
+      username: form.username,
+      password: form.password,
+      client_type: 'admin',
+      app_version: import.meta.env.VITE_APP_VERSION || 'web-admin',
+    })
+    authStore.setSession(session)
+    if (!authStore.canEnterAdmin) {
+      authStore.clearSession()
+      message.error('当前账号不能进入后台管理端')
+      return
+    }
     message.success('登录成功')
     router.push(String(route.query.redirect || '/dashboard'))
   } catch (error) {
@@ -73,43 +84,49 @@ async function handleLogin() {
 <style scoped>
 .login-page {
   display: grid;
-  place-items: center;
   min-height: 100vh;
+  place-items: center;
   padding: 20px;
+  background: #eef2f5;
 }
 
 .login-panel {
   width: min(420px, 100%);
   padding: 28px;
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: 0 12px 30px var(--yy-shadow);
 }
 
-.login-panel__header {
+.login-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 24px;
 }
 
-.login-panel__logo {
+.login-logo {
   display: grid;
+  width: 54px;
+  height: 54px;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--sky-blue), var(--sky-cyan));
+  border-radius: var(--radius-md);
+  background: var(--yy-primary);
   color: white;
-  font-family: var(--font-display);
-  font-size: 22px;
-}
-
-.login-panel__title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
 }
 
-.login-panel__subtitle {
-  margin-top: 6px;
-  color: var(--sky-text-secondary);
-  letter-spacing: 0.08em;
+.login-header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.login-header p {
+  margin: 5px 0 0;
+  color: var(--yy-text-secondary);
+  font-size: 13px;
 }
 </style>

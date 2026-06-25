@@ -1,20 +1,19 @@
 :root {
-  --sky-bg: #eef5fb;
-  --sky-bg-soft: #f6fbff;
-  --sky-surface: rgba(255, 255, 255, 0.84);
-  --sky-border: rgba(22, 119, 255, 0.12);
-  --sky-text: #10233f;
-  --sky-text-secondary: #4c6489;
-  --sky-text-muted: #7992b8;
-  --sky-blue: #1677ff;
-  --sky-cyan: #11b4d8;
-  --sky-indigo: #4568ff;
-  --sky-green: #00a76f;
-  --sky-amber: #f59f00;
-  --sky-red: #eb3b5a;
-  --sky-shadow: rgba(30, 87, 153, 0.10);
-  --radius-md: 18px;
-  --layout-padding: 20px;
-  --font-display: "Orbitron", "Microsoft YaHei", sans-serif;
+  --yy-bg: #f4f6f8;
+  --yy-surface: #ffffff;
+  --yy-fill: #f3f5f7;
+  --yy-border: #d9e0e7;
+  --yy-text: #17212f;
+  --yy-text-secondary: #4f6275;
+  --yy-text-muted: #7b8a9a;
+  --yy-primary: #1f4e79;
+  --yy-primary-hover: #286196;
+  --yy-green: #2f855a;
+  --yy-amber: #b7791f;
+  --yy-red: #c53030;
+  --yy-shadow: rgba(23, 33, 47, 0.08);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --layout-padding: 18px;
   --font-mono: "JetBrains Mono", "Consolas", monospace;
 }

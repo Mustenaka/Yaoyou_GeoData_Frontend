@@ -15,23 +15,23 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#1677ff',
-    primaryColorHover: '#3690ff',
-    primaryColorPressed: '#0f5fd1',
-    primaryColorSuppl: '#11b4d8',
-    borderRadius: '14px',
-    borderRadiusSmall: '10px',
+    primaryColor: '#1f4e79',
+    primaryColorHover: '#286196',
+    primaryColorPressed: '#173a5a',
+    primaryColorSuppl: '#2f855a',
+    borderRadius: '8px',
+    borderRadiusSmall: '4px',
     fontFamily: '"Noto Sans SC", "Microsoft YaHei", sans-serif',
     fontFamilyMono: '"JetBrains Mono", "Consolas", monospace',
   },
   Card: {
-    color: 'rgba(255,255,255,0.88)',
-    borderColor: 'rgba(22,119,255,0.10)',
+    color: '#ffffff',
+    borderColor: '#d9e0e7',
   },
   DataTable: {
-    thColor: 'rgba(22,119,255,0.04)',
-    borderColor: 'rgba(22,119,255,0.10)',
-    tdColorHover: 'rgba(22,119,255,0.03)',
+    thColor: '#f3f5f7',
+    borderColor: '#d9e0e7',
+    tdColorHover: '#f6f8fa',
   },
 }
 </script>

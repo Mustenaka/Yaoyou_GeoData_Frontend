@@ -1,204 +1,94 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="系统控制台" subtitle="实时监控服务资源、连接状态与系统风险" />
+    <PageHeader title="系统控制台" subtitle="Phase 2A 仅提供后台工作入口，业务统计待 P4 后端接口就绪后接入。" />
 
     <div class="page-grid-4">
-      <StatCard label="CPU 使用率" :value="formatPercent(metric?.cpu_usage)" accent="linear-gradient(90deg, #1677ff, #6aaeff)">
-        {{ metric?.cpu_usage && metric.cpu_usage > 85 ? '高负载预警' : '运行稳定' }}
-      </StatCard>
-      <StatCard label="内存使用率" :value="formatPercent(memoryUsage)" accent="linear-gradient(90deg, #11b4d8, #0dd39e)">
-        {{ memoryUsage > 80 ? '内存偏高' : '内存正常' }}
-      </StatCard>
-      <StatCard label="磁盘使用率" :value="formatPercent(metric?.disk_usage)" accent="linear-gradient(90deg, #4568ff, #7a8cff)">
-        {{ metric?.disk_usage && metric.disk_usage > 80 ? '建议清理' : '空间充足' }}
-      </StatCard>
-      <StatCard label="活跃 WS 连接" :value="metric?.active_ws ?? 0" unit="conn" accent="linear-gradient(90deg, #00a76f, #37d67a)">
-        Goroutines: {{ metric?.goroutines ?? 0 }}
-      </StatCard>
+      <StatCard label="当前账号" :value="authStore.username || '-'" />
+      <StatCard label="角色" :value="roleText" accent="#2f855a" />
+      <StatCard label="企业范围" :value="companyText" accent="#b7791f" />
+      <StatCard label="风险阻断" :value="authStore.policy.risk_block_enabled ? '已启用' : '未启用'" accent="#c53030" />
     </div>
 
-    <div class="page-grid-2">
-      <div class="glass-panel chart-panel">
-        <div class="chart-panel__title">CPU / 内存趋势</div>
-        <VChart class="chart" :option="lineOption" autoresize />
-      </div>
-      <div class="glass-panel chart-panel">
-        <div class="chart-panel__title">当前关键指标</div>
-        <VChart class="chart" :option="barOption" autoresize />
-      </div>
+    <div class="page-card">
+      <n-grid :cols="2" :x-gap="14" :y-gap="14" responsive="screen">
+        <n-grid-item v-for="entry in visibleEntries" :key="entry.name">
+          <button class="entry" type="button" @click="router.push({ name: entry.name })">
+            <n-icon :component="entry.icon" size="24" />
+            <span>
+              <strong>{{ entry.title }}</strong>
+              <small>{{ entry.desc }}</small>
+            </span>
+          </button>
+        </n-grid-item>
+      </n-grid>
     </div>
 
-    <div class="page-grid-2">
-      <div class="glass-panel block-panel">
-        <div class="block-panel__title">实时连接状态</div>
-        <n-space vertical :size="12">
-          <n-tag :type="connected ? 'success' : 'warning'" round>
-            {{ connected ? 'SSE 已连接' : 'SSE 重连中' }}
-          </n-tag>
-          <div class="detail-row">
-            <span>最近采样时间</span>
-            <strong>{{ lastSampleText }}</strong>
-          </div>
-          <div class="detail-row">
-            <span>图表样本数</span>
-            <strong>{{ history.length }}</strong>
-          </div>
-        </n-space>
-      </div>
-
-      <div class="glass-panel block-panel">
-        <div class="block-panel__title">风险提示</div>
-        <n-alert v-for="alert in alerts" :key="alert.title" :title="alert.title" :type="alert.type" style="margin-bottom: 10px">
-          {{ alert.message }}
-        </n-alert>
-        <n-empty v-if="alerts.length === 0" description="当前没有告警" />
-      </div>
+    <div class="page-card">
+      <n-descriptions title="会话与策略" bordered :column="2">
+        <n-descriptions-item label="用户 ID">{{ authStore.userId }}</n-descriptions-item>
+        <n-descriptions-item label="企业 ID">{{ authStore.companyId ?? '平台级' }}</n-descriptions-item>
+        <n-descriptions-item label="最低 Mobile 版本">{{ authStore.policy.min_mobile_version || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="最低 Win 版本">{{ authStore.policy.min_win_version || '-' }}</n-descriptions-item>
+        <n-descriptions-item label="普通用户配置编辑">
+          {{ authStore.policy.allow_normal_user_config_edit ? '允许' : '不允许' }}
+        </n-descriptions-item>
+      </n-descriptions>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { use } from 'echarts/core'
-import { BarChart, LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import VChart from 'vue-echarts'
+import { BusinessOutline, DesktopOutline, KeyOutline, PeopleOutline } from '@vicons/ionicons5'
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
-import { useMetricsSSE } from '@/composables/useMetricsSSE'
-import { formatDateTime, formatPercent } from '@/utils/format'
+import { useAuthStore } from '@/stores/auth'
 
-use([CanvasRenderer, LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent])
+const router = useRouter()
+const authStore = useAuthStore()
 
-const { connected, current: metric, history } = useMetricsSSE()
+const roleText = computed(() => (authStore.isSystemAdmin ? '系统管理员' : '企业管理员'))
+const companyText = computed(() => authStore.companyName || '全平台')
 
-const memoryUsage = computed(() => metric.value?.memory_usage ?? metric.value?.mem_usage ?? 0)
-const lastSampleText = computed(() => formatDateTime(metric.value?.timestamp))
+const entries = [
+  { name: 'companies', title: '企业管理', desc: '企业资料、有效期和策略', icon: BusinessOutline, roles: ['system_admin', 'enterprise_admin'] },
+  { name: 'users', title: '用户管理', desc: '账号、角色、状态和密码', icon: PeopleOutline, roles: ['system_admin', 'enterprise_admin'] },
+  { name: 'licenses', title: '授权管理', desc: '后台发放与撤销授权', icon: KeyOutline, roles: ['system_admin'] },
+  { name: 'devices', title: '设备管理', desc: 'Mobile/Win、换机和阻断', icon: DesktopOutline, roles: ['system_admin', 'enterprise_admin'] },
+]
 
-const alerts = computed(() => {
-  const items: Array<{ title: string; message: string; type: 'warning' | 'error' }> = []
-
-  if ((metric.value?.cpu_usage ?? 0) > 85) {
-    items.push({
-      title: 'CPU 超载',
-      message: `CPU 使用率已达到 ${metric.value?.cpu_usage.toFixed(1)}%，建议检查任务峰值或消息广播压力。`,
-      type: 'warning',
-    })
-  }
-
-  if (memoryUsage.value > 80) {
-    items.push({
-      title: '内存偏高',
-      message: `内存使用率 ${memoryUsage.value.toFixed(1)}%，建议关注 goroutine 和缓存占用。`,
-      type: 'warning',
-    })
-  }
-
-  if ((metric.value?.disk_usage ?? 0) > 80) {
-    items.push({
-      title: '磁盘预警',
-      message: `磁盘使用率 ${metric.value?.disk_usage.toFixed(1)}%，应尽快清理日志和备份目录。`,
-      type: 'error',
-    })
-  }
-
-  return items
-})
-
-const lineOption = computed(() => ({
-  tooltip: { trigger: 'axis' },
-  legend: {
-    data: ['CPU', '内存'],
-    textStyle: { color: '#4c6489' },
-  },
-  grid: { left: 48, right: 20, top: 40, bottom: 32 },
-  xAxis: {
-    type: 'category',
-    data: history.value.map((item) => new Date(item.timestamp).toLocaleTimeString('zh-CN')),
-    axisLabel: { color: '#7992b8' },
-  },
-  yAxis: {
-    type: 'value',
-    min: 0,
-    max: 100,
-    axisLabel: { color: '#7992b8', formatter: '{value}%' },
-  },
-  series: [
-    {
-      name: 'CPU',
-      type: 'line',
-      smooth: true,
-      showSymbol: false,
-      data: history.value.map((item) => item.cpu_usage),
-      lineStyle: { color: '#1677ff', width: 2 },
-      areaStyle: { color: 'rgba(22,119,255,0.14)' },
-    },
-    {
-      name: '内存',
-      type: 'line',
-      smooth: true,
-      showSymbol: false,
-      data: history.value.map((item) => item.memory_usage ?? item.mem_usage ?? 0),
-      lineStyle: { color: '#11b4d8', width: 2 },
-      areaStyle: { color: 'rgba(17,180,216,0.12)' },
-    },
-  ],
-}))
-
-const barOption = computed(() => ({
-  tooltip: {},
-  grid: { left: 32, right: 20, top: 20, bottom: 30 },
-  xAxis: {
-    type: 'category',
-    data: ['CPU', '内存', '磁盘', 'WS'],
-    axisLabel: { color: '#7992b8' },
-  },
-  yAxis: {
-    type: 'value',
-    axisLabel: { color: '#7992b8' },
-  },
-  series: [
-    {
-      type: 'bar',
-      barWidth: 28,
-      data: [
-        metric.value?.cpu_usage ?? 0,
-        memoryUsage.value,
-        metric.value?.disk_usage ?? 0,
-        metric.value?.active_ws ?? 0,
-      ],
-      itemStyle: {
-        color: ({ dataIndex }: { dataIndex: number }) =>
-          ['#1677ff', '#11b4d8', '#4568ff', '#00a76f'][dataIndex],
-        borderRadius: [8, 8, 0, 0],
-      },
-    },
-  ],
-}))
+const visibleEntries = computed(() => entries.filter((entry) => entry.roles.includes(authStore.roleCode)))
 </script>
 
 <style scoped>
-.chart-panel,
-.block-panel {
-  padding: 18px;
-}
-
-.chart-panel__title,
-.block-panel__title {
-  margin-bottom: 14px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.chart {
-  height: 280px;
-}
-
-.detail-row {
+.entry {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--sky-text-secondary);
+  width: 100%;
+  min-height: 86px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--yy-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.entry:hover {
+  border-color: var(--yy-primary);
+  background: #f8fafc;
+}
+
+.entry span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.entry small {
+  color: var(--yy-text-muted);
 }
 </style>

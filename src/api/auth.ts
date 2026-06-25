@@ -1,14 +1,24 @@
 import request from './request'
-import type { LoginResponse, UserInfo } from '@/types/api'
+import type { LoginResponse, MeResponse } from '@/types/api'
+
+export interface LoginPayload {
+  username: string
+  password: string
+  client_type: 'admin'
+  app_version?: string
+}
 
 export const authApi = {
-  login(username: string, password: string) {
-    return request.post<any, LoginResponse>('/auth/login', { username, password })
+  login(payload: LoginPayload) {
+    return request.post<LoginResponse, LoginResponse>('/auth/login', payload)
   },
-  logout() {
-    return request.post('/auth/logout')
+  refresh(refreshToken: string) {
+    return request.post<LoginResponse, LoginResponse>('/auth/refresh', { refresh_token: refreshToken })
+  },
+  logout(refreshToken?: string) {
+    return request.post('/auth/logout', { refresh_token: refreshToken })
   },
   me() {
-    return request.get<any, UserInfo>('/users/me')
+    return request.get<MeResponse, MeResponse>('/auth/me')
   },
 }
