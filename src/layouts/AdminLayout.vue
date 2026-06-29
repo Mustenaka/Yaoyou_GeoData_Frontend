@@ -25,13 +25,20 @@
         :collapsed="collapsed"
         :collapsed-width="72"
         :collapsed-icon-size="21"
+        :expanded-keys="expandedKeys"
         @update:value="onNavigate"
+        @update:expanded-keys="expandedKeys = $event"
       />
     </n-layout-sider>
 
     <n-layout>
       <n-layout-header bordered class="topbar">
-        <div class="topbar__title">{{ currentTitle }}</div>
+        <div class="topbar__heading">
+          <div class="topbar__title">{{ currentTitle }}</div>
+          <n-breadcrumb v-if="breadcrumbs.length > 1" class="topbar__breadcrumb">
+            <n-breadcrumb-item v-for="item in breadcrumbs" :key="item">{{ item }}</n-breadcrumb-item>
+          </n-breadcrumb>
+        </div>
         <n-tag size="small" :type="authStore.isSystemAdmin ? 'success' : 'info'" round>
           {{ roleLabel(authStore.roleCode) }}
         </n-tag>
@@ -61,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, ref } from 'vue'
+import { computed, h, onBeforeUnmount, ref, watch } from 'vue'
 import { NIcon, type MenuOption } from 'naive-ui'
 import {
   AlertCircleOutline,
@@ -73,14 +80,13 @@ import {
   FolderOpenOutline,
   GridOutline,
   KeyOutline,
-  LaptopOutline,
   ListOutline,
   LogOutOutline,
   PeopleOutline,
-  PhonePortraitOutline,
   SettingsOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
+import type { RouteRecordRaw } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import type { RoleCode } from '@/types/api'
@@ -89,6 +95,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const collapsed = ref(false)
+const expandedKeys = ref<string[]>([])
 const nowText = ref(new Date().toLocaleString('zh-CN', { hour12: false }))
 
 const timer = window.setInterval(() => {
@@ -96,8 +103,11 @@ const timer = window.setInterval(() => {
 }, 1000)
 
 const displayName = computed(() => authStore.username || '管理员')
-const activeMenuKey = computed(() => String(route.name || 'dashboard'))
 const currentTitle = computed(() => String(route.meta.title || '系统控制台'))
+const breadcrumbs = computed(() => {
+  const group = typeof route.meta.group === 'string' ? route.meta.group : ''
+  return group ? [group, currentTitle.value] : [currentTitle.value]
+})
 
 function renderIcon(icon: unknown) {
   return () => h(NIcon, null, { default: () => h(icon as never) })
@@ -114,28 +124,90 @@ function roleLabel(role: RoleCode | '') {
   return labels[role] || '未识别角色'
 }
 
-const menuOptions: Array<MenuOption & { roles: RoleCode[] }> = [
-  { label: '系统控制台', key: 'dashboard', icon: renderIcon(GridOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '企业管理', key: 'companies', icon: renderIcon(BusinessOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '用户管理', key: 'users', icon: renderIcon(PeopleOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '授权管理', key: 'licenses', icon: renderIcon(KeyOutline), roles: ['system_admin'] },
-  { label: '设备管理', key: 'devices', icon: renderIcon(DesktopOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '文件同步中心', key: 'sync-files', icon: renderIcon(CloudUploadOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '项目档案', key: 'projects', icon: renderIcon(FolderOpenOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: 'Mobile 数据', key: 'mobile-data', icon: renderIcon(PhonePortraitOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: 'Win 数据', key: 'win-data', icon: renderIcon(LaptopOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '配置管理', key: 'configs', icon: renderIcon(SettingsOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '操作记录', key: 'audit', icon: renderIcon(ListOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '客户端日志', key: 'logs-client', icon: renderIcon(DocumentTextOutline), roles: ['system_admin', 'enterprise_admin'] },
-  { label: '系统日志', key: 'logs-system', icon: renderIcon(FileTrayFullOutline), roles: ['system_admin'] },
-  { label: '安全风险', key: 'security-risks', icon: renderIcon(AlertCircleOutline), roles: ['system_admin'] },
-  { label: '服务器时间戳', key: 'security-server-time', icon: renderIcon(TimeOutline), roles: ['system_admin'] },
-  { label: '系统设置', key: 'settings', icon: renderIcon(SettingsOutline), roles: ['system_admin'] },
-]
+const routeIcons: Record<string, unknown> = {
+  dashboard: GridOutline,
+  companies: BusinessOutline,
+  users: PeopleOutline,
+  licenses: KeyOutline,
+  devices: DesktopOutline,
+  'device-change-requests': TimeOutline,
+  projects: FolderOpenOutline,
+  'sync-files': CloudUploadOutline,
+  audit: ListOutline,
+  settings: SettingsOutline,
+  'system-logs': FileTrayFullOutline,
+  risks: AlertCircleOutline,
+  'server-time': TimeOutline,
+}
 
-const visibleMenuOptions = computed<MenuOption[]>(() =>
-  menuOptions.filter((item) => item.roles.includes(authStore.roleCode as RoleCode)),
-)
+const groupIcons: Record<string, unknown> = {
+  授权与设备: KeyOutline,
+  项目与数据: FolderOpenOutline,
+  系统设置: SettingsOutline,
+}
+
+function groupKey(group: string) {
+  return `group:${group}`
+}
+
+const adminChildren = computed<RouteRecordRaw[]>(() => {
+  const adminRoute = router.options.routes.find((item) => item.path === '/')
+  return adminRoute?.children || []
+})
+
+function canShowRoute(record: RouteRecordRaw) {
+  if (!record.name || record.meta?.hideInMenu) return false
+  const roles = record.meta?.roles as RoleCode[] | undefined
+  return !roles?.length || roles.includes(authStore.roleCode as RoleCode)
+}
+
+const activeMenuKey = computed(() => {
+  if (!route.meta.hideInMenu) return String(route.name || 'dashboard')
+  const fallback = adminChildren.value.find((record) => record.meta?.group === route.meta.group && canShowRoute(record))
+  return String(fallback?.name || 'dashboard')
+})
+
+const activeGroupKey = computed(() => {
+  const group = typeof route.meta.group === 'string' ? route.meta.group : ''
+  return group ? groupKey(group) : ''
+})
+
+const visibleMenuOptions = computed<MenuOption[]>(() => {
+  const options: MenuOption[] = []
+  const groups = new Map<string, MenuOption & { children: MenuOption[] }>()
+
+  for (const record of adminChildren.value) {
+    if (!canShowRoute(record)) continue
+
+    const key = String(record.name)
+    const item: MenuOption = {
+      label: String(record.meta?.title || key),
+      key,
+      icon: renderIcon(routeIcons[key] || DocumentTextOutline),
+    }
+    const group = typeof record.meta?.group === 'string' ? record.meta.group : ''
+
+    if (!group) {
+      options.push(item)
+      continue
+    }
+
+    if (!groups.has(group)) {
+      const groupOption: MenuOption & { children: MenuOption[] } = {
+        label: group,
+        key: groupKey(group),
+        icon: renderIcon(groupIcons[group] || FolderOpenOutline),
+        children: [],
+      }
+      groups.set(group, groupOption)
+      options.push(groupOption)
+    }
+
+    groups.get(group)?.children.push(item)
+  }
+
+  return options
+})
 
 const dropdownOptions = [
   {
@@ -146,6 +218,7 @@ const dropdownOptions = [
 ]
 
 function onNavigate(key: string) {
+  if (key.startsWith('group:')) return
   router.push({ name: key })
 }
 
@@ -158,6 +231,16 @@ async function handleUserAction(key: string) {
 onBeforeUnmount(() => {
   window.clearInterval(timer)
 })
+
+watch(
+  activeGroupKey,
+  (key) => {
+    if (key && !expandedKeys.value.includes(key)) {
+      expandedKeys.value = [...expandedKeys.value, key]
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>
@@ -214,9 +297,20 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 
+.topbar__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 180px;
+}
+
 .topbar__title {
   font-size: 16px;
   font-weight: 700;
+}
+
+.topbar__breadcrumb {
+  font-size: 12px;
 }
 
 .topbar__company,

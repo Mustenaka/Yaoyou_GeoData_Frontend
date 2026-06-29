@@ -14,10 +14,24 @@ const emptyPolicy: LoginPolicy = {
 
 function rolePermissions(roleCode: RoleCode | '') {
   if (roleCode === 'system_admin') {
-    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'settings']
+    return [
+      'dashboard',
+      'companies',
+      'users',
+      'licenses',
+      'devices',
+      'device-change-requests',
+      'projects',
+      'sync-files',
+      'audit',
+      'settings',
+      'system-logs',
+      'risks',
+      'server-time',
+    ]
   }
   if (roleCode === 'enterprise_admin') {
-    return ['dashboard', 'companies', 'users', 'devices']
+    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
   }
   return []
 }

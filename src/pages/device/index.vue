@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="设备管理" subtitle="查看 Mobile/Win 设备、授权状态、风险等级与换机审批。" />
+    <PageHeader :title="pageTitle" :subtitle="pageSubtitle" />
 
     <div class="page-card">
       <n-tabs v-model:value="activeTab" type="segment" @update:value="handleTabChange">
@@ -77,7 +77,8 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -96,6 +97,8 @@ type DeviceTab = 'mobile' | 'win' | 'change' | 'risk'
 
 const message = useMessage()
 const dialog = useDialog()
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref<DeviceTab>('mobile')
 const loading = ref(false)
 const devices = ref<DeviceItem[]>([])
@@ -118,6 +121,11 @@ const pagination = reactive<PaginationProps>({
   showSizePicker: true,
   pageSizes: [10, 20, 50],
 })
+
+const pageTitle = computed(() => (activeTab.value === 'change' ? '换机申请' : '设备管理'))
+const pageSubtitle = computed(() =>
+  activeTab.value === 'change' ? '审批用户换绑 Mobile/Win 设备申请。' : '查看 Mobile/Win 设备、授权状态、风险等级与换机审批。',
+)
 
 const changeStatusOptions = [
   { label: '待处理', value: 'pending' },
@@ -273,8 +281,31 @@ function reloadCurrent() {
   return activeTab.value === 'change' ? fetchChangeRequests() : fetchDevices()
 }
 
-function handleTabChange() {
+function tabFromRoute(): DeviceTab {
+  if (route.name === 'device-change-requests') return 'change'
+  const tab = route.query.tab
+  if (tab === 'win' || tab === 'risk') return tab
+  return 'mobile'
+}
+
+function navigateForTab(tab: DeviceTab) {
+  if (tab === 'change') {
+    if (route.name !== 'device-change-requests') {
+      router.push({ name: 'device-change-requests' })
+    }
+    return
+  }
+
+  const targetTab = tab === 'mobile' ? undefined : tab
+  if (route.name !== 'devices' || route.query.tab !== targetTab) {
+    router.push({ name: 'devices', query: targetTab ? { tab: targetTab } : {} })
+  }
+}
+
+function handleTabChange(value: string | number) {
+  activeTab.value = value as DeviceTab
   pagination.page = 1
+  navigateForTab(activeTab.value)
   reloadCurrent()
 }
 
@@ -333,5 +364,19 @@ function decideChange(row: DeviceChangeRequest, approve: boolean) {
   })
 }
 
-onMounted(fetchDevices)
+watch(
+  () => [route.name, route.query.tab],
+  () => {
+    const nextTab = tabFromRoute()
+    if (nextTab === activeTab.value) return
+    activeTab.value = nextTab
+    pagination.page = 1
+    reloadCurrent()
+  },
+)
+
+onMounted(() => {
+  activeTab.value = tabFromRoute()
+  reloadCurrent()
+})
 </script>

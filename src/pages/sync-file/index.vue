@@ -64,8 +64,8 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NPopconfirm, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -85,6 +85,7 @@ import {
   uploadStatusOptions,
 } from '@/utils/labels'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
@@ -222,6 +223,15 @@ function resetFilters() {
   fetchList()
 }
 
+function applyQueryFilters() {
+  const { upload_status: uploadStatus, parse_status: parseStatus, object_type: objectType, project_uuid: projectUuid, project_code: projectCode } = route.query
+  if (typeof uploadStatus === 'string') filters.upload_status = uploadStatus
+  if (typeof parseStatus === 'string') filters.parse_status = parseStatus
+  if (typeof objectType === 'string') filters.object_type = objectType
+  if (typeof projectUuid === 'string') filters.project_uuid = projectUuid
+  if (typeof projectCode === 'string') filters.project_code = projectCode
+}
+
 function handlePage(page: number) {
   pagination.page = page
   fetchList()
@@ -259,7 +269,17 @@ function goProject(row: ClientFileItem) {
   router.push({ name: 'projects', query: { keyword: row.project_uuid || row.project_code } })
 }
 
+watch(
+  () => route.query,
+  () => {
+    applyQueryFilters()
+    pagination.page = 1
+    fetchList()
+  },
+)
+
 onMounted(async () => {
+  applyQueryFilters()
   await Promise.all([loadCompanies(), fetchList()])
 })
 </script>

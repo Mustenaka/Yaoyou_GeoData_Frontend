@@ -508,16 +508,6 @@ export interface SystemLog {
   created_at: string
 }
 
-export interface ClientLog {
-  id: number
-  user_id: number
-  device_id: string
-  log_file: string
-  log_content: string
-  app_version: string
-  created_at: string
-}
-
 export interface ProjectInfo {
   id: number
   project_uuid: string

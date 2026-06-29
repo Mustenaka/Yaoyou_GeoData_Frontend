@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="系统设置" subtitle="容量、保留期、最低版本、风险阻断与维护任务">
+    <PageHeader title="基本设置" subtitle="容量、保留期、最低版本、风险阻断与维护任务">
       <n-space>
         <n-button :loading="loading" @click="loadSettings">
           <template #icon>

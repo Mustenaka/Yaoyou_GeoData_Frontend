@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell">
     <PageHeader title="授权管理" subtitle="后台发放、调整和撤销 Mobile/Win 设备授权。">
-      <n-button type="primary" @click="openIssue">发放授权</n-button>
+      <n-button v-if="authStore.isSystemAdmin" type="primary" @click="openIssue">发放授权</n-button>
     </PageHeader>
 
     <div class="page-card toolbar">
@@ -84,12 +84,14 @@ import { companyApi } from '@/api/company'
 import { deviceApi } from '@/api/device'
 import { licenseApi } from '@/api/license'
 import { userApi } from '@/api/user'
+import { useAuthStore } from '@/stores/auth'
 import type { AuthorizationStatus, LicenseItem, LicensePayload } from '@/types/api'
 import { authStatusLabel, authStatusOptions, clientTypeLabel, clientTypeOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
 
 const message = useMessage()
 const dialog = useDialog()
+const authStore = useAuthStore()
 const loading = ref(false)
 const saving = ref(false)
 const rows = ref<LicenseItem[]>([])
@@ -150,8 +152,9 @@ const columns: DataTableColumns<LicenseItem> = [
     key: 'actions',
     width: 210,
     fixed: 'right',
-    render: (row) =>
-      h('div', { class: 'table-actions' }, [
+    render: (row) => {
+      if (!authStore.isSystemAdmin) return '只读'
+      return h('div', { class: 'table-actions' }, [
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '调整' }),
         h(
           NPopconfirm,
@@ -161,7 +164,8 @@ const columns: DataTableColumns<LicenseItem> = [
             default: () => `确认撤销 ${row.username || row.user_id} 的 ${clientTypeLabel(row.client_type)} 授权？`,
           },
         ),
-      ]),
+      ])
+    },
   },
 ]
 
@@ -218,6 +222,7 @@ function handlePageSize(pageSize: number) {
 }
 
 function openIssue() {
+  if (!authStore.isSystemAdmin) return
   editingId.value = null
   Object.assign(form, {
     user_id: 0,
@@ -232,6 +237,7 @@ function openIssue() {
 }
 
 function openEdit(row: LicenseItem) {
+  if (!authStore.isSystemAdmin) return
   editingId.value = row.id
   Object.assign(form, {
     user_id: row.user_id || 0,
@@ -246,6 +252,7 @@ function openEdit(row: LicenseItem) {
 }
 
 async function submitLicense() {
+  if (!authStore.isSystemAdmin) return
   await formRef.value?.validate()
   const confirmed = await confirmHighRisk(editingId.value ? '确认调整授权期限、范围或状态？' : '确认发放新的设备授权？')
   if (!confirmed) return
@@ -277,6 +284,7 @@ async function submitLicense() {
 }
 
 async function revokeLicense(row: LicenseItem) {
+  if (!authStore.isSystemAdmin) return
   await licenseApi.update(row.id, { status: 'revoked' })
   message.success('授权已撤销')
   await fetchList()

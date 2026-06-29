@@ -148,7 +148,7 @@ function openDetail(row: ServerTimeLogItem) {
 }
 
 function goTimeRisks() {
-  router.push({ name: 'security-risks', query: { risk_type: 'time_tamper' } })
+  router.push({ name: 'risks', query: { risk_type: 'time_tamper' } })
 }
 
 onMounted(fetchList)

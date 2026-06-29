@@ -244,7 +244,7 @@ function goFailedUploads() {
 
 function goRisks() {
   if (!authStore.isSystemAdmin) return
-  router.push({ name: 'security-risks' })
+  router.push({ name: 'risks' })
 }
 
 onMounted(() => {

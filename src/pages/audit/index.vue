@@ -1,30 +1,60 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="操作记录" subtitle="按企业、用户、设备、项目、模块、操作和结果检索审计事件。" />
+    <PageHeader title="操作记录" subtitle="合并操作审计与客户端日志，按企业、用户、设备和项目追溯后台与客户端行为。" />
 
-    <div class="page-card toolbar">
-      <n-select v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
-      <n-input v-model:value="filters.user_id_text" clearable placeholder="用户 ID" style="width: 110px" @keyup.enter="fetchList" />
-      <n-input v-model:value="filters.device_id_text" clearable placeholder="设备 ID" style="width: 110px" @keyup.enter="fetchList" />
-      <n-input v-model:value="filters.project_uuid" clearable placeholder="project_uuid" style="width: 220px" @keyup.enter="fetchList" />
-      <n-input v-model:value="filters.module" clearable placeholder="模块" style="width: 120px" @keyup.enter="fetchList" />
-      <n-input v-model:value="filters.action" clearable placeholder="操作" style="width: 120px" @keyup.enter="fetchList" />
-      <n-select v-model:value="filters.result" clearable :options="auditResultOptions" placeholder="结果" style="width: 110px" />
+    <div class="page-card">
+      <n-tabs v-model:value="activeTab" type="segment">
+        <n-tab name="audit">操作审计</n-tab>
+        <n-tab name="client-log">客户端日志</n-tab>
+      </n-tabs>
+    </div>
+
+    <div v-if="activeTab === 'audit'" class="page-card toolbar">
+      <n-select v-model:value="auditFilters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
+      <n-input v-model:value="auditFilters.user_id_text" clearable placeholder="用户 ID" style="width: 110px" @keyup.enter="fetchAuditList" />
+      <n-input v-model:value="auditFilters.device_id_text" clearable placeholder="设备 ID" style="width: 110px" @keyup.enter="fetchAuditList" />
+      <n-input v-model:value="auditFilters.project_uuid" clearable placeholder="project_uuid" style="width: 220px" @keyup.enter="fetchAuditList" />
+      <n-input v-model:value="auditFilters.module" clearable placeholder="模块" style="width: 120px" @keyup.enter="fetchAuditList" />
+      <n-input v-model:value="auditFilters.action" clearable placeholder="操作" style="width: 120px" @keyup.enter="fetchAuditList" />
+      <n-select v-model:value="auditFilters.result" clearable :options="auditResultOptions" placeholder="结果" style="width: 110px" />
       <div class="toolbar__spacer" />
-      <n-button @click="fetchList">查询</n-button>
-      <n-button quaternary @click="resetFilters">重置</n-button>
+      <n-button @click="fetchAuditList">查询</n-button>
+      <n-button quaternary @click="resetAuditFilters">重置</n-button>
+    </div>
+
+    <div v-else class="page-card toolbar">
+      <n-select v-model:value="logFilters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
+      <n-input v-model:value="logFilters.user_id_text" clearable placeholder="用户 ID" style="width: 110px" @keyup.enter="fetchClientLogs" />
+      <n-input v-model:value="logFilters.device_id_text" clearable placeholder="设备 ID" style="width: 110px" @keyup.enter="fetchClientLogs" />
+      <n-input v-model:value="logFilters.project_uuid" clearable placeholder="project_uuid" style="width: 220px" @keyup.enter="fetchClientLogs" />
+      <n-select v-model:value="logFilters.parse_status" clearable :options="parseStatusOptions" placeholder="解析状态" style="width: 130px" />
+      <div class="toolbar__spacer" />
+      <n-button @click="fetchClientLogs">查询</n-button>
+      <n-button quaternary @click="resetLogFilters">重置</n-button>
     </div>
 
     <div class="page-card">
       <n-data-table
+        v-if="activeTab === 'audit'"
         remote
-        :columns="columns"
-        :data="rows"
-        :loading="loading"
-        :pagination="pagination"
+        :columns="auditColumns"
+        :data="auditRows"
+        :loading="auditLoading"
+        :pagination="auditPagination"
         :row-key="(row: OperationAuditEvent) => row.id"
-        @update:page="handlePage"
-        @update:page-size="handlePageSize"
+        @update:page="handleAuditPage"
+        @update:page-size="handleAuditPageSize"
+      />
+      <n-data-table
+        v-else
+        remote
+        :columns="logColumns"
+        :data="logRows"
+        :loading="logLoading"
+        :pagination="logPagination"
+        :row-key="(row: ClientFileItem) => row.file_id"
+        @update:page="handleLogPage"
+        @update:page-size="handleLogPageSize"
       />
     </div>
 
@@ -53,23 +83,30 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NTag } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { auditApi } from '@/api/audit'
 import { companyApi } from '@/api/company'
-import type { OperationAuditEvent } from '@/types/api'
-import { compactText, formatDateTime } from '@/utils/format'
-import { auditResultLabel, auditResultOptions } from '@/utils/labels'
+import { syncFileApi } from '@/api/syncFile'
+import type { ClientFileItem, OperationAuditEvent } from '@/types/api'
+import { compactText, formatBytes, formatDateTime, shortHash } from '@/utils/format'
+import { saveBlob } from '@/utils/download'
+import { auditResultLabel, auditResultOptions, clientTypeLabel, parseStatusLabel, parseStatusOptions } from '@/utils/labels'
 
-const loading = ref(false)
-const rows = ref<OperationAuditEvent[]>([])
+const route = useRoute()
+const activeTab = ref('audit')
+const auditLoading = ref(false)
+const logLoading = ref(false)
+const auditRows = ref<OperationAuditEvent[]>([])
+const logRows = ref<ClientFileItem[]>([])
 const detail = ref<OperationAuditEvent | null>(null)
 const detailVisible = ref(false)
 const companyOptions = ref<SelectOption[]>([])
 
-const filters = reactive({
+const auditFilters = reactive({
   company_id: null as number | null,
   user_id_text: '',
   device_id_text: '',
@@ -79,7 +116,23 @@ const filters = reactive({
   result: '',
 })
 
-const pagination = reactive<PaginationProps>({
+const logFilters = reactive({
+  company_id: null as number | null,
+  user_id_text: '',
+  device_id_text: '',
+  project_uuid: '',
+  parse_status: '',
+})
+
+const auditPagination = reactive<PaginationProps>({
+  page: 1,
+  pageSize: 20,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+})
+
+const logPagination = reactive<PaginationProps>({
   page: 1,
   pageSize: 20,
   itemCount: 0,
@@ -93,7 +146,7 @@ function resultTagType(result: string) {
   return 'default'
 }
 
-const columns: DataTableColumns<OperationAuditEvent> = [
+const auditColumns: DataTableColumns<OperationAuditEvent> = [
   { title: '时间', key: 'server_ts', width: 170, render: (row) => formatDateTime(row.server_ts || row.created_at) },
   { title: '企业', key: 'company_id', width: 90, render: (row) => row.company_id ?? '-' },
   { title: '用户', key: 'user_id', width: 90, render: (row) => row.user_id ?? '-' },
@@ -119,6 +172,33 @@ const columns: DataTableColumns<OperationAuditEvent> = [
   },
 ]
 
+const logColumns: DataTableColumns<ClientFileItem> = [
+  { title: '上传时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.server_received_at || row.created_at) },
+  { title: '来源端', key: 'source_client', width: 90, render: (row) => clientTypeLabel(row.source_client) },
+  { title: '企业', key: 'company_id', width: 90, render: (row) => row.company_id ?? '-' },
+  { title: '用户', key: 'user_id', width: 90 },
+  { title: '设备', key: 'device_fingerprint_id', width: 90, render: (row) => row.device_fingerprint_id ?? '-' },
+  { title: '项目', key: 'project_uuid', minWidth: 190, render: (row) => h('span', { class: 'mono' }, row.project_uuid || '-') },
+  { title: '版本', key: 'app_version', width: 120, render: (row) => row.app_version || '-' },
+  { title: '日志文件', key: 'original_filename', minWidth: 200, render: (row) => row.original_filename || row.safe_filename || '-' },
+  { title: '大小', key: 'size_bytes', width: 100, render: (row) => formatBytes(row.size_bytes) },
+  {
+    title: '解析',
+    key: 'parse_status',
+    width: 100,
+    render: (row) =>
+      h(NTag, { type: row.parse_status === 'failed' ? 'error' : row.parse_status === 'parsed' ? 'success' : 'warning', round: true }, { default: () => parseStatusLabel(row.parse_status) }),
+  },
+  { title: 'SHA-256', key: 'sha256', width: 160, render: (row) => h('span', { class: 'mono' }, shortHash(row.sha256)) },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 90,
+    fixed: 'right',
+    render: (row) => h(NButton, { size: 'small', onClick: () => downloadLog(row) }, { default: () => '下载' }),
+  },
+]
+
 async function loadCompanies() {
   const result = await companyApi.list({ page: 1, page_size: 200 })
   companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
@@ -129,29 +209,49 @@ function numberFilter(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
 
-async function fetchList() {
-  loading.value = true
+async function fetchAuditList() {
+  auditLoading.value = true
   try {
     const result = await auditApi.list({
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      company_id: filters.company_id || undefined,
-      user_id: numberFilter(filters.user_id_text),
-      device_fingerprint_id: numberFilter(filters.device_id_text),
-      project_uuid: filters.project_uuid || undefined,
-      module: filters.module || undefined,
-      action: filters.action || undefined,
-      result: filters.result || undefined,
+      page: auditPagination.page,
+      page_size: auditPagination.pageSize,
+      company_id: auditFilters.company_id || undefined,
+      user_id: numberFilter(auditFilters.user_id_text),
+      device_fingerprint_id: numberFilter(auditFilters.device_id_text),
+      project_uuid: auditFilters.project_uuid || undefined,
+      module: auditFilters.module || undefined,
+      action: auditFilters.action || undefined,
+      result: auditFilters.result || undefined,
     })
-    rows.value = result.list
-    pagination.itemCount = result.total
+    auditRows.value = result.list
+    auditPagination.itemCount = result.total
   } finally {
-    loading.value = false
+    auditLoading.value = false
   }
 }
 
-function resetFilters() {
-  Object.assign(filters, {
+async function fetchClientLogs() {
+  logLoading.value = true
+  try {
+    const result = await syncFileApi.list({
+      page: logPagination.page,
+      page_size: logPagination.pageSize,
+      company_id: logFilters.company_id || undefined,
+      user_id: numberFilter(logFilters.user_id_text),
+      device_fingerprint_id: numberFilter(logFilters.device_id_text),
+      project_uuid: logFilters.project_uuid || undefined,
+      parse_status: logFilters.parse_status || undefined,
+      object_type: 'client_log',
+    })
+    logRows.value = result.list
+    logPagination.itemCount = result.total
+  } finally {
+    logLoading.value = false
+  }
+}
+
+function resetAuditFilters() {
+  Object.assign(auditFilters, {
     company_id: null,
     user_id_text: '',
     device_id_text: '',
@@ -160,19 +260,42 @@ function resetFilters() {
     action: '',
     result: '',
   })
-  pagination.page = 1
-  fetchList()
+  auditPagination.page = 1
+  fetchAuditList()
 }
 
-function handlePage(page: number) {
-  pagination.page = page
-  fetchList()
+function resetLogFilters() {
+  Object.assign(logFilters, {
+    company_id: null,
+    user_id_text: '',
+    device_id_text: '',
+    project_uuid: '',
+    parse_status: '',
+  })
+  logPagination.page = 1
+  fetchClientLogs()
 }
 
-function handlePageSize(pageSize: number) {
-  pagination.pageSize = pageSize
-  pagination.page = 1
-  fetchList()
+function handleAuditPage(page: number) {
+  auditPagination.page = page
+  fetchAuditList()
+}
+
+function handleAuditPageSize(pageSize: number) {
+  auditPagination.pageSize = pageSize
+  auditPagination.page = 1
+  fetchAuditList()
+}
+
+function handleLogPage(page: number) {
+  logPagination.page = page
+  fetchClientLogs()
+}
+
+function handleLogPageSize(pageSize: number) {
+  logPagination.pageSize = pageSize
+  logPagination.page = 1
+  fetchClientLogs()
 }
 
 function openDetail(row: OperationAuditEvent) {
@@ -189,8 +312,33 @@ function formatJSON(raw?: string | null) {
   }
 }
 
+async function downloadLog(row: ClientFileItem) {
+  const blob = await syncFileApi.download(row.file_id)
+  saveBlob(blob, row.original_filename || row.safe_filename || `${row.file_id}.log`)
+}
+
+watch(
+  () => route.query.project_uuid,
+  (projectUuid) => {
+    if (typeof projectUuid === 'string') {
+      auditFilters.project_uuid = projectUuid
+      logFilters.project_uuid = projectUuid
+      auditPagination.page = 1
+      logPagination.page = 1
+      fetchAuditList()
+      fetchClientLogs()
+    }
+  },
+)
+
 onMounted(async () => {
-  await Promise.all([loadCompanies(), fetchList()])
+  if (route.query.tab === 'client-log') activeTab.value = 'client-log'
+  if (typeof route.query.project_uuid === 'string') {
+    auditFilters.project_uuid = route.query.project_uuid
+    logFilters.project_uuid = route.query.project_uuid
+  }
+  await loadCompanies()
+  await Promise.all([fetchAuditList(), fetchClientLogs()])
 })
 </script>
 

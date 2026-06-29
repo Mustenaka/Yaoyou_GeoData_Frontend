@@ -7,6 +7,8 @@ declare module 'vue-router' {
     title?: string
     requiresAuth?: boolean
     roles?: RoleCode[]
+    group?: string
+    hideInMenu?: boolean
   }
 }
 
@@ -47,43 +49,37 @@ const routes: RouteRecordRaw[] = [
         path: 'licenses',
         name: 'licenses',
         component: () => import('@/pages/license/index.vue'),
-        meta: { title: '授权管理', roles: ['system_admin'] },
+        meta: { title: '授权管理', group: '授权与设备', roles: adminRoles },
       },
       {
         path: 'devices',
         name: 'devices',
         component: () => import('@/pages/device/index.vue'),
-        meta: { title: '设备管理', roles: adminRoles },
+        meta: { title: '设备管理', group: '授权与设备', roles: adminRoles },
       },
       {
-        path: 'sync-files',
-        name: 'sync-files',
-        component: () => import('@/pages/sync-file/index.vue'),
-        meta: { title: '文件同步中心', roles: adminRoles },
+        path: 'devices/change-requests',
+        name: 'device-change-requests',
+        component: () => import('@/pages/device/index.vue'),
+        meta: { title: '换机申请', group: '授权与设备', roles: adminRoles },
       },
       {
         path: 'projects',
         name: 'projects',
         component: () => import('@/pages/project-archive/index.vue'),
-        meta: { title: '项目档案', roles: adminRoles },
+        meta: { title: '项目档案', group: '项目与数据', roles: adminRoles },
       },
       {
-        path: 'mobile-data',
-        name: 'mobile-data',
-        component: () => import('@/pages/mobile-data/index.vue'),
-        meta: { title: 'Mobile 数据管理', roles: adminRoles },
+        path: 'projects/:id',
+        name: 'project-detail',
+        component: () => import('@/pages/project-archive/detail.vue'),
+        meta: { title: '项目详情', group: '项目与数据', hideInMenu: true, roles: adminRoles },
       },
       {
-        path: 'win-data',
-        name: 'win-data',
-        component: () => import('@/pages/win-data/index.vue'),
-        meta: { title: 'Win 数据管理', roles: adminRoles },
-      },
-      {
-        path: 'configs',
-        name: 'configs',
-        component: () => import('@/pages/config/index.vue'),
-        meta: { title: '配置管理', roles: adminRoles },
+        path: 'sync-files',
+        name: 'sync-files',
+        component: () => import('@/pages/sync-file/index.vue'),
+        meta: { title: '文件同步中心', group: '项目与数据', roles: ['system_admin'] },
       },
       {
         path: 'audit',
@@ -92,34 +88,28 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '操作记录', roles: adminRoles },
       },
       {
-        path: 'logs/client',
-        name: 'logs-client',
-        component: () => import('@/pages/log/client.vue'),
-        meta: { title: '客户端日志', roles: adminRoles },
-      },
-      {
-        path: 'logs/system',
-        name: 'logs-system',
-        component: () => import('@/pages/log/system.vue'),
-        meta: { title: '系统日志', roles: ['system_admin'] },
-      },
-      {
-        path: 'security/risks',
-        name: 'security-risks',
-        component: () => import('@/pages/security/risks.vue'),
-        meta: { title: '安全风险', roles: ['system_admin'] },
-      },
-      {
-        path: 'security/server-time',
-        name: 'security-server-time',
-        component: () => import('@/pages/security/server-time.vue'),
-        meta: { title: '服务器时间戳', roles: ['system_admin'] },
-      },
-      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/pages/settings/index.vue'),
-        meta: { title: '系统设置', roles: ['system_admin'] },
+        meta: { title: '基本设置', group: '系统设置', roles: ['system_admin'] },
+      },
+      {
+        path: 'settings/system-logs',
+        name: 'system-logs',
+        component: () => import('@/pages/settings/system-logs.vue'),
+        meta: { title: '系统日志', group: '系统设置', roles: ['system_admin'] },
+      },
+      {
+        path: 'settings/risks',
+        name: 'risks',
+        component: () => import('@/pages/settings/risks.vue'),
+        meta: { title: '安全风险', group: '系统设置', roles: ['system_admin'] },
+      },
+      {
+        path: 'settings/server-time',
+        name: 'server-time',
+        component: () => import('@/pages/settings/server-time.vue'),
+        meta: { title: '服务器时间戳', group: '系统设置', roles: ['system_admin'] },
       },
     ],
   },
