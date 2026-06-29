@@ -125,7 +125,7 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  document.title = `${String(to.meta.title || '后台管理')} - 遥佑 GeoData`
+  document.title = `${String(to.meta.title || '后台管理')} - 垚无优土工数据管理系统`
   const auth = useAuthStore()
 
   if (to.meta.requiresAuth === false) {

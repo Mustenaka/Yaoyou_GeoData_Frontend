@@ -4,8 +4,8 @@
       <div class="login-header">
         <div class="login-logo">YY</div>
         <div>
-          <h1>遥佑 GeoData</h1>
-          <p>后台管理端</p>
+          <h1>垚无优土工数据管理系统</h1>
+          <p>Yaowuyou</p>
         </div>
       </div>
 
