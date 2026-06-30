@@ -6,7 +6,7 @@
 
     <div class="page-card toolbar">
       <n-input v-model:value="filters.keyword" clearable placeholder="用户名 / 邮箱 / 手机" style="width: 230px" @keyup.enter="fetchList" />
-      <n-select v-if="authStore.isSystemAdmin" v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
+      <n-select v-if="authStore.isBackOfficeScopeAll" v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
       <n-select v-model:value="filters.role_code" clearable :options="availableRoleOptions" placeholder="角色" style="width: 150px" />
       <n-select v-model:value="filters.status" clearable :options="userStatusOptions" placeholder="状态" style="width: 130px" />
       <div class="toolbar__spacer" />
@@ -48,7 +48,7 @@
               </n-form-item>
             </n-grid-item>
           </n-grid>
-          <n-form-item v-if="authStore.isSystemAdmin" label="所属企业">
+          <n-form-item v-if="authStore.isBackOfficeScopeAll" label="所属企业">
             <n-select v-model:value="form.company_id" clearable :options="companyOptions" />
           </n-form-item>
           <n-grid :cols="2" :x-gap="12">
@@ -153,11 +153,13 @@ const form = reactive<UserPayload>({
 
 const passwordForm = reactive({ password: '' })
 
-const availableRoleOptions = computed(() =>
-  authStore.isSystemAdmin
-    ? roleOptions
-    : roleOptions.filter((item) => ['normal_user', 'trial_user', 'temporary_user'].includes(item.value)),
-)
+const assignableRoleValues = computed<RoleCode[]>(() => {
+  if (authStore.isSuperAdmin) return roleOptions.map((item) => item.value)
+  if (authStore.isAdmin) return ['enterprise_admin', 'normal_user', 'trial_user', 'temporary_user']
+  return ['normal_user', 'trial_user', 'temporary_user']
+})
+
+const availableRoleOptions = computed(() => roleOptions.filter((item) => assignableRoleValues.value.includes(item.value)))
 
 const rules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: ['blur', 'input'] }],
@@ -205,7 +207,7 @@ const columns: DataTableColumns<UserItem> = [
 ]
 
 async function fetchCompanies() {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isBackOfficeScopeAll) return
   const result = await companyApi.list({ page: 1, page_size: 200 })
   companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
 }
@@ -254,7 +256,7 @@ function resetForm() {
     password: '',
     email: '',
     phone: '',
-    company_id: authStore.isSystemAdmin ? null : authStore.companyId,
+    company_id: authStore.isBackOfficeScopeAll ? null : authStore.companyId,
     role_code: 'normal_user',
     status: 'active',
     trial_expires_at: '',

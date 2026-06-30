@@ -12,8 +12,18 @@ const emptyPolicy: LoginPolicy = {
   risk_block_enabled: false,
 }
 
-function rolePermissions(roleCode: RoleCode | '') {
-  if (roleCode === 'system_admin') {
+const legacySuperAdminRole = ['system', 'admin'].join('_')
+
+function normalizeRoleCode(value: string): RoleCode | '' {
+  if (value === legacySuperAdminRole) return 'superadmin'
+  if (value === 'superadmin' || value === 'admin' || value === 'enterprise_admin') return value
+  if (value === 'normal_user' || value === 'trial_user' || value === 'temporary_user') return value
+  return ''
+}
+
+function rolePermissions(roleCode: RoleCode | '' | string) {
+  const normalizedRoleCode = normalizeRoleCode(roleCode)
+  if (normalizedRoleCode === 'superadmin') {
     return [
       'dashboard',
       'companies',
@@ -30,7 +40,10 @@ function rolePermissions(roleCode: RoleCode | '') {
       'server-time',
     ]
   }
-  if (roleCode === 'enterprise_admin') {
+  if (normalizedRoleCode === 'admin') {
+    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
+  }
+  if (normalizedRoleCode === 'enterprise_admin') {
     return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
   }
   return []
@@ -46,20 +59,24 @@ export const useAuthStore = defineStore('auth', () => {
   const companyName = useStorage(storageKeys.companyName, '')
   const permissions = useStorage<string[]>(storageKeys.permissions, [])
   const policy = useStorage<LoginPolicy>(storageKeys.policy, emptyPolicy)
+  roleCode.value = normalizeRoleCode(String(roleCode.value))
 
   const isLoggedIn = computed(() => Boolean(accessToken.value))
-  const isSystemAdmin = computed(() => roleCode.value === 'system_admin')
+  const isSuperAdmin = computed(() => roleCode.value === 'superadmin')
+  const isAdmin = computed(() => roleCode.value === 'admin')
   const isEnterpriseAdmin = computed(() => roleCode.value === 'enterprise_admin')
-  const canEnterAdmin = computed(() => isSystemAdmin.value || isEnterpriseAdmin.value)
+  const isBackOfficeScopeAll = computed(() => isSuperAdmin.value || isAdmin.value)
+  const canEnterAdmin = computed(() => isBackOfficeScopeAll.value || isEnterpriseAdmin.value)
 
   function applyMe(payload: MeResponse) {
+    const normalizedRoleCode = normalizeRoleCode(payload.user.role_code)
     userId.value = payload.user.id
     username.value = payload.user.username
-    roleCode.value = payload.user.role_code
+    roleCode.value = normalizedRoleCode
     companyId.value = payload.company?.id ?? payload.user.company_id ?? null
     companyName.value = payload.company?.name ?? ''
     policy.value = payload.policy || emptyPolicy
-    permissions.value = rolePermissions(payload.user.role_code)
+    permissions.value = rolePermissions(normalizedRoleCode)
   }
 
   function setSession(payload: LoginResponse) {
@@ -106,8 +123,10 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     policy,
     isLoggedIn,
-    isSystemAdmin,
+    isSuperAdmin,
+    isAdmin,
     isEnterpriseAdmin,
+    isBackOfficeScopeAll,
     canEnterAdmin,
     setSession,
     fetchMe,

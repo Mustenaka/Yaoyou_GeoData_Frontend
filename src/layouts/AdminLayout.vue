@@ -39,7 +39,7 @@
             <n-breadcrumb-item v-for="item in breadcrumbs" :key="item">{{ item }}</n-breadcrumb-item>
           </n-breadcrumb>
         </div>
-        <n-tag size="small" :type="authStore.isSystemAdmin ? 'success' : 'info'" round>
+        <n-tag size="small" :type="authStore.isSuperAdmin ? 'success' : 'info'" round>
           {{ roleLabel(authStore.roleCode) }}
         </n-tag>
         <span v-if="authStore.companyName" class="topbar__company">{{ authStore.companyName }}</span>
@@ -115,7 +115,8 @@ function renderIcon(icon: unknown) {
 
 function roleLabel(role: RoleCode | '') {
   const labels: Record<string, string> = {
-    system_admin: '系统管理员',
+    superadmin: '技术超级管理员',
+    admin: '普通管理员',
     enterprise_admin: '企业管理员',
     normal_user: '普通用户',
     trial_user: '试用用户',

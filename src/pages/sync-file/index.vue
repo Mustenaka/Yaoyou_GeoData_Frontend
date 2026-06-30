@@ -156,7 +156,7 @@ const columns: DataTableColumns<ClientFileItem> = [
         h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
         h(NButton, { size: 'small', onClick: () => downloadRow(row) }, { default: () => '下载' }),
         row.project_uuid ? h(NButton, { size: 'small', onClick: () => goProject(row) }, { default: () => '项目' }) : null,
-        authStore.isSystemAdmin
+        authStore.isSuperAdmin
           ? h(
               NPopconfirm,
               { onPositiveClick: () => reparse(row) },
@@ -166,7 +166,7 @@ const columns: DataTableColumns<ClientFileItem> = [
               },
             )
           : null,
-        authStore.isSystemAdmin
+        authStore.isSuperAdmin
           ? h(
               NPopconfirm,
               { onPositiveClick: () => deleteRow(row) },

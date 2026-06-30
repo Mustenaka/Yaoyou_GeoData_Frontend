@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell">
     <PageHeader title="企业管理" subtitle="维护企业资料、有效期、启停状态与基础策略。">
-      <n-button v-if="authStore.isSystemAdmin" type="primary" @click="openCreate">新建企业</n-button>
+      <n-button v-if="authStore.isBackOfficeScopeAll" type="primary" @click="openCreate">新建企业</n-button>
     </PageHeader>
 
     <div class="page-card toolbar">
@@ -227,7 +227,7 @@ const columns: DataTableColumns<CompanyItem> = [
       h('div', { class: 'table-actions' }, [
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '编辑' }),
         h(NButton, { size: 'small', onClick: () => openPolicy(row) }, { default: () => '策略' }),
-        authStore.isSystemAdmin
+        authStore.isBackOfficeScopeAll
           ? h(
               NPopconfirm,
               { onPositiveClick: () => toggleStatus(row) },

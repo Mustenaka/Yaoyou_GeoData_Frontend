@@ -12,7 +12,8 @@ export interface PageResult<T> {
 }
 
 export type RoleCode =
-  | 'system_admin'
+  | 'superadmin'
+  | 'admin'
   | 'enterprise_admin'
   | 'normal_user'
   | 'trial_user'

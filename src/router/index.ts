@@ -12,7 +12,8 @@ declare module 'vue-router' {
   }
 }
 
-const adminRoles: RoleCode[] = ['system_admin', 'enterprise_admin']
+const adminRoles: RoleCode[] = ['superadmin', 'admin', 'enterprise_admin']
+const superRoles: RoleCode[] = ['superadmin']
 
 const routes: RouteRecordRaw[] = [
   {
@@ -79,7 +80,7 @@ const routes: RouteRecordRaw[] = [
         path: 'sync-files',
         name: 'sync-files',
         component: () => import('@/pages/sync-file/index.vue'),
-        meta: { title: '文件同步中心', group: '项目与数据', roles: ['system_admin'] },
+        meta: { title: '文件同步中心', group: '项目与数据', roles: superRoles },
       },
       {
         path: 'audit',
@@ -91,25 +92,25 @@ const routes: RouteRecordRaw[] = [
         path: 'settings',
         name: 'settings',
         component: () => import('@/pages/settings/index.vue'),
-        meta: { title: '基本设置', group: '系统设置', roles: ['system_admin'] },
+        meta: { title: '基本设置', group: '系统设置', roles: superRoles },
       },
       {
         path: 'settings/system-logs',
         name: 'system-logs',
         component: () => import('@/pages/settings/system-logs.vue'),
-        meta: { title: '系统日志', group: '系统设置', roles: ['system_admin'] },
+        meta: { title: '系统日志', group: '系统设置', roles: superRoles },
       },
       {
         path: 'settings/risks',
         name: 'risks',
         component: () => import('@/pages/settings/risks.vue'),
-        meta: { title: '安全风险', group: '系统设置', roles: ['system_admin'] },
+        meta: { title: '安全风险', group: '系统设置', roles: superRoles },
       },
       {
         path: 'settings/server-time',
         name: 'server-time',
         component: () => import('@/pages/settings/server-time.vue'),
-        meta: { title: '服务器时间戳', group: '系统设置', roles: ['system_admin'] },
+        meta: { title: '服务器时间戳', group: '系统设置', roles: superRoles },
       },
     ],
   },

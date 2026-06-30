@@ -10,7 +10,8 @@ import type {
 } from '@/types/api'
 
 export const roleOptions: Array<{ label: string; value: RoleCode }> = [
-  { label: '系统管理员', value: 'system_admin' },
+  { label: '技术超级管理员', value: 'superadmin' },
+  { label: '普通管理员', value: 'admin' },
   { label: '企业管理员', value: 'enterprise_admin' },
   { label: '普通用户', value: 'normal_user' },
   { label: '试用用户', value: 'trial_user' },

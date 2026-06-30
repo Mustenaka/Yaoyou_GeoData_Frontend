@@ -21,12 +21,15 @@
         <StatCard label="企业 / 用户" :value="`${summary.active_company_count} / ${summary.user_count}`" accent="#2f855a">
           活跃会话 {{ summary.active_session_count }}，设备 {{ summary.device_count }}
         </StatCard>
-        <button class="stat-action" type="button" @click="goFailedUploads">
+        <button v-if="authStore.isSuperAdmin" class="stat-action" type="button" @click="goFailedUploads">
           <StatCard label="今日上传 / 失败" :value="`${summary.today_upload_count} / ${summary.today_failed_count}`" :accent="summary.today_failed_count ? '#c2410c' : '#1f4e79'">
             查看失败上传
           </StatCard>
         </button>
-        <button v-if="authStore.isSystemAdmin" class="stat-action" type="button" @click="goRisks">
+        <StatCard v-else label="今日上传 / 失败" :value="`${summary.today_upload_count} / ${summary.today_failed_count}`" :accent="summary.today_failed_count ? '#c2410c' : '#1f4e79'">
+          按权限范围统计
+        </StatCard>
+        <button v-if="authStore.isSuperAdmin" class="stat-action" type="button" @click="goRisks">
           <StatCard label="未处理高风险" :value="summary.high_risk_count" :accent="summary.high_risk_count ? '#c53030' : '#2f855a'">
             查看风险事件
           </StatCard>
@@ -44,11 +47,11 @@
           <span>{{ summary.expiring.window_days }} 天内</span>
         </div>
         <div class="expiry-grid">
-          <button v-if="authStore.isSystemAdmin" class="expiry-item" type="button" @click="router.push({ name: 'companies' })">
+          <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'companies' })">
             <span>企业</span>
             <strong>{{ summary.expiring.company_count }}</strong>
           </button>
-          <button v-if="authStore.isSystemAdmin" class="expiry-item" type="button" @click="router.push({ name: 'licenses' })">
+          <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'licenses' })">
             <span>授权</span>
             <strong>{{ summary.expiring.license_count }}</strong>
           </button>
@@ -63,7 +66,7 @@
         </div>
       </div>
 
-      <div v-if="authStore.isSystemAdmin" class="page-card">
+      <div v-if="authStore.isSuperAdmin" class="page-card">
         <div class="section-head">
           <strong>存储容量</strong>
           <span>{{ storage?.provider || 'local' }}</span>
@@ -83,7 +86,7 @@
     </div>
 
     <div v-if="recent" class="recent-grid">
-      <div class="page-card">
+      <div v-if="authStore.isSuperAdmin" class="page-card">
         <div class="section-head">
           <strong>最近失败上传</strong>
           <n-button text size="small" @click="goFailedUploads">全部</n-button>
@@ -100,7 +103,7 @@
         <n-empty v-else description="暂无失败上传" />
       </div>
 
-      <div v-if="authStore.isSystemAdmin" class="page-card">
+      <div v-if="authStore.isSuperAdmin" class="page-card">
         <div class="section-head">
           <strong>最近高风险</strong>
           <n-button text size="small" @click="goRisks">全部</n-button>
@@ -117,7 +120,7 @@
         <n-empty v-else description="暂无高风险事件" />
       </div>
 
-      <div class="page-card">
+      <div v-if="authStore.isSuperAdmin" class="page-card">
         <div class="section-head">
           <strong>最近同步</strong>
           <n-button text size="small" @click="router.push({ name: 'sync-files' })">全部</n-button>
@@ -137,7 +140,7 @@
       <div class="page-card">
         <div class="section-head">
           <strong>近期到期明细</strong>
-          <n-button v-if="authStore.isSystemAdmin" text size="small" @click="router.push({ name: 'licenses' })">授权</n-button>
+          <n-button v-if="authStore.isBackOfficeScopeAll" text size="small" @click="router.push({ name: 'licenses' })">授权</n-button>
         </div>
         <n-list v-if="expiryRows.length" hoverable>
           <n-list-item v-for="item in expiryRows" :key="item.key">
@@ -230,7 +233,7 @@ async function loadAll() {
     const [summaryResult, recentResult] = await Promise.all([opsApi.summary(), opsApi.recentEvents()])
     summary.value = summaryResult
     recent.value = recentResult
-    storage.value = authStore.isSystemAdmin ? await opsApi.storage() : null
+    storage.value = authStore.isSuperAdmin ? await opsApi.storage() : null
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '控制台数据加载失败'
   } finally {
@@ -239,11 +242,12 @@ async function loadAll() {
 }
 
 function goFailedUploads() {
+  if (!authStore.isSuperAdmin) return
   router.push({ name: 'sync-files', query: { upload_status: 'failed' } })
 }
 
 function goRisks() {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isSuperAdmin) return
   router.push({ name: 'risks' })
 }
 

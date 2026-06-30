@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell">
     <PageHeader title="授权管理" subtitle="后台发放、调整和撤销 Mobile/Win 设备授权。">
-      <n-button v-if="authStore.isSystemAdmin" type="primary" @click="openIssue">发放授权</n-button>
+      <n-button v-if="authStore.isBackOfficeScopeAll" type="primary" @click="openIssue">发放授权</n-button>
     </PageHeader>
 
     <div class="page-card toolbar">
@@ -153,7 +153,7 @@ const columns: DataTableColumns<LicenseItem> = [
     width: 210,
     fixed: 'right',
     render: (row) => {
-      if (!authStore.isSystemAdmin) return '只读'
+      if (!authStore.isBackOfficeScopeAll) return '只读'
       return h('div', { class: 'table-actions' }, [
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '调整' }),
         h(
@@ -222,7 +222,7 @@ function handlePageSize(pageSize: number) {
 }
 
 function openIssue() {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isBackOfficeScopeAll) return
   editingId.value = null
   Object.assign(form, {
     user_id: 0,
@@ -237,7 +237,7 @@ function openIssue() {
 }
 
 function openEdit(row: LicenseItem) {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isBackOfficeScopeAll) return
   editingId.value = row.id
   Object.assign(form, {
     user_id: row.user_id || 0,
@@ -252,7 +252,7 @@ function openEdit(row: LicenseItem) {
 }
 
 async function submitLicense() {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isBackOfficeScopeAll) return
   await formRef.value?.validate()
   const confirmed = await confirmHighRisk(editingId.value ? '确认调整授权期限、范围或状态？' : '确认发放新的设备授权？')
   if (!confirmed) return
@@ -284,7 +284,7 @@ async function submitLicense() {
 }
 
 async function revokeLicense(row: LicenseItem) {
-  if (!authStore.isSystemAdmin) return
+  if (!authStore.isBackOfficeScopeAll) return
   await licenseApi.update(row.id, { status: 'revoked' })
   message.success('授权已撤销')
   await fetchList()
