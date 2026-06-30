@@ -79,6 +79,8 @@
             :min-w="item.minW"
             :min-h="item.minH"
             drag-allow-from=".drag-handle"
+            @moved="markUserLayoutCommit"
+            @resized="markUserLayoutCommit"
           >
             <DashboardPanel
               :title="panelTitle(item.i)"
@@ -150,12 +152,12 @@
                 <n-empty v-else :description="storageHiddenReason || '容量统计暂不可用'" />
               </template>
 
-              <DashboardEventList v-else-if="item.i === 'message'" :rows="messageRows" empty-text="暂无消息" @select="handleEventRow" />
-              <DashboardEventList v-else-if="item.i === 'expiry'" :rows="expiryRows" empty-text="暂无近期到期项" @select="handleEventRow" />
-              <DashboardEventList v-else-if="item.i === 'failed'" :rows="failedRows" empty-text="暂无失败上传" @select="handleEventRow" />
-              <DashboardEventList v-else-if="item.i === 'risks'" :rows="riskRows" empty-text="暂无高风险事件" @select="handleEventRow" />
-              <DashboardEventList v-else-if="item.i === 'sync'" :rows="syncRows" empty-text="暂无同步记录" @select="handleEventRow" />
-              <DashboardEventList v-else-if="item.i === 'audit'" :rows="auditRows" empty-text="暂无操作记录" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'message'" :rows="messageRows" :empty-text="messageEmptyText" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'expiry'" :rows="expiryRows" :empty-text="recentErrorText || '暂无近期到期项'" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'failed'" :rows="failedRows" :empty-text="recentErrorText || '暂无失败上传'" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'risks'" :rows="riskRows" :empty-text="recentErrorText || '暂无高风险事件'" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'sync'" :rows="syncRows" :empty-text="recentErrorText || '暂无同步记录'" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'audit'" :rows="auditRows" :empty-text="auditErrorText || '暂无操作记录'" @select="handleEventRow" />
 
               <div v-else-if="item.i === 'business'" class="business-grid">
                 <div class="business-item">
@@ -289,6 +291,8 @@ const loading = ref(false)
 const editing = ref(false)
 const layoutReady = ref(false)
 const errorText = ref('')
+const recentErrorText = ref('')
+const auditErrorText = ref('')
 const storageHiddenReason = ref('')
 const serverMetricsError = ref('')
 const summary = ref<DashboardSummary | null>(null)
@@ -297,6 +301,9 @@ const serverMetrics = ref<DashboardServerMetrics | null>(null)
 const recent = ref<DashboardRecentEvents | null>(null)
 const auditEvents = ref<OperationAuditEvent[]>([])
 const layout = ref<DashboardLayoutItem[]>([])
+const lastPersistedLayoutSignature = ref('')
+const pendingUserLayoutCommit = ref(false)
+const sessionRedirecting = ref(false)
 let refreshTimer = 0
 let serverMetricsTimer = 0
 
@@ -544,6 +551,8 @@ const messageRows = computed<EventRow[]>(() => {
   return rows.sort((a, b) => timeValue(b.sortAt) - timeValue(a.sortAt)).slice(0, 12)
 })
 
+const messageEmptyText = computed(() => recentErrorText.value || auditErrorText.value || '暂无消息')
+
 const todayFailureRate = computed(() => {
   if (!summary.value || summary.value.today_upload_count <= 0) return '0%'
   return formatPercent((summary.value.today_failed_count / summary.value.today_upload_count) * 100)
@@ -571,6 +580,8 @@ function loadLayout() {
   layoutReady.value = false
   const stored = localStorage.getItem(layoutKey.value)
   layout.value = stored ? sanitizeLayout(stored) : defaultLayout()
+  lastPersistedLayoutSignature.value = layoutSignature(layout.value)
+  pendingUserLayoutCommit.value = false
   void nextTick(() => {
     layoutReady.value = true
   })
@@ -614,36 +625,64 @@ function sanitizeLayoutItems(items: unknown[]) {
   return next
 }
 
-function persistLayout() {
+function layoutSignature(items: Array<Pick<LayoutItem, 'i' | 'x' | 'y' | 'w' | 'h'>>) {
+  return JSON.stringify(
+    items
+      .map((item) => ({
+        i: String(item.i),
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+      }))
+      .sort((a, b) => a.i.localeCompare(b.i)),
+  )
+}
+
+function persistLayout(force = false) {
   if (!layoutReady.value || isNarrow.value) return
+  const signature = layoutSignature(visibleLayout.value)
+  if (!force && signature === lastPersistedLayoutSignature.value) return
   localStorage.setItem(layoutKey.value, JSON.stringify(visibleLayout.value.map((item) => ({ i: item.i, x: item.x, y: item.y, w: item.w, h: item.h, minW: item.minW, minH: item.minH }))))
+  lastPersistedLayoutSignature.value = signature
+}
+
+function markUserLayoutCommit() {
+  if (editing.value && !isNarrow.value) {
+    pendingUserLayoutCommit.value = true
+  }
 }
 
 function handleLayoutUpdated(items: LayoutItem[]) {
-  if (isNarrow.value) return
+  if (!editing.value || isNarrow.value || !pendingUserLayoutCommit.value) return
+  pendingUserLayoutCommit.value = false
   const sanitized = sanitizeLayoutItems(items)
-  if (sanitized.length) {
-    layout.value = sanitized
-    persistLayout()
-  }
+  if (!sanitized.length) return
+  const nextSignature = layoutSignature(sanitized)
+  if (nextSignature === lastPersistedLayoutSignature.value) return
+  layout.value = sanitized
+  void nextTick(() => persistLayout())
 }
 
 function addPanel(key: string | number) {
   if (!isPanelId(key)) return
+  pendingUserLayoutCommit.value = false
   const y = visibleLayout.value.reduce((max, item) => Math.max(max, item.y + item.h), 0)
   layout.value = [...visibleLayout.value, { ...panelDefinitions[key].defaultItem, y }]
-  void nextTick(persistLayout)
+  void nextTick(() => persistLayout(true))
 }
 
 function removePanel(id: PanelId) {
   if (visibleLayout.value.length <= 1) return
+  pendingUserLayoutCommit.value = false
   layout.value = visibleLayout.value.filter((item) => item.i !== id)
-  void nextTick(persistLayout)
+  void nextTick(() => persistLayout(true))
 }
 
 function resetLayout() {
+  pendingUserLayoutCommit.value = false
   layout.value = defaultLayout()
-  void nextTick(persistLayout)
+  void nextTick(() => persistLayout(true))
   message.success('已恢复默认布局')
 }
 
@@ -713,20 +752,50 @@ async function loadServerMetrics(silent = false) {
 }
 
 async function loadAuditEvents() {
-  const resp = await auditApi.list({ page: 1, page_size: 8 })
-  auditEvents.value = resp.list || []
+  try {
+    const resp = await auditApi.list({ page: 1, page_size: 8 })
+    auditEvents.value = resp.list || []
+    auditErrorText.value = ''
+  } catch (error) {
+    auditEvents.value = []
+    auditErrorText.value = error instanceof Error ? error.message : '操作记录加载失败'
+    if (isDashboardSessionError(error)) {
+      redirectToLoginFromDashboard()
+    }
+  }
+}
+
+async function loadSummary() {
+  try {
+    summary.value = await opsApi.summary()
+    errorText.value = ''
+  } catch (error) {
+    summary.value = null
+    errorText.value = error instanceof Error ? error.message : '控制台摘要加载失败'
+    if (isDashboardSessionError(error)) {
+      redirectToLoginFromDashboard()
+    }
+  }
+}
+
+async function loadRecentEvents() {
+  try {
+    recent.value = await opsApi.recentEvents()
+    recentErrorText.value = ''
+  } catch (error) {
+    recent.value = null
+    recentErrorText.value = error instanceof Error ? error.message : '近期事件加载失败'
+    if (isDashboardSessionError(error)) {
+      redirectToLoginFromDashboard()
+    }
+  }
 }
 
 async function loadAll() {
   loading.value = true
   errorText.value = ''
   try {
-    const [summaryResult, recentResult] = await Promise.all([opsApi.summary(), opsApi.recentEvents()])
-    summary.value = summaryResult
-    recent.value = recentResult
-    await Promise.all([loadAuditEvents(), loadStorage(), authStore.isSuperAdmin ? loadServerMetrics(true) : Promise.resolve()])
-  } catch (error) {
-    errorText.value = error instanceof Error ? error.message : '控制台数据加载失败'
+    await Promise.all([loadSummary(), loadRecentEvents(), loadAuditEvents(), loadStorage(), authStore.isSuperAdmin ? loadServerMetrics(true) : Promise.resolve()])
   } finally {
     loading.value = false
   }
@@ -751,6 +820,18 @@ function stopServerMetricsPolling() {
     window.clearInterval(serverMetricsTimer)
     serverMetricsTimer = 0
   }
+}
+
+function isDashboardSessionError(error: unknown) {
+  return error instanceof ApiError && [10002, 11002, 11003, 12001].includes(error.code)
+}
+
+function redirectToLoginFromDashboard() {
+  if (sessionRedirecting.value) return
+  sessionRedirecting.value = true
+  authStore.clearSession()
+  message.error('登录状态或角色权限已失效，请重新登录')
+  router.replace({ name: 'login', query: { redirect: '/dashboard' } })
 }
 
 function isPanelId(value: unknown): value is PanelId {

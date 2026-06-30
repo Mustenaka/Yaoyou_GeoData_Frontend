@@ -65,7 +65,13 @@ const request = axios.create({
 })
 
 let isRefreshing = false
-let refreshQueue: Array<(token: string) => void> = []
+type RefreshQueueItem = {
+  request: InternalAxiosRequestConfig & { _retry?: boolean }
+  resolve: (value: unknown) => void
+  reject: (reason?: unknown) => void
+}
+
+let refreshQueue: RefreshQueueItem[] = []
 
 function getAccessToken() {
   return localStorage.getItem(storageKeys.accessToken) || ''
@@ -88,6 +94,21 @@ function redirectToLogin() {
   const current = `${window.location.pathname}${window.location.search}`
   const login = `/admin/login${current && current !== '/admin/login' ? `?redirect=${encodeURIComponent(current.replace(/^\/admin/, '') || '/')}` : ''}`
   window.location.replace(login)
+}
+
+function replayRefreshQueue(token: string) {
+  const queued = refreshQueue
+  refreshQueue = []
+  queued.forEach((item) => {
+    item.request.headers.Authorization = `Bearer ${token}`
+    item.resolve(request(item.request))
+  })
+}
+
+function rejectRefreshQueue(error: unknown) {
+  const queued = refreshQueue
+  refreshQueue = []
+  queued.forEach((item) => item.reject(error))
 }
 
 request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -113,11 +134,8 @@ request.interceptors.response.use(
 
     if (status === 401 && originalRequest && !originalRequest._retry && getRefreshToken()) {
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshQueue.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
-            resolve(request(originalRequest))
-          })
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({ request: originalRequest, resolve, reject })
         })
       }
 
@@ -133,17 +151,22 @@ request.interceptors.response.use(
         }
         const session = refreshResponse.data.data
         setAccessToken(session.access_token)
-        refreshQueue.forEach((callback) => callback(session.access_token))
-        refreshQueue = []
+        replayRefreshQueue(session.access_token)
         originalRequest.headers.Authorization = `Bearer ${session.access_token}`
         return request(originalRequest)
       } catch (refreshError) {
-        refreshQueue = []
+        rejectRefreshQueue(refreshError)
         redirectToLogin()
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
       }
+    }
+
+    if (status === 401) {
+      const apiError = error.response?.data?.code ? new ApiError(error.response.data.code, error.response.data.message) : new ApiError(10002)
+      redirectToLogin()
+      return Promise.reject(apiError)
     }
 
     if (error.response?.data?.code) {
