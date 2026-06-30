@@ -66,7 +66,15 @@
     </n-layout>
   </n-layout>
 
-  <n-modal v-model:show="passwordModalVisible" preset="card" title="修改密码" style="width: 420px">
+  <n-modal
+    v-model:show="passwordModalVisible"
+    preset="card"
+    title="修改密码"
+    style="width: 420px"
+    :closable="!authStore.mustChangePassword"
+    :mask-closable="!authStore.mustChangePassword"
+    :close-on-esc="!authStore.mustChangePassword"
+  >
     <n-form ref="passwordFormRef" :model="passwordForm" :rules="changePasswordRules" label-placement="top">
       <n-form-item label="当前密码" path="current_password">
         <n-input v-model:value="passwordForm.current_password" type="password" show-password-on="click" />
@@ -92,7 +100,7 @@
     </n-form>
     <template #footer>
       <n-space justify="end">
-        <n-button @click="passwordModalVisible = false">取消</n-button>
+        <n-button v-if="!authStore.mustChangePassword" @click="passwordModalVisible = false">取消</n-button>
         <n-button type="primary" :loading="passwordSaving" @click="submitPasswordChange">保存</n-button>
       </n-space>
     </template>
@@ -330,6 +338,7 @@ async function submitPasswordChange() {
       current_password: passwordForm.current_password,
       new_password: passwordForm.new_password,
     })
+    authStore.mustChangePassword = false
     message.success('密码已修改')
     passwordModalVisible.value = false
     resetPasswordForm()
@@ -347,6 +356,16 @@ watch(
   (key) => {
     if (key && !expandedKeys.value.includes(key)) {
       expandedKeys.value = [...expandedKeys.value, key]
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => authStore.mustChangePassword,
+  (mustChange) => {
+    if (mustChange) {
+      openPasswordModal()
     }
   },
   { immediate: true },

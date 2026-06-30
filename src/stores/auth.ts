@@ -31,6 +31,7 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'licenses',
       'devices',
       'device-change-requests',
+      'registration-applications',
       'projects',
       'sync-files',
       'audit',
@@ -41,10 +42,10 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
     ]
   }
   if (normalizedRoleCode === 'admin') {
-    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
   }
   if (normalizedRoleCode === 'enterprise_admin') {
-    return ['dashboard', 'companies', 'users', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-change-requests', 'projects', 'audit']
   }
   return []
 }
@@ -57,6 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
   const roleCode = useStorage<RoleCode | ''>(storageKeys.roleCode, '')
   const companyId = useStorage<number | null>(storageKeys.companyId, null)
   const companyName = useStorage(storageKeys.companyName, '')
+  const mustChangePassword = useStorage(storageKeys.mustChangePassword, false)
   const permissions = useStorage<string[]>(storageKeys.permissions, [])
   const policy = useStorage<LoginPolicy>(storageKeys.policy, emptyPolicy)
   roleCode.value = normalizeRoleCode(String(roleCode.value))
@@ -75,6 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
     roleCode.value = normalizedRoleCode
     companyId.value = payload.company?.id ?? payload.user.company_id ?? null
     companyName.value = payload.company?.name ?? ''
+    mustChangePassword.value = Boolean(payload.user.must_change_password)
     policy.value = payload.policy || emptyPolicy
     permissions.value = rolePermissions(normalizedRoleCode)
   }
@@ -108,6 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     roleCode.value = ''
     companyId.value = null
     companyName.value = ''
+    mustChangePassword.value = false
     permissions.value = []
     policy.value = emptyPolicy
   }
@@ -120,6 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
     roleCode,
     companyId,
     companyName,
+    mustChangePassword,
     permissions,
     policy,
     isLoggedIn,

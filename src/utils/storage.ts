@@ -6,6 +6,7 @@ export const storageKeys = {
   roleCode: 'yaoyou_role_code',
   companyId: 'yaoyou_company_id',
   companyName: 'yaoyou_company_name',
+  mustChangePassword: 'yaoyou_must_change_password',
   permissions: 'yaoyou_permissions',
   policy: 'yaoyou_policy',
 }
