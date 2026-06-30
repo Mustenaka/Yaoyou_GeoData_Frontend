@@ -604,6 +604,10 @@ export interface ServiceHealth {
   overall: string
 }
 
+export interface HealthStatus {
+  status: string
+}
+
 export interface ExpiringSummary {
   window_days: number
   company_count: number

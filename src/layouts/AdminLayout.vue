@@ -44,6 +44,13 @@
         </n-tag>
         <span v-if="authStore.companyName" class="topbar__company">{{ authStore.companyName }}</span>
         <div class="topbar__spacer" />
+        <n-dropdown trigger="click" :options="themeOptions" @select="handleThemeSelect">
+          <n-button quaternary circle :title="`主题：${themeStore.modeLabel}`">
+            <template #icon>
+              <n-icon :component="themeIcon" />
+            </template>
+          </n-button>
+        </n-dropdown>
         <span class="topbar__time mono">{{ nowText }}</span>
         <n-dropdown trigger="click" :options="dropdownOptions" @select="handleUserAction">
           <button class="user-entry" type="button">
@@ -119,16 +126,20 @@ import {
   FileTrayFullOutline,
   FolderOpenOutline,
   GridOutline,
+  InformationCircleOutline,
   KeyOutline,
   ListOutline,
   LogOutOutline,
+  MoonOutline,
   PeopleOutline,
   SettingsOutline,
+  SunnyOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 import type { RouteRecordRaw } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { authApi } from '@/api/auth'
 import type { RoleCode } from '@/types/api'
 import { passwordPolicyText, stripSpaces, validatePasswordInput } from '@/utils/accountPolicy'
@@ -136,6 +147,7 @@ import { passwordPolicyText, stripSpaces, validatePasswordInput } from '@/utils/
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 const message = useMessage()
 const collapsed = ref(false)
 const expandedKeys = ref<string[]>([])
@@ -176,6 +188,7 @@ const changePasswordRules: FormRules = {
 
 const displayName = computed(() => authStore.username || '管理员')
 const currentTitle = computed(() => String(route.meta.title || '系统控制台'))
+const themeIcon = computed(() => (themeStore.isDark ? MoonOutline : SunnyOutline))
 const breadcrumbs = computed(() => {
   const group = typeof route.meta.group === 'string' ? route.meta.group : ''
   return group ? [group, currentTitle.value] : [currentTitle.value]
@@ -208,6 +221,7 @@ const routeIcons: Record<string, unknown> = {
   projects: FolderOpenOutline,
   'sync-files': CloudUploadOutline,
   audit: ListOutline,
+  about: InformationCircleOutline,
   settings: SettingsOutline,
   'system-logs': FileTrayFullOutline,
   risks: AlertCircleOutline,
@@ -296,6 +310,24 @@ const dropdownOptions = [
   },
 ]
 
+const themeOptions: MenuOption[] = [
+  {
+    label: '跟随系统',
+    key: 'system',
+    icon: renderIcon(DesktopOutline),
+  },
+  {
+    label: '明亮',
+    key: 'light',
+    icon: renderIcon(SunnyOutline),
+  },
+  {
+    label: '暗色',
+    key: 'dark',
+    icon: renderIcon(MoonOutline),
+  },
+]
+
 function onNavigate(key: string) {
   if (key.startsWith('group:')) return
   router.push({ name: key })
@@ -309,6 +341,10 @@ async function handleUserAction(key: string) {
   if (key !== 'logout') return
   await authStore.logout()
   router.push({ name: 'login' })
+}
+
+function handleThemeSelect(key: string) {
+  themeStore.setMode(key as ThemeMode)
 }
 
 function resetPasswordForm() {
@@ -423,7 +459,7 @@ watch(
   gap: 12px;
   height: 64px;
   padding: 0 20px;
-  background: #fff;
+  background: var(--yy-surface);
 }
 
 .topbar__heading {

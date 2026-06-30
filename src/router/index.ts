@@ -101,6 +101,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '操作记录', roles: adminRoles },
       },
       {
+        path: 'about',
+        name: 'about',
+        component: () => import('@/pages/about/index.vue'),
+        meta: { title: '系统信息', roles: adminRoles },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/pages/settings/index.vue'),

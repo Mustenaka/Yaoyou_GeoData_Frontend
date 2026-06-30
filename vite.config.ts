@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -5,8 +6,14 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
 
+const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string }
+
 export default defineConfig({
   base: '/admin/',
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     vue(),
     AutoImport({

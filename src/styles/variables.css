@@ -1,6 +1,7 @@
 :root {
   --yy-bg: #f4f6f8;
   --yy-surface: #ffffff;
+  --yy-surface-soft: #f8fafc;
   --yy-fill: #f3f5f7;
   --yy-border: #d9e0e7;
   --yy-text: #17212f;
@@ -16,4 +17,21 @@
   --radius-md: 8px;
   --layout-padding: 18px;
   --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+:root[data-theme='dark'] {
+  --yy-bg: #101418;
+  --yy-surface: #171c22;
+  --yy-surface-soft: #1d2430;
+  --yy-fill: #202938;
+  --yy-border: #2a3441;
+  --yy-text: #e8edf4;
+  --yy-text-secondary: #b9c5d4;
+  --yy-text-muted: #8d9bae;
+  --yy-primary: #6ea6d8;
+  --yy-primary-hover: #8dbce5;
+  --yy-green: #63c28a;
+  --yy-amber: #e2aa4d;
+  --yy-red: #ef746f;
+  --yy-shadow: rgba(0, 0, 0, 0.24);
 }

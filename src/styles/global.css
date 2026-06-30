@@ -17,6 +17,12 @@ body {
   background: var(--yy-bg);
 }
 
+body,
+.n-layout,
+.n-layout-scroll-container {
+  background: var(--yy-bg);
+}
+
 a {
   color: inherit;
   text-decoration: none;

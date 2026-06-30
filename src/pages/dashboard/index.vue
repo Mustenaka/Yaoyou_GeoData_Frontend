@@ -1,178 +1,186 @@
 <template>
-  <div class="page-shell">
-    <PageHeader title="系统控制台" :subtitle="scopeText">
-      <n-button :loading="loading" @click="loadAll">
-        <template #icon>
-          <n-icon :component="RefreshOutline" />
-        </template>
-        刷新
-      </n-button>
-    </PageHeader>
+  <div class="dashboard-page">
+    <section class="console-hero">
+      <div class="console-hero__copy">
+        <span class="console-hero__eyebrow">{{ scopeText }}</span>
+        <h1>系统控制台</h1>
+        <p>按当前角色权限汇总平台运行、授权到期、同步上传和安全风险状态。</p>
+      </div>
+      <div class="console-hero__actions">
+        <span class="console-hero__time">更新于 {{ lastUpdatedText }}</span>
+        <n-button :loading="loading" secondary type="primary" @click="loadAll">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          刷新
+        </n-button>
+      </div>
+    </section>
 
     <n-alert v-if="errorText" type="error" closable @close="errorText = ''">
       {{ errorText }}
     </n-alert>
 
     <n-spin :show="loading && !summary">
-      <div v-if="summary" class="dashboard-grid">
-        <StatCard label="服务状态" :value="serviceStatusText" :accent="serviceAccent">
-          DB {{ summary.service_status.database }} / Redis {{ summary.service_status.redis }} / Storage {{ summary.service_status.storage }}
-        </StatCard>
-        <StatCard label="企业 / 用户" :value="`${summary.active_company_count} / ${summary.user_count}`" accent="#2f855a">
-          活跃会话 {{ summary.active_session_count }}，设备 {{ summary.device_count }}
-        </StatCard>
-        <button v-if="authStore.isSuperAdmin" class="stat-action" type="button" @click="goFailedUploads">
-          <StatCard label="今日上传 / 失败" :value="`${summary.today_upload_count} / ${summary.today_failed_count}`" :accent="summary.today_failed_count ? '#c2410c' : '#1f4e79'">
-            查看失败上传
-          </StatCard>
-        </button>
-        <StatCard v-else label="今日上传 / 失败" :value="`${summary.today_upload_count} / ${summary.today_failed_count}`" :accent="summary.today_failed_count ? '#c2410c' : '#1f4e79'">
-          按权限范围统计
-        </StatCard>
-        <button v-if="authStore.isSuperAdmin" class="stat-action" type="button" @click="goRisks">
-          <StatCard label="未处理高风险" :value="summary.high_risk_count" :accent="summary.high_risk_count ? '#c53030' : '#2f855a'">
-            查看风险事件
-          </StatCard>
-        </button>
-        <StatCard v-else label="本企业高风险" :value="summary.high_risk_count" :accent="summary.high_risk_count ? '#c53030' : '#2f855a'">
-          按企业范围统计
-        </StatCard>
-      </div>
-    </n-spin>
+      <template v-if="summary">
+        <section class="metric-grid" aria-label="控制台指标">
+          <button
+            v-for="card in metricCards"
+            :key="card.key"
+            class="metric-card"
+            :class="[card.tone, { 'metric-card--action': card.action }]"
+            type="button"
+            :disabled="!card.action"
+            @click="card.action?.()"
+          >
+            <span class="metric-card__icon">
+              <n-icon :component="card.icon" />
+            </span>
+            <span class="metric-card__body">
+              <span class="metric-card__label">{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.detail }}</small>
+            </span>
+          </button>
+        </section>
 
-    <div v-if="summary" class="page-grid-2">
-      <div class="page-card">
-        <div class="section-head">
-          <strong>到期提醒</strong>
-          <span>{{ summary.expiring.window_days }} 天内</span>
-        </div>
-        <div class="expiry-grid">
-          <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'companies' })">
-            <span>企业</span>
-            <strong>{{ summary.expiring.company_count }}</strong>
-          </button>
-          <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'licenses' })">
-            <span>授权</span>
-            <strong>{{ summary.expiring.license_count }}</strong>
-          </button>
-          <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'trial_user' } })">
-            <span>试用账号</span>
-            <strong>{{ summary.expiring.trial_user_count }}</strong>
-          </button>
-          <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'temporary_user' } })">
-            <span>临时账号</span>
-            <strong>{{ summary.expiring.temporary_user_count }}</strong>
-          </button>
-        </div>
-      </div>
-
-      <div v-if="authStore.isSuperAdmin" class="page-card">
-        <div class="section-head">
-          <strong>存储容量</strong>
-          <span>{{ storage?.provider || 'local' }}</span>
-        </div>
-        <template v-if="storage">
-          <div class="storage-line">
-            <strong>{{ formatBytes(storage.used_bytes) }}</strong>
-            <span>soft {{ storage.soft_limit_gb }}G / warn {{ storage.warn_limit_gb }}G</span>
+        <section class="overview-grid">
+          <div class="dashboard-card dashboard-card--expiry">
+            <div class="section-head">
+              <div>
+                <strong>到期提醒</strong>
+                <span>{{ summary.expiring.window_days }} 天内需要关注</span>
+              </div>
+              <n-button text size="small" @click="router.push({ name: 'licenses' })">授权</n-button>
+            </div>
+            <div class="expiry-grid">
+              <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'companies' })">
+                <span>企业</span>
+                <strong>{{ summary.expiring.company_count }}</strong>
+              </button>
+              <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'licenses' })">
+                <span>授权</span>
+                <strong>{{ summary.expiring.license_count }}</strong>
+              </button>
+              <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'trial_user' } })">
+                <span>试用账号</span>
+                <strong>{{ summary.expiring.trial_user_count }}</strong>
+              </button>
+              <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'temporary_user' } })">
+                <span>临时账号</span>
+                <strong>{{ summary.expiring.temporary_user_count }}</strong>
+              </button>
+            </div>
           </div>
-          <n-progress type="line" :percentage="storagePercent" :status="storageProgressStatus" :height="12" :border-radius="4" />
-          <n-alert class="storage-alert" :type="storageAlertType" :bordered="false">
-            {{ storageAdvice }}
-          </n-alert>
-        </template>
-        <n-empty v-else description="容量统计暂不可用" />
-      </div>
-    </div>
 
-    <div v-if="recent" class="recent-grid">
-      <div v-if="authStore.isSuperAdmin" class="page-card">
-        <div class="section-head">
-          <strong>最近失败上传</strong>
-          <n-button text size="small" @click="goFailedUploads">全部</n-button>
-        </div>
-        <n-list v-if="recent.failed_uploads.length" hoverable>
-          <n-list-item v-for="item in recent.failed_uploads" :key="item.file_id">
-            <div class="event-row">
-              <strong>{{ item.original_filename || item.file_id }}</strong>
-              <span>{{ objectTypeLabel(item.object_type) }} / {{ item.parse_message || 'upload failed' }}</span>
-              <small>{{ formatDateTime(item.created_at) }}</small>
+          <div v-if="authStore.isSuperAdmin" class="dashboard-card dashboard-card--storage">
+            <div class="section-head">
+              <div>
+                <strong>存储容量</strong>
+                <span>{{ storage?.provider || 'local' }} · {{ storageLevelText }}</span>
+              </div>
+              <n-tag :type="storageTagType" round>{{ storageStatusLabel }}</n-tag>
             </div>
-          </n-list-item>
-        </n-list>
-        <n-empty v-else description="暂无失败上传" />
-      </div>
+            <template v-if="storage">
+              <div class="storage-layout">
+                <v-chart class="storage-chart" :option="storageGaugeOption" autoresize />
+                <div class="storage-meta">
+                  <strong>{{ formatBytes(storage.used_bytes) }}</strong>
+                  <span>已用 {{ storage.used_gb.toFixed(2) }} GB</span>
+                  <span>黄色 {{ storageSoftLimitGb }} GB / 红色 {{ storageWarnLimitGb }} GB</span>
+                </div>
+              </div>
+              <n-alert class="storage-alert" :type="storageAlertType" :bordered="false">
+                {{ storageAdvice }}
+              </n-alert>
+            </template>
+            <n-empty v-else :description="storageHiddenReason || '容量统计暂不可用'" />
+          </div>
+        </section>
 
-      <div v-if="authStore.isSuperAdmin" class="page-card">
-        <div class="section-head">
-          <strong>最近高风险</strong>
-          <n-button text size="small" @click="goRisks">全部</n-button>
-        </div>
-        <n-list v-if="recent.high_risks.length" hoverable>
-          <n-list-item v-for="item in recent.high_risks" :key="item.id">
-            <div class="event-row">
-              <strong>{{ item.risk_type }}</strong>
-              <span>{{ riskLevelLabel(item.risk_level) }} / 企业 {{ item.company_id ?? '-' }} / 用户 {{ item.user_id ?? '-' }}</span>
-              <small>{{ formatDateTime(item.created_at) }}</small>
+        <section v-if="eventSections.length" class="event-grid">
+          <div v-for="section in eventSections" :key="section.key" class="dashboard-card">
+            <div class="section-head">
+              <div>
+                <strong>{{ section.title }}</strong>
+                <span>{{ section.subtitle }}</span>
+              </div>
+              <n-button v-if="section.action" text size="small" @click="section.action">{{ section.actionLabel }}</n-button>
             </div>
-          </n-list-item>
-        </n-list>
-        <n-empty v-else description="暂无高风险事件" />
-      </div>
-
-      <div v-if="authStore.isSuperAdmin" class="page-card">
-        <div class="section-head">
-          <strong>最近同步</strong>
-          <n-button text size="small" @click="router.push({ name: 'sync-files' })">全部</n-button>
-        </div>
-        <n-list v-if="recent.recent_uploads.length" hoverable>
-          <n-list-item v-for="item in recent.recent_uploads" :key="item.file_id">
-            <div class="event-row">
-              <strong>{{ item.original_filename || item.file_id }}</strong>
-              <span>{{ clientTypeLabel(item.source_client) }} / {{ objectTypeLabel(item.object_type) }} / {{ item.project_uuid || '-' }}</span>
-              <small>{{ formatDateTime(item.created_at) }}</small>
+            <div v-if="section.rows.length" class="event-list">
+              <div v-for="item in section.rows" :key="item.key" class="event-row" :class="item.tone">
+                <span class="event-row__dot" />
+                <div class="event-row__content">
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.desc }}</span>
+                </div>
+                <time>{{ item.time }}</time>
+              </div>
             </div>
-          </n-list-item>
-        </n-list>
-        <n-empty v-else description="暂无同步记录" />
-      </div>
-
-      <div class="page-card">
-        <div class="section-head">
-          <strong>近期到期明细</strong>
-          <n-button v-if="authStore.isBackOfficeScopeAll" text size="small" @click="router.push({ name: 'licenses' })">授权</n-button>
-        </div>
-        <n-list v-if="expiryRows.length" hoverable>
-          <n-list-item v-for="item in expiryRows" :key="item.key">
-            <div class="event-row">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.desc }}</span>
-              <small>{{ item.time }}</small>
-            </div>
-          </n-list-item>
-        </n-list>
-        <n-empty v-else description="暂无近期到期项" />
-      </div>
-    </div>
+            <n-empty v-else :description="section.emptyText" />
+          </div>
+        </section>
+      </template>
+      <n-empty v-else description="控制台数据暂不可用" />
+    </n-spin>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RefreshOutline } from '@vicons/ionicons5'
+import {
+  AlertCircleOutline,
+  BusinessOutline,
+  CloudUploadOutline,
+  KeyOutline,
+  PeopleOutline,
+  RefreshOutline,
+  ServerOutline,
+  ShieldCheckmarkOutline,
+} from '@vicons/ionicons5'
+import { use } from 'echarts/core'
+import { GaugeChart } from 'echarts/charts'
+import { TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
 import { useRouter } from 'vue-router'
-import PageHeader from '@/components/PageHeader.vue'
-import StatCard from '@/components/StatCard.vue'
+import { ApiError } from '@/api/request'
 import { opsApi } from '@/api/ops'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import type { DashboardRecentEvents, DashboardStorage, DashboardSummary } from '@/types/api'
 import { formatBytes, formatDateTime } from '@/utils/format'
 import { clientTypeLabel, objectTypeLabel, riskLevelLabel, roleLabel } from '@/utils/labels'
 
+use([CanvasRenderer, GaugeChart, TooltipComponent])
+
+type DashboardRow = {
+  key: string
+  title: string
+  desc: string
+  time: string
+  tone?: string
+}
+
+type DashboardSection = {
+  key: string
+  title: string
+  subtitle: string
+  rows: DashboardRow[]
+  emptyText: string
+  actionLabel?: string
+  action?: () => void
+}
+
+const storageSoftLimitGb = 20
+const storageWarnLimitGb = 30
+
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 const loading = ref(false)
 const errorText = ref('')
+const storageHiddenReason = ref('')
 const summary = ref<DashboardSummary | null>(null)
 const storage = ref<DashboardStorage | null>(null)
 const recent = ref<DashboardRecentEvents | null>(null)
@@ -183,48 +191,263 @@ const scopeText = computed(() => {
   return summary.value.scope === 'company' ? `${authStore.companyName || '本企业'} 摘要` : '全平台运营摘要'
 })
 
-const serviceStatusText = computed(() => (summary.value?.service_status.overall === 'ok' ? '正常' : '降级'))
-const serviceAccent = computed(() => (summary.value?.service_status.overall === 'ok' ? '#2f855a' : '#c53030'))
+const lastUpdatedText = computed(() => formatDateTime(summary.value?.generated_at || recent.value?.generated_at || new Date().toISOString()))
+const serviceOk = computed(() => summary.value?.service_status.overall === 'ok')
+const serviceStatusText = computed(() => (serviceOk.value ? '正常' : '降级'))
+const serviceDetail = computed(() => {
+  const status = summary.value?.service_status
+  if (!status) return '-'
+  return `DB ${status.database} / Redis ${status.redis} / Storage ${status.storage}`
+})
+
+const metricCards = computed(() => {
+  if (!summary.value) return []
+  const item = summary.value
+  return [
+    {
+      key: 'service',
+      label: '服务状态',
+      value: serviceStatusText.value,
+      detail: serviceDetail.value,
+      icon: ServerOutline,
+      tone: serviceOk.value ? 'tone-green' : 'tone-red',
+    },
+    {
+      key: 'users',
+      label: item.scope === 'company' ? '企业用户' : '企业 / 用户',
+      value: item.scope === 'company' ? item.user_count : `${item.active_company_count} / ${item.user_count}`,
+      detail: `活跃会话 ${item.active_session_count}，设备 ${item.device_count}`,
+      icon: item.scope === 'company' ? PeopleOutline : BusinessOutline,
+      tone: 'tone-blue',
+    },
+    {
+      key: 'uploads',
+      label: '今日上传 / 失败',
+      value: `${item.today_upload_count} / ${item.today_failed_count}`,
+      detail: item.today_failed_count ? '存在失败上传' : '上传链路正常',
+      icon: CloudUploadOutline,
+      tone: item.today_failed_count ? 'tone-amber' : 'tone-green',
+      action: authStore.isSuperAdmin ? goFailedUploads : undefined,
+    },
+    {
+      key: 'risks',
+      label: item.scope === 'company' ? '本企业高风险' : '未处理高风险',
+      value: item.high_risk_count,
+      detail: item.high_risk_count ? '需要尽快处理' : '暂无高风险待处理',
+      icon: item.high_risk_count ? AlertCircleOutline : ShieldCheckmarkOutline,
+      tone: item.high_risk_count ? 'tone-red' : 'tone-green',
+      action: authStore.isSuperAdmin ? goRisks : undefined,
+    },
+  ]
+})
 
 const storagePercent = computed(() => {
-  if (!storage.value || storage.value.warn_limit_gb <= 0) return 0
-  return Math.min(100, Math.round((storage.value.used_gb / storage.value.warn_limit_gb) * 100))
+  if (!storage.value) return 0
+  return Math.min(100, Math.round((storage.value.used_gb / storageWarnLimitGb) * 100))
 })
 
-const storageProgressStatus = computed(() => {
-  if (storage.value?.status === 'warn') return 'error'
-  if (storage.value?.status === 'soft') return 'warning'
+const storageLevel = computed(() => {
+  if (!storage.value) return 'normal'
+  if (storage.value.used_gb >= storageWarnLimitGb || storage.value.status === 'warn') return 'warn'
+  if (storage.value.used_gb >= storageSoftLimitGb || storage.value.status === 'soft') return 'soft'
+  return 'normal'
+})
+
+const storageLevelText = computed(() => {
+  if (storageLevel.value === 'warn') return '红色警戒'
+  if (storageLevel.value === 'soft') return '黄色提醒'
+  return '正常'
+})
+
+const storageStatusLabel = computed(() => {
+  if (!storage.value) return '未加载'
+  return storageLevelText.value
+})
+
+const storageTagType = computed(() => {
+  if (storageLevel.value === 'warn') return 'error'
+  if (storageLevel.value === 'soft') return 'warning'
   return 'success'
 })
 
-const storageAlertType = computed(() => {
-  if (storage.value?.status === 'warn') return 'error'
-  if (storage.value?.status === 'soft') return 'warning'
-  return 'success'
-})
+const storageAlertType = computed(() => storageTagType.value)
 
 const storageAdvice = computed(() => {
   if (!storage.value) return ''
-  if (storage.value.status === 'warn') return '容量已达到警戒线，非必要大文件上传会被限制，请尽快清理临时文件、超期日志或扩容。'
-  if (storage.value.status === 'soft') return '容量进入提醒区间，建议清理临时文件、超期日志并评估旧项目包归档。'
+  if (storageLevel.value === 'warn') return '容量已达到红色警戒线，建议清理临时文件、超期日志或安排扩容。'
+  if (storageLevel.value === 'soft') return '容量进入黄色提醒区间，建议关注增长速度并评估归档策略。'
   return '容量处于正常区间。'
 })
 
-const expiryRows = computed(() => {
+const storageGaugeOption = computed(() => {
+  const valueColor = storageLevel.value === 'warn' ? '#ef746f' : storageLevel.value === 'soft' ? '#e2aa4d' : '#63c28a'
+  const trackColor = themeStore.isDark ? '#263241' : '#e7edf3'
+  const textColor = themeStore.isDark ? '#e8edf4' : '#17212f'
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      formatter: `容量占用 ${storagePercent.value}%`,
+    },
+    series: [
+      {
+        type: 'gauge',
+        startAngle: 210,
+        endAngle: -30,
+        min: 0,
+        max: 100,
+        radius: '100%',
+        progress: {
+          show: true,
+          width: 12,
+          itemStyle: { color: valueColor },
+        },
+        axisLine: {
+          lineStyle: {
+            width: 12,
+            color: [[1, trackColor]],
+          },
+        },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        pointer: { show: false },
+        anchor: { show: false },
+        title: {
+          show: true,
+          offsetCenter: [0, '32%'],
+          color: themeStore.isDark ? '#8d9bae' : '#7b8a9a',
+          fontSize: 12,
+        },
+        detail: {
+          valueAnimation: true,
+          formatter: '{value}%',
+          offsetCenter: [0, '-4%'],
+          color: textColor,
+          fontSize: 26,
+          fontWeight: 700,
+        },
+        data: [{ value: storagePercent.value, name: storageLevelText.value }],
+      },
+    ],
+  }
+})
+
+const expiryRows = computed<DashboardRow[]>(() => {
   if (!recent.value) return []
-  const rows: Array<{ key: string; title: string; desc: string; time: string }> = []
+  const rows: DashboardRow[] = []
   recent.value.expiring_companies.forEach((item) => {
-    rows.push({ key: `company-${item.id}`, title: item.company_name, desc: '企业有效期即将到期', time: formatDateTime(item.valid_until) })
+    rows.push({
+      key: `company-${item.id}`,
+      title: item.company_name,
+      desc: '企业有效期即将到期',
+      time: formatDateTime(item.valid_until),
+      tone: 'tone-amber',
+    })
   })
   recent.value.expiring_licenses.forEach((item) => {
-    rows.push({ key: `license-${item.id}`, title: item.username || `用户 ${item.user_id ?? '-'}`, desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`, time: formatDateTime(item.valid_until) })
+    rows.push({
+      key: `license-${item.id}`,
+      title: item.username || `用户 ${item.user_id ?? '-'}`,
+      desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`,
+      time: formatDateTime(item.valid_until),
+      tone: 'tone-blue',
+    })
   })
   recent.value.expiring_users.forEach((item) => {
-    const expiresAt = item.trial_expires_at || item.temporary_expires_at
-    rows.push({ key: `user-${item.id}`, title: item.username, desc: roleLabel(item.role_code), time: formatDateTime(expiresAt) })
+    rows.push({
+      key: `user-${item.id}`,
+      title: item.username,
+      desc: roleLabel(item.role_code),
+      time: formatDateTime(item.trial_expires_at || item.temporary_expires_at),
+      tone: 'tone-amber',
+    })
   })
-  return rows.slice(0, 12)
+  return rows.slice(0, 10)
 })
+
+const eventSections = computed<DashboardSection[]>(() => {
+  if (!recent.value) return []
+  const sections: DashboardSection[] = []
+
+  if (authStore.isSuperAdmin) {
+    sections.push({
+      key: 'failed',
+      title: '最近失败上传',
+      subtitle: '需要排查的同步失败',
+      actionLabel: '文件同步',
+      action: goFailedUploads,
+      emptyText: '暂无失败上传',
+      rows: recent.value.failed_uploads.slice(0, 6).map((item) => ({
+        key: `failed-${item.file_id}`,
+        title: item.original_filename || item.file_id,
+        desc: `${objectTypeLabel(item.object_type)} / ${item.parse_message || item.upload_status}`,
+        time: formatDateTime(item.created_at),
+        tone: 'tone-red',
+      })),
+    })
+    sections.push({
+      key: 'risks',
+      title: '最近高风险',
+      subtitle: '安全风险待处理线索',
+      actionLabel: '安全风险',
+      action: goRisks,
+      emptyText: '暂无高风险事件',
+      rows: recent.value.high_risks.slice(0, 6).map((item) => ({
+        key: `risk-${item.id}`,
+        title: item.risk_type,
+        desc: `${riskLevelLabel(item.risk_level)} / 企业 ${item.company_id ?? '-'} / 用户 ${item.user_id ?? '-'}`,
+        time: formatDateTime(item.created_at),
+        tone: 'tone-red',
+      })),
+    })
+    sections.push({
+      key: 'sync',
+      title: '最近同步',
+      subtitle: '最近完成的文件同步',
+      actionLabel: '文件同步',
+      action: () => router.push({ name: 'sync-files' }),
+      emptyText: '暂无同步记录',
+      rows: recent.value.recent_uploads.slice(0, 6).map((item) => ({
+        key: `sync-${item.file_id}`,
+        title: item.original_filename || item.file_id,
+        desc: `${clientTypeLabel(item.source_client)} / ${objectTypeLabel(item.object_type)} / ${item.project_uuid || '-'}`,
+        time: formatDateTime(item.created_at),
+        tone: 'tone-green',
+      })),
+    })
+  }
+
+  sections.push({
+    key: 'expiry',
+    title: '近期到期明细',
+    subtitle: `${summary.value?.expiring.window_days || 30} 天窗口`,
+    actionLabel: authStore.isBackOfficeScopeAll ? '授权' : undefined,
+    action: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'licenses' }) : undefined,
+    emptyText: '暂无近期到期项',
+    rows: expiryRows.value,
+  })
+
+  return sections
+})
+
+async function loadStorage() {
+  if (!authStore.isSuperAdmin) {
+    storage.value = null
+    storageHiddenReason.value = '容量信息仅 superadmin 可见'
+    return
+  }
+  try {
+    storage.value = await opsApi.storage()
+    storageHiddenReason.value = ''
+  } catch (error) {
+    storage.value = null
+    if (error instanceof ApiError && error.code === 12001) {
+      storageHiddenReason.value = '容量信息仅 superadmin 可见'
+      return
+    }
+    storageHiddenReason.value = error instanceof Error ? error.message : '容量统计加载失败'
+  }
+}
 
 async function loadAll() {
   loading.value = true
@@ -233,7 +456,7 @@ async function loadAll() {
     const [summaryResult, recentResult] = await Promise.all([opsApi.summary(), opsApi.recentEvents()])
     summary.value = summaryResult
     recent.value = recentResult
-    storage.value = authStore.isSuperAdmin ? await opsApi.storage() : null
+    await loadStorage()
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '控制台数据加载失败'
   } finally {
@@ -253,7 +476,11 @@ function goRisks() {
 
 onMounted(() => {
   loadAll()
-  refreshTimer = window.setInterval(loadAll, 60_000)
+  refreshTimer = window.setInterval(() => {
+    if (!loading.value) {
+      loadAll()
+    }
+  }, 90_000)
 })
 
 onBeforeUnmount(() => {
@@ -262,46 +489,156 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.dashboard-grid,
-.recent-grid {
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--layout-padding);
+}
+
+.console-hero,
+.dashboard-card,
+.metric-card {
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-md);
+  background: var(--yy-surface);
+  box-shadow: 0 8px 20px var(--yy-shadow);
+}
+
+.console-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+}
+
+.console-hero__copy {
+  min-width: 0;
+}
+
+.console-hero__eyebrow,
+.console-hero__time,
+.section-head span,
+.metric-card small,
+.event-row span,
+.event-row time,
+.storage-meta span {
+  color: var(--yy-text-muted);
+  font-size: 12px;
+}
+
+.console-hero h1 {
+  margin: 5px 0 4px;
+  color: var(--yy-text);
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.console-hero p {
+  margin: 0;
+  color: var(--yy-text-secondary);
+}
+
+.console-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metric-grid,
+.overview-grid,
+.event-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
-.recent-grid {
+.metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.overview-grid {
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+}
+
+.event-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.stat-action {
+.metric-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
   width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
+  min-height: 128px;
+  padding: 16px;
+  color: var(--yy-text);
   text-align: left;
 }
 
-.stat-action:hover :deep(.stat-card) {
+.metric-card:disabled {
+  cursor: default;
+}
+
+.metric-card--action {
+  cursor: pointer;
+}
+
+.metric-card--action:hover {
   border-color: var(--yy-primary);
+  transform: translateY(-1px);
+}
+
+.metric-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--yy-fill);
+  font-size: 22px;
+}
+
+.metric-card__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-card__label {
+  color: var(--yy-text-secondary);
+  font-size: 13px;
+}
+
+.metric-card strong {
+  overflow-wrap: anywhere;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.dashboard-card {
+  min-width: 0;
+  padding: 16px;
 }
 
 .section-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
 }
 
-.section-head strong {
-  font-size: 15px;
+.section-head div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.section-head span {
-  color: var(--yy-text-muted);
-  font-size: 12px;
+.section-head strong {
+  font-size: 15px;
 }
 
 .expiry-grid {
@@ -312,13 +649,13 @@ onBeforeUnmount(() => {
 
 .expiry-item {
   display: flex;
+  min-height: 92px;
   flex-direction: column;
-  gap: 8px;
-  min-height: 86px;
+  justify-content: space-between;
   padding: 14px;
   border: 1px solid var(--yy-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--yy-surface-soft);
   color: var(--yy-text);
   cursor: pointer;
   text-align: left;
@@ -326,7 +663,6 @@ onBeforeUnmount(() => {
 
 .expiry-item:hover {
   border-color: var(--yy-primary);
-  background: #f8fafc;
 }
 
 .expiry-item span {
@@ -338,29 +674,58 @@ onBeforeUnmount(() => {
   font-size: 30px;
 }
 
-.storage-line {
+.storage-layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.storage-chart {
+  width: 160px;
+  height: 132px;
+}
+
+.storage-meta {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.storage-line strong {
-  font-size: 26px;
-}
-
-.storage-line span {
-  color: var(--yy-text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+.storage-meta strong {
+  font-size: 24px;
 }
 
 .storage-alert {
-  margin-top: 12px;
+  margin-top: 10px;
+}
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .event-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--yy-surface-soft);
+}
+
+.event-row__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.event-row__content {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -368,34 +733,57 @@ onBeforeUnmount(() => {
 }
 
 .event-row strong,
-.event-row span,
-.event-row small {
+.event-row span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.event-row span,
-.event-row small {
-  color: var(--yy-text-muted);
-  font-size: 12px;
+.tone-blue {
+  color: var(--yy-primary);
+}
+
+.tone-green {
+  color: var(--yy-green);
+}
+
+.tone-amber {
+  color: var(--yy-amber);
+}
+
+.tone-red {
+  color: var(--yy-red);
 }
 
 @media (max-width: 1280px) {
-  .dashboard-grid,
-  .recent-grid {
+  .metric-grid,
+  .event-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .expiry-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .overview-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
-  .dashboard-grid,
-  .recent-grid,
+  .dashboard-page {
+    padding: 12px;
+  }
+
+  .console-hero,
+  .console-hero__actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metric-grid,
+  .event-grid,
   .expiry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .storage-layout {
     grid-template-columns: 1fr;
   }
 }
