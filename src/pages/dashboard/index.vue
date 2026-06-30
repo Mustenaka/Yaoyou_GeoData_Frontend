@@ -1,19 +1,44 @@
 <template>
   <div class="dashboard-page">
-    <section class="console-hero">
-      <div class="console-hero__copy">
-        <span class="console-hero__eyebrow">{{ scopeText }}</span>
+    <section class="console-head">
+      <div class="console-head__copy">
+        <span>{{ scopeText }}</span>
         <h1>系统控制台</h1>
-        <p>按当前角色权限汇总平台运行、授权到期、同步上传和安全风险状态。</p>
+        <p>按当前角色汇总平台运行、授权到期、同步上传、安全风险和操作消息。</p>
       </div>
-      <div class="console-hero__actions">
-        <span class="console-hero__time">更新于 {{ lastUpdatedText }}</span>
+      <div class="console-head__actions">
+        <span class="console-head__time">更新于 {{ lastUpdatedText }}</span>
         <n-button :loading="loading" secondary type="primary" @click="loadAll">
           <template #icon>
             <n-icon :component="RefreshOutline" />
           </template>
           刷新
         </n-button>
+        <n-button :type="editing ? 'primary' : 'default'" secondary @click="editing = !editing">
+          <template #icon>
+            <n-icon :component="editing ? MoveOutline : GridOutline" />
+          </template>
+          {{ editing ? '完成排版' : '编辑排版' }}
+        </n-button>
+        <n-dropdown trigger="click" :options="addPanelOptions" @select="addPanel">
+          <n-button :disabled="!editing || addPanelOptions.length === 0" secondary>
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            添加组件
+          </n-button>
+        </n-dropdown>
+        <n-popconfirm @positive-click="resetLayout">
+          <template #trigger>
+            <n-button :disabled="!editing" secondary>
+              <template #icon>
+                <n-icon :component="ReloadOutline" />
+              </template>
+              恢复默认
+            </n-button>
+          </template>
+          恢复当前账号的默认控制台布局？
+        </n-popconfirm>
       </div>
     </section>
 
@@ -21,105 +46,138 @@
       {{ errorText }}
     </n-alert>
 
+    <n-alert v-if="editing" type="info" :bordered="false">
+      组件可拖动、缩放、增删；布局仅保存在当前浏览器和当前账号。
+    </n-alert>
+
     <n-spin :show="loading && !summary">
       <template v-if="summary">
-        <section class="metric-grid" aria-label="控制台指标">
-          <button
-            v-for="card in metricCards"
-            :key="card.key"
-            class="metric-card"
-            :class="[card.tone, { 'metric-card--action': card.action }]"
-            type="button"
-            :disabled="!card.action"
-            @click="card.action?.()"
+        <GridLayout
+          class="dashboard-grid"
+          :layout="visibleLayout"
+          :col-num="12"
+          :cols="gridCols"
+          :breakpoints="gridBreakpoints"
+          :row-height="92"
+          :margin="[18, 18]"
+          :is-draggable="editing && !isNarrow"
+          :is-resizable="editing && !isNarrow"
+          :use-css-transforms="true"
+          :vertical-compact="true"
+          :responsive="true"
+          :prevent-collision="false"
+          @layout-updated="handleLayoutUpdated"
+        >
+          <GridItem
+            v-for="item in visibleLayout"
+            :key="item.i"
+            :x="item.x"
+            :y="item.y"
+            :w="item.w"
+            :h="item.h"
+            :i="item.i"
+            :min-w="item.minW"
+            :min-h="item.minH"
+            drag-allow-from=".drag-handle"
           >
-            <span class="metric-card__icon">
-              <n-icon :component="card.icon" />
-            </span>
-            <span class="metric-card__body">
-              <span class="metric-card__label">{{ card.label }}</span>
-              <strong>{{ card.value }}</strong>
-              <small>{{ card.detail }}</small>
-            </span>
-          </button>
-        </section>
+            <DashboardPanel
+              :title="panelTitle(item.i)"
+              :subtitle="panelSubtitle(item.i)"
+              :action-label="panelActionLabel(item.i)"
+              :editing="editing"
+              :removable="visibleLayout.length > 1"
+              @action="runPanelAction(item.i)"
+              @remove="removePanel(item.i)"
+            >
+              <template #actions>
+                <n-tag v-if="editing && !isNarrow" size="small" :bordered="false">{{ item.w }}x{{ item.h }}</n-tag>
+              </template>
 
-        <section class="overview-grid">
-          <div class="dashboard-card dashboard-card--expiry">
-            <div class="section-head">
-              <div>
-                <strong>到期提醒</strong>
-                <span>{{ summary.expiring.window_days }} 天内需要关注</span>
+              <div v-if="item.i === 'summary'" class="metric-grid">
+                <button v-for="card in metricCards" :key="card.key" class="metric-card" :class="`metric-card--${card.tone}`" type="button" :disabled="!card.route" @click="card.route?.()">
+                  <span class="metric-card__icon">
+                    <n-icon :component="card.icon" />
+                  </span>
+                  <span class="metric-card__body">
+                    <small>{{ card.label }}</small>
+                    <strong>{{ card.value }}</strong>
+                    <em>{{ card.detail }}</em>
+                  </span>
+                </button>
               </div>
-              <n-button text size="small" @click="router.push({ name: 'licenses' })">授权</n-button>
-            </div>
-            <div class="expiry-grid">
-              <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'companies' })">
-                <span>企业</span>
-                <strong>{{ summary.expiring.company_count }}</strong>
-              </button>
-              <button v-if="authStore.isBackOfficeScopeAll" class="expiry-item" type="button" @click="router.push({ name: 'licenses' })">
-                <span>授权</span>
-                <strong>{{ summary.expiring.license_count }}</strong>
-              </button>
-              <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'trial_user' } })">
-                <span>试用账号</span>
-                <strong>{{ summary.expiring.trial_user_count }}</strong>
-              </button>
-              <button class="expiry-item" type="button" @click="router.push({ name: 'users', query: { role_code: 'temporary_user' } })">
-                <span>临时账号</span>
-                <strong>{{ summary.expiring.temporary_user_count }}</strong>
-              </button>
-            </div>
-          </div>
 
-          <div v-if="authStore.isSuperAdmin" class="dashboard-card dashboard-card--storage">
-            <div class="section-head">
-              <div>
-                <strong>存储容量</strong>
-                <span>{{ storage?.provider || 'local' }} · {{ storageLevelText }}</span>
-              </div>
-              <n-tag :type="storageTagType" round>{{ storageStatusLabel }}</n-tag>
-            </div>
-            <template v-if="storage">
-              <div class="storage-layout">
-                <v-chart class="storage-chart" :option="storageGaugeOption" autoresize />
-                <div class="storage-meta">
-                  <strong>{{ formatBytes(storage.used_bytes) }}</strong>
-                  <span>已用 {{ storage.used_gb.toFixed(2) }} GB</span>
-                  <span>黄色 {{ storageSoftLimitGb }} GB / 红色 {{ storageWarnLimitGb }} GB</span>
+              <template v-else-if="item.i === 'server'">
+                <div v-if="serverMetrics" class="server-metrics">
+                  <div class="server-metrics__top">
+                    <div>
+                      <span>服务状态</span>
+                      <strong :class="serverMetrics.service_status.overall === 'ok' ? 'text-green' : 'text-red'">{{ serverMetrics.service_status.overall === 'ok' ? '正常' : '降级' }}</strong>
+                    </div>
+                    <div>
+                      <span>运行时长</span>
+                      <strong>{{ formatUptime(serverMetrics.uptime_seconds) }}</strong>
+                    </div>
+                    <div>
+                      <span>Goroutine</span>
+                      <strong>{{ serverMetrics.goroutine_num }}</strong>
+                    </div>
+                  </div>
+                  <div class="server-bars">
+                    <div v-for="bar in serverBars" :key="bar.key" class="server-bar">
+                      <div>
+                        <span>{{ bar.label }}</span>
+                        <strong>{{ formatMetricPercent(bar.value) }}</strong>
+                      </div>
+                      <n-progress type="line" :percentage="bar.percent" :height="8" :show-indicator="false" :color="bar.color" :rail-color="progressRailColor" />
+                    </div>
+                  </div>
+                  <v-chart v-if="hasServerHistory" class="trend-chart" :option="serverTrendOption" autoresize />
+                  <n-empty v-else description="暂无运行趋势历史" />
+                </div>
+                <n-empty v-else :description="serverMetricsError || '服务器指标加载中'" />
+              </template>
+
+              <template v-else-if="item.i === 'storage'">
+                <div v-if="storage" class="storage-layout">
+                  <v-chart class="storage-chart" :option="storageGaugeOption" autoresize />
+                  <div class="storage-meta">
+                    <strong>{{ formatBytes(storage.used_bytes) }}</strong>
+                    <span>已用 {{ storage.used_gb.toFixed(2) }} GB</span>
+                    <span>黄色 {{ storageSoftLimitGb }} GB / 红色 {{ storageWarnLimitGb }} GB</span>
+                    <n-alert class="storage-advice" :type="storageAlertType" :bordered="false">{{ storageAdvice }}</n-alert>
+                  </div>
+                </div>
+                <n-empty v-else :description="storageHiddenReason || '容量统计暂不可用'" />
+              </template>
+
+              <DashboardEventList v-else-if="item.i === 'message'" :rows="messageRows" empty-text="暂无消息" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'expiry'" :rows="expiryRows" empty-text="暂无近期到期项" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'failed'" :rows="failedRows" empty-text="暂无失败上传" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'risks'" :rows="riskRows" empty-text="暂无高风险事件" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'sync'" :rows="syncRows" empty-text="暂无同步记录" @select="handleEventRow" />
+              <DashboardEventList v-else-if="item.i === 'audit'" :rows="auditRows" empty-text="暂无操作记录" @select="handleEventRow" />
+
+              <div v-else-if="item.i === 'business'" class="business-grid">
+                <div class="business-item">
+                  <span>{{ summary.scope === 'company' ? '企业用户' : '在线企业' }}</span>
+                  <strong>{{ summary.scope === 'company' ? summary.user_count : summary.active_company_count }}</strong>
+                </div>
+                <div class="business-item">
+                  <span>设备</span>
+                  <strong>{{ summary.device_count }}</strong>
+                </div>
+                <div class="business-item">
+                  <span>活跃会话</span>
+                  <strong>{{ summary.active_session_count }}</strong>
+                </div>
+                <div class="business-item">
+                  <span>今日失败率</span>
+                  <strong>{{ todayFailureRate }}</strong>
                 </div>
               </div>
-              <n-alert class="storage-alert" :type="storageAlertType" :bordered="false">
-                {{ storageAdvice }}
-              </n-alert>
-            </template>
-            <n-empty v-else :description="storageHiddenReason || '容量统计暂不可用'" />
-          </div>
-        </section>
-
-        <section v-if="eventSections.length" class="event-grid">
-          <div v-for="section in eventSections" :key="section.key" class="dashboard-card">
-            <div class="section-head">
-              <div>
-                <strong>{{ section.title }}</strong>
-                <span>{{ section.subtitle }}</span>
-              </div>
-              <n-button v-if="section.action" text size="small" @click="section.action">{{ section.actionLabel }}</n-button>
-            </div>
-            <div v-if="section.rows.length" class="event-list">
-              <div v-for="item in section.rows" :key="item.key" class="event-row" :class="item.tone">
-                <span class="event-row__dot" />
-                <div class="event-row__content">
-                  <strong>{{ item.title }}</strong>
-                  <span>{{ item.desc }}</span>
-                </div>
-                <time>{{ item.time }}</time>
-              </div>
-            </div>
-            <n-empty v-else :description="section.emptyText" />
-          </div>
-        </section>
+            </DashboardPanel>
+          </GridItem>
+        </GridLayout>
       </template>
       <n-empty v-else description="控制台数据暂不可用" />
     </n-spin>
@@ -127,90 +185,175 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import {
+  AddOutline,
   AlertCircleOutline,
+  BarChartOutline,
   BusinessOutline,
   CloudUploadOutline,
+  GridOutline,
   KeyOutline,
+  ListOutline,
+  MoveOutline,
+  NotificationsOutline,
   PeopleOutline,
   RefreshOutline,
+  ReloadOutline,
   ServerOutline,
   ShieldCheckmarkOutline,
+  StatsChartOutline,
+  TimeOutline,
+  WarningOutline,
 } from '@vicons/ionicons5'
+import { useMediaQuery } from '@vueuse/core'
+import { GridItem, GridLayout, type LayoutItem } from 'grid-layout-plus'
+import { LineChart, GaugeChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { use } from 'echarts/core'
-import { GaugeChart } from 'echarts/charts'
-import { TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import type { DropdownOption } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import VChart from 'vue-echarts'
 import { useRouter } from 'vue-router'
-import { ApiError } from '@/api/request'
+import { auditApi } from '@/api/audit'
 import { opsApi } from '@/api/ops'
+import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import type { DashboardRecentEvents, DashboardStorage, DashboardSummary } from '@/types/api'
-import { formatBytes, formatDateTime } from '@/utils/format'
-import { clientTypeLabel, objectTypeLabel, riskLevelLabel, roleLabel } from '@/utils/labels'
+import type { DashboardRecentEvents, DashboardServerMetrics, DashboardStorage, DashboardSummary, OperationAuditEvent } from '@/types/api'
+import { formatBytes, formatDateTime, formatPercent } from '@/utils/format'
+import { auditResultLabel, clientTypeLabel, objectTypeLabel, riskLevelLabel, roleLabel } from '@/utils/labels'
+import DashboardEventList from './components/DashboardEventList.vue'
+import DashboardPanel from './components/DashboardPanel.vue'
 
-use([CanvasRenderer, GaugeChart, TooltipComponent])
+use([CanvasRenderer, GaugeChart, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
-type DashboardRow = {
+type PanelId = 'summary' | 'server' | 'storage' | 'message' | 'expiry' | 'failed' | 'risks' | 'sync' | 'audit' | 'business'
+
+type DashboardLayoutItem = LayoutItem & {
+  i: PanelId
+}
+
+type PanelDefinition = {
+  id: PanelId
+  title: string
+  description: string
+  superOnly?: boolean
+  defaultItem: DashboardLayoutItem
+}
+
+type MetricCard = {
+  key: string
+  label: string
+  value: string | number
+  detail: string
+  tone: 'green' | 'blue' | 'amber' | 'red'
+  icon: Component
+  route?: () => void
+}
+
+type EventRow = {
   key: string
   title: string
   desc: string
   time: string
-  tone?: string
+  sortAt?: string | null
+  tone?: 'green' | 'blue' | 'amber' | 'red' | 'neutral'
+  route?: () => void
 }
 
-type DashboardSection = {
-  key: string
-  title: string
-  subtitle: string
-  rows: DashboardRow[]
-  emptyText: string
-  actionLabel?: string
-  action?: () => void
+const panelDefinitions: Record<PanelId, PanelDefinition> = {
+  summary: { id: 'summary', title: '概览统计', description: '服务、用户、上传和风险摘要', defaultItem: { i: 'summary', x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 } },
+  server: { id: 'server', title: '服务器性能', description: '真实 CPU、内存、磁盘与运行趋势', superOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 4, minW: 5, minH: 4 } },
+  storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', superOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
+  message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
+  expiry: { id: 'expiry', title: '到期提醒', description: '企业、授权和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
+  failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
+  risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', superOnly: true, defaultItem: { i: 'risks', x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
+  sync: { id: 'sync', title: '最近同步', description: '最近完成的上传同步', superOnly: true, defaultItem: { i: 'sync', x: 8, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
+  audit: { id: 'audit', title: '操作记录', description: '最近后台操作', defaultItem: { i: 'audit', x: 0, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
+  business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
 }
 
-const storageSoftLimitGb = 20
-const storageWarnLimitGb = 30
+const dashboardLayoutVersion = 'v3'
+const gridBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 520, xxs: 0 }
+const gridCols = { lg: 12, md: 12, sm: 6, xs: 2, xxs: 1 }
 
 const router = useRouter()
+const message = useMessage()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const isNarrow = useMediaQuery('(max-width: 760px)')
 const loading = ref(false)
+const editing = ref(false)
+const layoutReady = ref(false)
 const errorText = ref('')
 const storageHiddenReason = ref('')
+const serverMetricsError = ref('')
 const summary = ref<DashboardSummary | null>(null)
 const storage = ref<DashboardStorage | null>(null)
+const serverMetrics = ref<DashboardServerMetrics | null>(null)
 const recent = ref<DashboardRecentEvents | null>(null)
+const auditEvents = ref<OperationAuditEvent[]>([])
+const layout = ref<DashboardLayoutItem[]>([])
 let refreshTimer = 0
+let serverMetricsTimer = 0
+
+const layoutKey = computed(() => `yaoyou_dashboard_layout_${dashboardLayoutVersion}_${authStore.userId || authStore.username || 'anonymous'}`)
+
+const availablePanelIds = computed<PanelId[]>(() => {
+  return (Object.keys(panelDefinitions) as PanelId[]).filter((id) => !panelDefinitions[id].superOnly || authStore.isSuperAdmin)
+})
+
+const visibleLayout = computed(() => layout.value.filter((item) => availablePanelIds.value.includes(item.i)))
+
+const addPanelOptions = computed<DropdownOption[]>(() => {
+  const used = new Set(visibleLayout.value.map((item) => item.i))
+  return availablePanelIds.value
+    .filter((id) => !used.has(id))
+    .map((id) => ({
+      key: id,
+      label: panelDefinitions[id].title,
+    }))
+})
 
 const scopeText = computed(() => {
-  if (!summary.value) return `${roleLabel(authStore.roleCode)} / ${authStore.companyName || '全平台'}`
-  return summary.value.scope === 'company' ? `${authStore.companyName || '本企业'} 摘要` : '全平台运营摘要'
+  if (summary.value?.scope === 'company') return `${authStore.companyName || '本企业'} / 企业范围`
+  if (authStore.isSuperAdmin) return '全平台 / 技术超级管理员'
+  if (authStore.isAdmin) return '全平台 / 普通管理员'
+  return `${roleLabel(authStore.roleCode)} / 管理后台`
 })
 
-const lastUpdatedText = computed(() => formatDateTime(summary.value?.generated_at || recent.value?.generated_at || new Date().toISOString()))
+const lastUpdatedText = computed(() => formatDateTime(serverMetrics.value?.generated_at || summary.value?.generated_at || recent.value?.generated_at))
 const serviceOk = computed(() => summary.value?.service_status.overall === 'ok')
-const serviceStatusText = computed(() => (serviceOk.value ? '正常' : '降级'))
-const serviceDetail = computed(() => {
-  const status = summary.value?.service_status
-  if (!status) return '-'
-  return `DB ${status.database} / Redis ${status.redis} / Storage ${status.storage}`
+const storageSoftLimitGb = computed(() => storage.value?.soft_limit_gb || 20)
+const storageWarnLimitGb = computed(() => storage.value?.warn_limit_gb || 30)
+const storageLevel = computed(() => {
+  if (!storage.value) return 'normal'
+  if (storage.value.status === 'warn' || storage.value.used_gb >= storageWarnLimitGb.value) return 'warn'
+  if (storage.value.status === 'soft' || storage.value.used_gb >= storageSoftLimitGb.value) return 'soft'
+  return 'normal'
 })
+const storageLevelText = computed(() => (storageLevel.value === 'warn' ? '红色警戒' : storageLevel.value === 'soft' ? '黄色提醒' : '正常'))
+const storageAlertType = computed(() => (storageLevel.value === 'warn' ? 'error' : storageLevel.value === 'soft' ? 'warning' : 'success'))
+const storagePercent = computed(() => {
+  if (!storage.value) return 0
+  return clampPercent((storage.value.used_gb / Math.max(storageWarnLimitGb.value, 1)) * 100)
+})
+const progressRailColor = computed(() => (themeStore.isDark ? '#263241' : '#e7edf3'))
 
-const metricCards = computed(() => {
+const metricCards = computed<MetricCard[]>(() => {
   if (!summary.value) return []
   const item = summary.value
   return [
     {
       key: 'service',
       label: '服务状态',
-      value: serviceStatusText.value,
-      detail: serviceDetail.value,
+      value: serviceOk.value ? '正常' : '降级',
+      detail: `DB ${item.service_status.database} / Redis ${item.service_status.redis} / Storage ${item.service_status.storage}`,
       icon: ServerOutline,
-      tone: serviceOk.value ? 'tone-green' : 'tone-red',
+      tone: serviceOk.value ? 'green' : 'red',
     },
     {
       key: 'users',
@@ -218,7 +361,8 @@ const metricCards = computed(() => {
       value: item.scope === 'company' ? item.user_count : `${item.active_company_count} / ${item.user_count}`,
       detail: `活跃会话 ${item.active_session_count}，设备 ${item.device_count}`,
       icon: item.scope === 'company' ? PeopleOutline : BusinessOutline,
-      tone: 'tone-blue',
+      tone: 'blue',
+      route: () => router.push({ name: 'users' }),
     },
     {
       key: 'uploads',
@@ -226,8 +370,8 @@ const metricCards = computed(() => {
       value: `${item.today_upload_count} / ${item.today_failed_count}`,
       detail: item.today_failed_count ? '存在失败上传' : '上传链路正常',
       icon: CloudUploadOutline,
-      tone: item.today_failed_count ? 'tone-amber' : 'tone-green',
-      action: authStore.isSuperAdmin ? goFailedUploads : undefined,
+      tone: item.today_failed_count ? 'amber' : 'green',
+      route: authStore.isSuperAdmin ? goFailedUploads : undefined,
     },
     {
       key: 'risks',
@@ -235,59 +379,67 @@ const metricCards = computed(() => {
       value: item.high_risk_count,
       detail: item.high_risk_count ? '需要尽快处理' : '暂无高风险待处理',
       icon: item.high_risk_count ? AlertCircleOutline : ShieldCheckmarkOutline,
-      tone: item.high_risk_count ? 'tone-red' : 'tone-green',
-      action: authStore.isSuperAdmin ? goRisks : undefined,
+      tone: item.high_risk_count ? 'red' : 'green',
+      route: authStore.isSuperAdmin ? goRisks : undefined,
     },
   ]
 })
 
-const storagePercent = computed(() => {
-  if (!storage.value) return 0
-  return Math.min(100, Math.round((storage.value.used_gb / storageWarnLimitGb) * 100))
+const serverBars = computed(() => {
+  if (!serverMetrics.value) return []
+  return [
+    { key: 'cpu', label: 'CPU', value: serverMetrics.value.cpu_usage, percent: clampPercent(serverMetrics.value.cpu_usage), color: metricColor(serverMetrics.value.cpu_usage) },
+    { key: 'memory', label: '内存', value: serverMetrics.value.memory_usage, percent: clampPercent(serverMetrics.value.memory_usage), color: metricColor(serverMetrics.value.memory_usage) },
+    { key: 'disk', label: '磁盘', value: serverMetrics.value.disk_usage, percent: clampPercent(serverMetrics.value.disk_usage), color: metricColor(serverMetrics.value.disk_usage) },
+  ]
 })
 
-const storageLevel = computed(() => {
-  if (!storage.value) return 'normal'
-  if (storage.value.used_gb >= storageWarnLimitGb || storage.value.status === 'warn') return 'warn'
-  if (storage.value.used_gb >= storageSoftLimitGb || storage.value.status === 'soft') return 'soft'
-  return 'normal'
-})
+const hasServerHistory = computed(() => Boolean(serverMetrics.value?.runtime_history?.length))
 
-const storageLevelText = computed(() => {
-  if (storageLevel.value === 'warn') return '红色警戒'
-  if (storageLevel.value === 'soft') return '黄色提醒'
-  return '正常'
-})
-
-const storageStatusLabel = computed(() => {
-  if (!storage.value) return '未加载'
-  return storageLevelText.value
-})
-
-const storageTagType = computed(() => {
-  if (storageLevel.value === 'warn') return 'error'
-  if (storageLevel.value === 'soft') return 'warning'
-  return 'success'
-})
-
-const storageAlertType = computed(() => storageTagType.value)
-
-const storageAdvice = computed(() => {
-  if (!storage.value) return ''
-  if (storageLevel.value === 'warn') return '容量已达到红色警戒线，建议清理临时文件、超期日志或安排扩容。'
-  if (storageLevel.value === 'soft') return '容量进入黄色提醒区间，建议关注增长速度并评估归档策略。'
-  return '容量处于正常区间。'
+const serverTrendOption = computed(() => {
+  const history = serverMetrics.value?.runtime_history || []
+  const labelColor = themeStore.isDark ? '#9aa8b9' : '#6f7f90'
+  const axisColor = themeStore.isDark ? '#2d3846' : '#dbe3eb'
+  return {
+    backgroundColor: 'transparent',
+    color: ['#2f7af0', '#27a76a', '#d8912f'],
+    tooltip: { trigger: 'axis' },
+    legend: {
+      top: 0,
+      textStyle: { color: labelColor, fontSize: 12 },
+      itemWidth: 10,
+      itemHeight: 6,
+    },
+    grid: { top: 34, right: 8, bottom: 26, left: 38 },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: history.map((item) => formatShortTime(item.created_at)),
+      axisLine: { lineStyle: { color: axisColor } },
+      axisLabel: { color: labelColor, fontSize: 11 },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      axisLabel: { color: labelColor, formatter: '{value}%' },
+      splitLine: { lineStyle: { color: axisColor } },
+    },
+    series: [
+      { name: 'CPU', type: 'line', smooth: true, showSymbol: false, data: history.map((item) => Number(item.cpu_usage.toFixed(1))) },
+      { name: '内存', type: 'line', smooth: true, showSymbol: false, data: history.map((item) => Number(item.memory_usage.toFixed(1))) },
+      { name: '磁盘', type: 'line', smooth: true, showSymbol: false, data: history.map((item) => Number(item.disk_usage.toFixed(1))) },
+    ],
+  }
 })
 
 const storageGaugeOption = computed(() => {
-  const valueColor = storageLevel.value === 'warn' ? '#ef746f' : storageLevel.value === 'soft' ? '#e2aa4d' : '#63c28a'
+  const valueColor = storageLevel.value === 'warn' ? '#de5f59' : storageLevel.value === 'soft' ? '#d8912f' : '#27a76a'
   const trackColor = themeStore.isDark ? '#263241' : '#e7edf3'
   const textColor = themeStore.isDark ? '#e8edf4' : '#17212f'
   return {
     backgroundColor: 'transparent',
-    tooltip: {
-      formatter: `容量占用 ${storagePercent.value}%`,
-    },
+    tooltip: { formatter: `容量占用 ${storagePercent.value}%` },
     series: [
       {
         type: 'gauge',
@@ -296,139 +448,230 @@ const storageGaugeOption = computed(() => {
         min: 0,
         max: 100,
         radius: '100%',
-        progress: {
-          show: true,
-          width: 12,
-          itemStyle: { color: valueColor },
-        },
-        axisLine: {
-          lineStyle: {
-            width: 12,
-            color: [[1, trackColor]],
-          },
-        },
+        progress: { show: true, width: 12, itemStyle: { color: valueColor } },
+        axisLine: { lineStyle: { width: 12, color: [[1, trackColor]] } },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: { show: false },
         pointer: { show: false },
         anchor: { show: false },
-        title: {
-          show: true,
-          offsetCenter: [0, '32%'],
-          color: themeStore.isDark ? '#8d9bae' : '#7b8a9a',
-          fontSize: 12,
-        },
-        detail: {
-          valueAnimation: true,
-          formatter: '{value}%',
-          offsetCenter: [0, '-4%'],
-          color: textColor,
-          fontSize: 26,
-          fontWeight: 700,
-        },
+        title: { show: true, offsetCenter: [0, '34%'], color: themeStore.isDark ? '#8d9bae' : '#7b8a9a', fontSize: 12 },
+        detail: { valueAnimation: true, formatter: '{value}%', offsetCenter: [0, '-4%'], color: textColor, fontSize: 28, fontWeight: 700 },
         data: [{ value: storagePercent.value, name: storageLevelText.value }],
       },
     ],
   }
 })
 
-const expiryRows = computed<DashboardRow[]>(() => {
-  if (!recent.value) return []
-  const rows: DashboardRow[] = []
-  ;(recent.value.expiring_companies || []).forEach((item) => {
-    rows.push({
-      key: `company-${item.id}`,
-      title: item.company_name,
-      desc: '企业有效期即将到期',
-      time: formatDateTime(item.valid_until),
-      tone: 'tone-amber',
-    })
-  })
-  ;(recent.value.expiring_licenses || []).forEach((item) => {
-    rows.push({
-      key: `license-${item.id}`,
-      title: item.username || `用户 ${item.user_id ?? '-'}`,
-      desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`,
-      time: formatDateTime(item.valid_until),
-      tone: 'tone-blue',
-    })
-  })
-  ;(recent.value.expiring_users || []).forEach((item) => {
-    rows.push({
-      key: `user-${item.id}`,
-      title: item.username,
-      desc: roleLabel(item.role_code),
-      time: formatDateTime(item.trial_expires_at || item.temporary_expires_at),
-      tone: 'tone-amber',
-    })
-  })
-  return rows.slice(0, 10)
+const storageAdvice = computed(() => {
+  if (!storage.value) return ''
+  if (storageLevel.value === 'warn') return '容量已达到红色警戒线，建议清理临时文件、超期日志或安排扩容。'
+  if (storageLevel.value === 'soft') return '容量进入黄色提醒区间，建议关注增长速度并评估归档策略。'
+  return '容量处于正常区间。'
 })
 
-const eventSections = computed<DashboardSection[]>(() => {
-  if (!recent.value) return []
-  const sections: DashboardSection[] = []
+const expiryRows = computed<EventRow[]>(() => {
+  const rows: EventRow[] = []
+  ;(recent.value?.expiring_companies || []).forEach((item) => {
+    rows.push({ key: `company-${item.id}`, title: item.company_name, desc: '企业有效期即将到期', time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'amber', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'companies' }) : undefined })
+  })
+  ;(recent.value?.expiring_licenses || []).forEach((item) => {
+    rows.push({ key: `license-${item.id}`, title: item.username || `用户 ${item.user_id ?? '-'}`, desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`, time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'blue', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'licenses' }) : undefined })
+  })
+  ;(recent.value?.expiring_users || []).forEach((item) => {
+    rows.push({ key: `user-${item.id}`, title: item.username, desc: roleLabel(item.role_code), time: formatDateTime(item.trial_expires_at || item.temporary_expires_at), sortAt: item.trial_expires_at || item.temporary_expires_at, tone: 'amber', route: () => router.push({ name: 'users' }) })
+  })
+  return rows.slice(0, 12)
+})
 
+const failedRows = computed<EventRow[]>(() =>
+  (recent.value?.failed_uploads || []).slice(0, 8).map((item) => ({
+    key: `failed-${item.file_id}`,
+    title: item.original_filename || item.file_id,
+    desc: `${objectTypeLabel(item.object_type)} / ${item.parse_message || item.upload_status}`,
+    time: formatDateTime(item.created_at),
+    sortAt: item.created_at,
+    tone: 'red',
+    route: authStore.isSuperAdmin ? goFailedUploads : undefined,
+  })),
+)
+
+const riskRows = computed<EventRow[]>(() =>
+  (recent.value?.high_risks || []).slice(0, 8).map((item) => ({
+    key: `risk-${item.id}`,
+    title: item.risk_type,
+    desc: `${riskLevelLabel(item.risk_level)} / 企业 ${item.company_id ?? '-'} / 用户 ${item.user_id ?? '-'}`,
+    time: formatDateTime(item.created_at),
+    sortAt: item.created_at,
+    tone: 'red',
+    route: authStore.isSuperAdmin ? goRisks : undefined,
+  })),
+)
+
+const syncRows = computed<EventRow[]>(() =>
+  (recent.value?.recent_uploads || []).slice(0, 8).map((item) => ({
+    key: `sync-${item.file_id}`,
+    title: item.original_filename || item.file_id,
+    desc: `${clientTypeLabel(item.source_client)} / ${objectTypeLabel(item.object_type)} / ${item.project_uuid || '-'}`,
+    time: formatDateTime(item.created_at),
+    sortAt: item.created_at,
+    tone: 'green',
+    route: authStore.isSuperAdmin ? () => router.push({ name: 'sync-files' }) : undefined,
+  })),
+)
+
+const auditRows = computed<EventRow[]>(() =>
+  auditEvents.value.slice(0, 8).map((item) => ({
+    key: `audit-${item.id || item.event_id}`,
+    title: `${item.module} / ${item.action}`,
+    desc: `${auditResultLabel(item.result)} / ${item.message || item.ip || '-'}`,
+    time: formatDateTime(item.created_at || item.server_ts),
+    sortAt: item.created_at || item.server_ts,
+    tone: item.result === 'success' ? 'green' : item.result === 'failed' ? 'red' : 'amber',
+    route: () => router.push({ name: 'audit' }),
+  })),
+)
+
+const messageRows = computed<EventRow[]>(() => {
+  const rows: Array<EventRow & { sortAt: string }> = []
   if (authStore.isSuperAdmin) {
-    sections.push({
-      key: 'failed',
-      title: '最近失败上传',
-      subtitle: '需要排查的同步失败',
-      actionLabel: '文件同步',
-      action: goFailedUploads,
-      emptyText: '暂无失败上传',
-      rows: (recent.value.failed_uploads || []).slice(0, 6).map((item) => ({
-        key: `failed-${item.file_id}`,
-        title: item.original_filename || item.file_id,
-        desc: `${objectTypeLabel(item.object_type)} / ${item.parse_message || item.upload_status}`,
-        time: formatDateTime(item.created_at),
-        tone: 'tone-red',
-      })),
-    })
-    sections.push({
-      key: 'risks',
-      title: '最近高风险',
-      subtitle: '安全风险待处理线索',
-      actionLabel: '安全风险',
-      action: goRisks,
-      emptyText: '暂无高风险事件',
-      rows: (recent.value.high_risks || []).slice(0, 6).map((item) => ({
-        key: `risk-${item.id}`,
-        title: item.risk_type,
-        desc: `${riskLevelLabel(item.risk_level)} / 企业 ${item.company_id ?? '-'} / 用户 ${item.user_id ?? '-'}`,
-        time: formatDateTime(item.created_at),
-        tone: 'tone-red',
-      })),
-    })
-    sections.push({
-      key: 'sync',
-      title: '最近同步',
-      subtitle: '最近完成的文件同步',
-      actionLabel: '文件同步',
-      action: () => router.push({ name: 'sync-files' }),
-      emptyText: '暂无同步记录',
-      rows: (recent.value.recent_uploads || []).slice(0, 6).map((item) => ({
-        key: `sync-${item.file_id}`,
-        title: item.original_filename || item.file_id,
-        desc: `${clientTypeLabel(item.source_client)} / ${objectTypeLabel(item.object_type)} / ${item.project_uuid || '-'}`,
-        time: formatDateTime(item.created_at),
-        tone: 'tone-green',
-      })),
-    })
+    failedRows.value.forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
+    riskRows.value.forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
+    syncRows.value.slice(0, 4).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
   }
-
-  sections.push({
-    key: 'expiry',
-    title: '近期到期明细',
-    subtitle: `${summary.value?.expiring.window_days || 30} 天窗口`,
-    actionLabel: authStore.isBackOfficeScopeAll ? '授权' : undefined,
-    action: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'licenses' }) : undefined,
-    emptyText: '暂无近期到期项',
-    rows: expiryRows.value,
-  })
-
-  return sections
+  expiryRows.value.slice(0, 4).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
+  auditRows.value.slice(0, 6).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
+  return rows.sort((a, b) => timeValue(b.sortAt) - timeValue(a.sortAt)).slice(0, 12)
 })
+
+const todayFailureRate = computed(() => {
+  if (!summary.value || summary.value.today_upload_count <= 0) return '0%'
+  return formatPercent((summary.value.today_failed_count / summary.value.today_upload_count) * 100)
+})
+
+const serverPanelVisible = computed(() => authStore.isSuperAdmin && visibleLayout.value.some((item) => item.i === 'server'))
+
+watch(
+  () => [layoutKey.value, authStore.roleCode],
+  () => loadLayout(),
+  { immediate: true },
+)
+
+watch(serverPanelVisible, (visible) => {
+  stopServerMetricsPolling()
+  if (visible) {
+    void loadServerMetrics(true)
+    serverMetricsTimer = window.setInterval(() => {
+      void loadServerMetrics(true)
+    }, 8_000)
+  }
+})
+
+function loadLayout() {
+  layoutReady.value = false
+  const stored = localStorage.getItem(layoutKey.value)
+  layout.value = stored ? sanitizeLayout(stored) : defaultLayout()
+  void nextTick(() => {
+    layoutReady.value = true
+  })
+}
+
+function defaultLayout() {
+  return availablePanelIds.value.map((id) => cloneLayoutItem(panelDefinitions[id].defaultItem))
+}
+
+function cloneLayoutItem(item: DashboardLayoutItem): DashboardLayoutItem {
+  return { ...item }
+}
+
+function sanitizeLayout(raw: string) {
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return defaultLayout()
+    const sanitized = sanitizeLayoutItems(parsed)
+    return sanitized.length ? sanitized : defaultLayout()
+  } catch {
+    return defaultLayout()
+  }
+}
+
+function sanitizeLayoutItems(items: unknown[]) {
+  const seen = new Set<PanelId>()
+  const next: DashboardLayoutItem[] = []
+  items.forEach((item) => {
+    if (!isRecord(item) || !isPanelId(item.i) || seen.has(item.i) || !availablePanelIds.value.includes(item.i)) return
+    const def = panelDefinitions[item.i]
+    next.push({
+      ...def.defaultItem,
+      x: clampInt(item.x, 0, 11),
+      y: Math.max(0, toInt(item.y, def.defaultItem.y)),
+      w: clampInt(item.w, def.defaultItem.minW || 1, 12),
+      h: clampInt(item.h, def.defaultItem.minH || 1, 12),
+      i: item.i,
+    })
+    seen.add(item.i)
+  })
+  return next
+}
+
+function persistLayout() {
+  if (!layoutReady.value || isNarrow.value) return
+  localStorage.setItem(layoutKey.value, JSON.stringify(visibleLayout.value.map((item) => ({ i: item.i, x: item.x, y: item.y, w: item.w, h: item.h, minW: item.minW, minH: item.minH }))))
+}
+
+function handleLayoutUpdated(items: LayoutItem[]) {
+  if (isNarrow.value) return
+  const sanitized = sanitizeLayoutItems(items)
+  if (sanitized.length) {
+    layout.value = sanitized
+    persistLayout()
+  }
+}
+
+function addPanel(key: string | number) {
+  if (!isPanelId(key)) return
+  const y = visibleLayout.value.reduce((max, item) => Math.max(max, item.y + item.h), 0)
+  layout.value = [...visibleLayout.value, { ...panelDefinitions[key].defaultItem, y }]
+  void nextTick(persistLayout)
+}
+
+function removePanel(id: PanelId) {
+  if (visibleLayout.value.length <= 1) return
+  layout.value = visibleLayout.value.filter((item) => item.i !== id)
+  void nextTick(persistLayout)
+}
+
+function resetLayout() {
+  layout.value = defaultLayout()
+  void nextTick(persistLayout)
+  message.success('已恢复默认布局')
+}
+
+function panelTitle(id: PanelId) {
+  return panelDefinitions[id].title
+}
+
+function panelSubtitle(id: PanelId) {
+  if (id === 'storage' && storage.value) return `${storage.value.provider || 'local'} / ${storageLevelText.value}`
+  if (id === 'server' && serverMetrics.value) return `快照 ${formatDateTime(serverMetrics.value.generated_at)}`
+  return panelDefinitions[id].description
+}
+
+function panelActionLabel(id: PanelId) {
+  if (id === 'expiry' && authStore.isBackOfficeScopeAll) return '授权'
+  if (id === 'failed' || id === 'sync') return authStore.isSuperAdmin ? '文件同步' : ''
+  if (id === 'risks') return authStore.isSuperAdmin ? '安全风险' : ''
+  if (id === 'audit') return '操作记录'
+  return ''
+}
+
+function runPanelAction(id: PanelId) {
+  if (id === 'expiry' && authStore.isBackOfficeScopeAll) router.push({ name: 'licenses' })
+  if (id === 'failed') goFailedUploads()
+  if (id === 'sync' && authStore.isSuperAdmin) router.push({ name: 'sync-files' })
+  if (id === 'risks') goRisks()
+  if (id === 'audit') router.push({ name: 'audit' })
+}
 
 async function loadStorage() {
   if (!authStore.isSuperAdmin) {
@@ -449,6 +692,31 @@ async function loadStorage() {
   }
 }
 
+async function loadServerMetrics(silent = false) {
+  if (!authStore.isSuperAdmin) {
+    serverMetrics.value = null
+    serverMetricsError.value = '服务器指标仅 superadmin 可见'
+    return
+  }
+  try {
+    serverMetrics.value = await opsApi.serverMetrics(80)
+    serverMetricsError.value = ''
+  } catch (error) {
+    serverMetrics.value = null
+    if (error instanceof ApiError && error.code === 12001) {
+      serverMetricsError.value = '服务器指标仅 superadmin 可见'
+      return
+    }
+    serverMetricsError.value = error instanceof Error ? error.message : '服务器指标加载失败'
+    if (!silent) errorText.value = serverMetricsError.value
+  }
+}
+
+async function loadAuditEvents() {
+  const resp = await auditApi.list({ page: 1, page_size: 8 })
+  auditEvents.value = resp.list || []
+}
+
 async function loadAll() {
   loading.value = true
   errorText.value = ''
@@ -456,12 +724,16 @@ async function loadAll() {
     const [summaryResult, recentResult] = await Promise.all([opsApi.summary(), opsApi.recentEvents()])
     summary.value = summaryResult
     recent.value = recentResult
-    await loadStorage()
+    await Promise.all([loadAuditEvents(), loadStorage(), authStore.isSuperAdmin ? loadServerMetrics(true) : Promise.resolve()])
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '控制台数据加载失败'
   } finally {
     loading.value = false
   }
+}
+
+function handleEventRow(row: EventRow) {
+  row.route?.()
 }
 
 function goFailedUploads() {
@@ -474,17 +746,77 @@ function goRisks() {
   router.push({ name: 'risks' })
 }
 
+function stopServerMetricsPolling() {
+  if (serverMetricsTimer) {
+    window.clearInterval(serverMetricsTimer)
+    serverMetricsTimer = 0
+  }
+}
+
+function isPanelId(value: unknown): value is PanelId {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(panelDefinitions, value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object')
+}
+
+function toInt(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.round(parsed) : fallback
+}
+
+function clampInt(value: unknown, min: number, max: number) {
+  return Math.min(max, Math.max(min, toInt(value, min)))
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
+function metricColor(value: number) {
+  if (value >= 85) return '#de5f59'
+  if (value >= 70) return '#d8912f'
+  return '#27a76a'
+}
+
+function formatMetricPercent(value: number) {
+  return formatPercent(value)
+}
+
+function formatShortTime(value?: string | null) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+}
+
+function timeValue(value: string) {
+  const time = new Date(value).getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
+function formatUptime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0 分钟'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days} 天 ${hours} 小时`
+  if (hours > 0) return `${hours} 小时 ${minutes} 分钟`
+  return `${minutes} 分钟`
+}
+
 onMounted(() => {
-  loadAll()
+  void loadAll()
   refreshTimer = window.setInterval(() => {
-    if (!loading.value) {
-      loadAll()
-    }
+    if (!loading.value) void loadAll()
   }, 90_000)
 })
 
 onBeforeUnmount(() => {
   window.clearInterval(refreshTimer)
+  stopServerMetricsPolling()
 })
 </script>
 
@@ -492,86 +824,75 @@ onBeforeUnmount(() => {
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   padding: var(--layout-padding);
 }
 
-.console-hero,
-.dashboard-card,
-.metric-card {
-  border: 1px solid var(--yy-border);
-  border-radius: var(--radius-md);
-  background: var(--yy-surface);
-  box-shadow: 0 8px 20px var(--yy-shadow);
-}
-
-.console-hero {
+.console-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
   padding: 20px;
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-md);
+  background: var(--yy-surface);
+  box-shadow: 0 10px 26px var(--yy-shadow);
 }
 
-.console-hero__copy {
+.console-head__copy {
   min-width: 0;
 }
 
-.console-hero__eyebrow,
-.console-hero__time,
-.section-head span,
-.metric-card small,
-.event-row span,
-.event-row time,
-.storage-meta span {
+.console-head__copy span,
+.console-head__time {
   color: var(--yy-text-muted);
   font-size: 12px;
 }
 
-.console-hero h1 {
+.console-head h1 {
   margin: 5px 0 4px;
   color: var(--yy-text);
   font-size: 24px;
   line-height: 1.2;
 }
 
-.console-hero p {
+.console-head p {
   margin: 0;
   color: var(--yy-text-secondary);
 }
 
-.console-hero__actions {
+.console-head__actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.metric-grid,
-.overview-grid,
-.event-grid {
-  display: grid;
-  gap: 14px;
+.dashboard-grid {
+  min-height: 420px;
+  --vgl-placeholder-bg: var(--yy-primary);
+  --vgl-placeholder-opacity: 12%;
+  --vgl-resizer-border-color: var(--yy-primary);
 }
 
 .metric-grid {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.overview-grid {
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
-}
-
-.event-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  height: 100%;
 }
 
 .metric-card {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   gap: 12px;
-  width: 100%;
-  min-height: 128px;
-  padding: 16px;
+  align-items: center;
+  min-height: 108px;
+  padding: 14px;
+  border: 1px solid var(--yy-border);
+  border-radius: 8px;
+  background: var(--yy-surface-soft);
   color: var(--yy-text);
   text-align: left;
 }
@@ -580,211 +901,193 @@ onBeforeUnmount(() => {
   cursor: default;
 }
 
-.metric-card--action {
-  cursor: pointer;
-}
-
-.metric-card--action:hover {
-  border-color: var(--yy-primary);
-  transform: translateY(-1px);
-}
-
 .metric-card__icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  background: var(--yy-fill);
-  font-size: 22px;
+  background: rgba(47, 122, 240, 0.12);
+  color: #2f7af0;
+  font-size: 21px;
 }
 
 .metric-card__body {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 8px;
-}
-
-.metric-card__label {
-  color: var(--yy-text-secondary);
-  font-size: 13px;
-}
-
-.metric-card strong {
-  overflow-wrap: anywhere;
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.dashboard-card {
-  min-width: 0;
-  padding: 16px;
-}
-
-.section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.section-head div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
   gap: 4px;
 }
 
-.section-head strong {
-  font-size: 15px;
+.metric-card small,
+.metric-card em,
+.server-metrics span,
+.business-item span,
+.storage-meta span {
+  color: var(--yy-text-muted);
+  font-size: 12px;
+  font-style: normal;
 }
 
-.expiry-grid {
+.metric-card strong {
+  overflow: hidden;
+  color: var(--yy-text);
+  font-size: 24px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-card--green .metric-card__icon {
+  background: rgba(39, 167, 106, 0.14);
+  color: #27a76a;
+}
+
+.metric-card--amber .metric-card__icon {
+  background: rgba(216, 145, 47, 0.16);
+  color: #d8912f;
+}
+
+.metric-card--red .metric-card__icon {
+  background: rgba(222, 95, 89, 0.14);
+  color: #de5f59;
+}
+
+.server-metrics {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.server-metrics__top {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-.expiry-item {
+.server-metrics__top > div,
+.business-item {
   display: flex;
-  min-height: 92px;
+  min-width: 0;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 14px;
+  gap: 5px;
+  padding: 12px;
   border: 1px solid var(--yy-border);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   background: var(--yy-surface-soft);
+}
+
+.server-metrics__top strong,
+.business-item strong,
+.storage-meta strong {
   color: var(--yy-text);
-  cursor: pointer;
-  text-align: left;
+  font-size: 20px;
+  line-height: 1.15;
 }
 
-.expiry-item:hover {
-  border-color: var(--yy-primary);
+.server-bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.expiry-item span {
-  color: var(--yy-text-secondary);
-  font-size: 13px;
+.server-bar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.expiry-item strong {
-  font-size: 30px;
+.server-bar > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trend-chart {
+  flex: 1;
+  min-height: 170px;
 }
 
 .storage-layout {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  align-items: center;
+  grid-template-columns: minmax(170px, 0.9fr) minmax(0, 1fr);
   gap: 14px;
+  align-items: center;
+  height: 100%;
 }
 
 .storage-chart {
-  width: 160px;
-  height: 132px;
+  height: 210px;
+  min-width: 0;
 }
 
 .storage-meta {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: 9px;
 }
 
-.storage-meta strong {
-  font-size: 24px;
+.storage-advice {
+  margin-top: 3px;
 }
 
-.storage-alert {
-  margin-top: 10px;
-}
-
-.event-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.event-row {
+.business-grid {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 46px;
-  padding: 10px;
-  border-radius: var(--radius-md);
-  background: var(--yy-surface-soft);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  height: 100%;
+  align-content: start;
 }
 
-.event-row__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
+.text-green {
+  color: var(--yy-green) !important;
 }
 
-.event-row__content {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
+.text-red {
+  color: var(--yy-red) !important;
 }
 
-.event-row strong,
-.event-row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tone-blue {
-  color: var(--yy-primary);
-}
-
-.tone-green {
-  color: var(--yy-green);
-}
-
-.tone-amber {
-  color: var(--yy-amber);
-}
-
-.tone-red {
-  color: var(--yy-red);
-}
-
-@media (max-width: 1280px) {
-  .metric-grid,
-  .event-grid {
+@media (max-width: 1180px) {
+  .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .overview-grid {
-    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
   .dashboard-page {
+    gap: 14px;
     padding: 12px;
   }
 
-  .console-hero,
-  .console-hero__actions {
-    align-items: flex-start;
+  .console-head {
+    align-items: stretch;
     flex-direction: column;
+    padding: 16px;
+  }
+
+  .console-head__actions {
+    justify-content: flex-start;
   }
 
   .metric-grid,
-  .event-grid,
-  .expiry-grid {
+  .server-metrics__top,
+  .server-bars,
+  .storage-layout,
+  .business-grid {
     grid-template-columns: 1fr;
   }
 
-  .storage-layout {
-    grid-template-columns: 1fr;
+  .metric-card {
+    min-height: 96px;
+  }
+
+  .storage-chart {
+    height: 180px;
   }
 }
 </style>

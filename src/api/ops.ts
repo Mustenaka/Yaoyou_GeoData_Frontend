@@ -1,6 +1,7 @@
 import request from './request'
 import type {
   DashboardRecentEvents,
+  DashboardServerMetrics,
   DashboardStorage,
   DashboardSummary,
   MaintenanceBackupResponse,
@@ -15,6 +16,9 @@ export const opsApi = {
   },
   storage() {
     return request.get<DashboardStorage, DashboardStorage>('/admin/dashboard/storage')
+  },
+  serverMetrics(limit = 60) {
+    return request.get<DashboardServerMetrics, DashboardServerMetrics>('/admin/dashboard/server-metrics', { params: { limit } })
   },
   recentEvents() {
     return request.get<DashboardRecentEvents, DashboardRecentEvents>('/admin/dashboard/recent-events')

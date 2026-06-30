@@ -642,6 +642,40 @@ export interface DashboardStorage {
   cache_ttl_seconds: number
 }
 
+export interface DashboardServerMetricSample {
+  id: number
+  cpu_usage: number
+  memory_usage: number
+  disk_usage: number
+  goroutine_num: number
+  active_ws: number
+  storage_used_bytes: number
+  upload_failed_count: number
+  high_risk_count: number
+  expiring_count: number
+  created_at: string
+}
+
+export interface DashboardServerMetrics {
+  generated_at: string
+  uptime_seconds: number
+  service_status: ServiceHealth
+  cpu_usage: number
+  memory_usage: number
+  disk_usage: number
+  goroutine_num: number
+  active_ws: number
+  storage_used_bytes: number
+  storage_used_gb: number
+  storage_soft_limit_gb: number
+  storage_warn_limit_gb: number
+  storage_status: 'normal' | 'soft' | 'warn' | string
+  runtime_history: DashboardServerMetricSample[]
+  runtime_history_limit: number
+  runtime_history_count: number
+  runtime_history_updated?: string | null
+}
+
 export interface DashboardFileEvent {
   file_id: string
   company_id?: number | null
