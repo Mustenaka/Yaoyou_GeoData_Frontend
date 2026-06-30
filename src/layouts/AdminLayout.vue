@@ -65,11 +65,43 @@
       </n-layout-content>
     </n-layout>
   </n-layout>
+
+  <n-modal v-model:show="passwordModalVisible" preset="card" title="修改密码" style="width: 420px">
+    <n-form ref="passwordFormRef" :model="passwordForm" :rules="changePasswordRules" label-placement="top">
+      <n-form-item label="当前密码" path="current_password">
+        <n-input v-model:value="passwordForm.current_password" type="password" show-password-on="click" />
+      </n-form-item>
+      <n-form-item label="新密码" path="new_password">
+        <n-input
+          :value="passwordForm.new_password"
+          type="password"
+          show-password-on="click"
+          :placeholder="passwordPolicyText"
+          @update:value="handleNewPasswordUpdate"
+        />
+      </n-form-item>
+      <n-form-item label="确认新密码" path="confirm_password">
+        <n-input
+          :value="passwordForm.confirm_password"
+          type="password"
+          show-password-on="click"
+          :placeholder="passwordPolicyText"
+          @update:value="handleConfirmPasswordUpdate"
+        />
+      </n-form-item>
+    </n-form>
+    <template #footer>
+      <n-space justify="end">
+        <n-button @click="passwordModalVisible = false">取消</n-button>
+        <n-button type="primary" :loading="passwordSaving" @click="submitPasswordChange">保存</n-button>
+      </n-space>
+    </template>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, ref, watch } from 'vue'
-import { NIcon, type MenuOption } from 'naive-ui'
+import { computed, h, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { NIcon, useMessage, type FormInst, type FormRules, type MenuOption } from 'naive-ui'
 import {
   AlertCircleOutline,
   BusinessOutline,
@@ -89,18 +121,50 @@ import {
 import type { RouteRecordRaw } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
 import type { RoleCode } from '@/types/api'
+import { passwordPolicyText, stripSpaces, validatePasswordInput } from '@/utils/accountPolicy'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const message = useMessage()
 const collapsed = ref(false)
 const expandedKeys = ref<string[]>([])
 const nowText = ref(new Date().toLocaleString('zh-CN', { hour12: false }))
+const passwordModalVisible = ref(false)
+const passwordSaving = ref(false)
+const passwordFormRef = ref<FormInst | null>(null)
+const passwordForm = reactive({
+  current_password: '',
+  new_password: '',
+  confirm_password: '',
+})
 
 const timer = window.setInterval(() => {
   nowText.value = new Date().toLocaleString('zh-CN', { hour12: false })
 }, 1000)
+
+const changePasswordRules: FormRules = {
+  current_password: [{ required: true, message: '请输入当前密码', trigger: ['blur', 'input'] }],
+  new_password: [
+    { required: true, message: '请输入新密码', trigger: ['blur', 'input'] },
+    {
+      validator: () => {
+        const error = validatePasswordInput(passwordForm.new_password)
+        return error ? new Error(error) : true
+      },
+      trigger: ['blur', 'input'],
+    },
+  ],
+  confirm_password: [
+    { required: true, message: '请再次输入新密码', trigger: ['blur', 'input'] },
+    {
+      validator: () => (passwordForm.confirm_password === passwordForm.new_password ? true : new Error('两次输入的新密码不一致')),
+      trigger: ['blur', 'input'],
+    },
+  ],
+}
 
 const displayName = computed(() => authStore.username || '管理员')
 const currentTitle = computed(() => String(route.meta.title || '系统控制台'))
@@ -212,6 +276,11 @@ const visibleMenuOptions = computed<MenuOption[]>(() => {
 
 const dropdownOptions = [
   {
+    label: '修改密码',
+    key: 'change-password',
+    icon: renderIcon(KeyOutline),
+  },
+  {
     label: '退出登录',
     key: 'logout',
     icon: renderIcon(LogOutOutline),
@@ -224,9 +293,48 @@ function onNavigate(key: string) {
 }
 
 async function handleUserAction(key: string) {
+  if (key === 'change-password') {
+    openPasswordModal()
+    return
+  }
   if (key !== 'logout') return
   await authStore.logout()
   router.push({ name: 'login' })
+}
+
+function resetPasswordForm() {
+  passwordForm.current_password = ''
+  passwordForm.new_password = ''
+  passwordForm.confirm_password = ''
+}
+
+function openPasswordModal() {
+  resetPasswordForm()
+  passwordModalVisible.value = true
+}
+
+function handleNewPasswordUpdate(value: string) {
+  passwordForm.new_password = stripSpaces(value)
+}
+
+function handleConfirmPasswordUpdate(value: string) {
+  passwordForm.confirm_password = stripSpaces(value)
+}
+
+async function submitPasswordChange() {
+  await passwordFormRef.value?.validate()
+  passwordSaving.value = true
+  try {
+    await authApi.changePassword({
+      current_password: passwordForm.current_password,
+      new_password: passwordForm.new_password,
+    })
+    message.success('密码已修改')
+    passwordModalVisible.value = false
+    resetPasswordForm()
+  } finally {
+    passwordSaving.value = false
+  }
 }
 
 onBeforeUnmount(() => {

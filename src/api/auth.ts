@@ -8,6 +8,11 @@ export interface LoginPayload {
   app_version?: string
 }
 
+export interface PasswordChangePayload {
+  current_password: string
+  new_password: string
+}
+
 export const authApi = {
   login(payload: LoginPayload) {
     return request.post<LoginResponse, LoginResponse>('/auth/login', payload)
@@ -20,5 +25,8 @@ export const authApi = {
   },
   me() {
     return request.get<MeResponse, MeResponse>('/auth/me')
+  },
+  changePassword(payload: PasswordChangePayload) {
+    return request.post<{ changed: boolean }, { changed: boolean }>('/auth/password/change', payload)
   },
 }

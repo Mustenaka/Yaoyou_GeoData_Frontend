@@ -31,10 +31,16 @@
       <n-drawer-content :title="editingId ? '编辑用户' : '新建用户'">
         <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
           <n-form-item label="用户名" path="username">
-            <n-input v-model:value="form.username" :disabled="Boolean(editingId)" />
+            <n-input :value="form.username" :disabled="Boolean(editingId)" @update:value="handleUsernameUpdate" />
           </n-form-item>
-          <n-form-item v-if="!editingId" label="初始密码">
-            <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="留空则后端生成临时密码" />
+          <n-form-item v-if="!editingId" label="初始密码" path="password">
+            <n-input
+              :value="form.password"
+              type="password"
+              show-password-on="click"
+              :placeholder="passwordPolicyText"
+              @update:value="handleCreatePasswordUpdate"
+            />
           </n-form-item>
           <n-grid :cols="2" :x-gap="12">
             <n-grid-item>
@@ -90,7 +96,17 @@
     </n-drawer>
 
     <n-modal v-model:show="passwordModalVisible" preset="dialog" title="重置密码" positive-text="重置" negative-text="取消" @positive-click="submitResetPassword">
-      <n-input v-model:value="passwordForm.password" type="password" show-password-on="click" placeholder="留空则后端生成临时密码" />
+      <n-space vertical>
+        <n-input
+          :value="passwordForm.password"
+          type="password"
+          show-password-on="click"
+          :placeholder="passwordPolicyText"
+          :status="resetPasswordPolicyError ? 'error' : undefined"
+          @update:value="handleResetPasswordUpdate"
+        />
+        <n-text v-if="resetPasswordPolicyError" type="error">{{ resetPasswordPolicyError }}</n-text>
+      </n-space>
     </n-modal>
   </div>
 </template>
@@ -106,6 +122,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { RoleCode, UserItem, UserPayload, UserStatus } from '@/types/api'
 import { roleLabel, roleOptions, userStatusLabel, userStatusOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { passwordPolicyText, stripSpaces, validateOptionalPasswordInput, validateUsernameInput } from '@/utils/accountPolicy'
 
 const authStore = useAuthStore()
 const message = useMessage()
@@ -152,6 +169,7 @@ const form = reactive<UserPayload>({
 })
 
 const passwordForm = reactive({ password: '' })
+const resetPasswordPolicyError = computed(() => validateOptionalPasswordInput(passwordForm.password))
 
 const assignableRoleValues = computed<RoleCode[]>(() => {
   if (authStore.isSuperAdmin) return roleOptions.map((item) => item.value)
@@ -162,7 +180,25 @@ const assignableRoleValues = computed<RoleCode[]>(() => {
 const availableRoleOptions = computed(() => roleOptions.filter((item) => assignableRoleValues.value.includes(item.value)))
 
 const rules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: ['blur', 'input'] }],
+  username: [
+    { required: true, message: '请输入用户名', trigger: ['blur', 'input'] },
+    {
+      validator: () => {
+        const error = validateUsernameInput(form.username)
+        return error ? new Error(error) : true
+      },
+      trigger: ['blur', 'input'],
+    },
+  ],
+  password: [
+    {
+      validator: () => {
+        const error = validateOptionalPasswordInput(form.password)
+        return error ? new Error(error) : true
+      },
+      trigger: ['blur', 'input'],
+    },
+  ],
 }
 
 const columns: DataTableColumns<UserItem> = [
@@ -248,6 +284,18 @@ function handlePageSize(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   fetchList()
+}
+
+function handleUsernameUpdate(value: string) {
+  form.username = stripSpaces(value)
+}
+
+function handleCreatePasswordUpdate(value: string) {
+  form.password = stripSpaces(value)
+}
+
+function handleResetPasswordUpdate(value: string) {
+  passwordForm.password = stripSpaces(value)
 }
 
 function resetForm() {
@@ -376,6 +424,11 @@ function openResetPassword(row: UserItem) {
 
 async function submitResetPassword() {
   if (!resettingUserId.value) return
+  const policyError = validateOptionalPasswordInput(passwordForm.password)
+  if (policyError) {
+    message.error(policyError)
+    return
+  }
   const result = await userApi.resetPassword(resettingUserId.value, passwordForm.password)
   if (result.temporary_password) {
     message.success(`临时密码：${result.temporary_password}`)
