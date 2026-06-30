@@ -698,12 +698,12 @@ export interface ExpiringCompanyEvent {
 
 export interface DashboardRecentEvents {
   generated_at: string
-  failed_uploads: DashboardFileEvent[]
-  recent_uploads: DashboardFileEvent[]
-  high_risks: DashboardRiskEvent[]
-  expiring_licenses: ExpiringLicenseEvent[]
-  expiring_users: ExpiringUserEvent[]
-  expiring_companies: ExpiringCompanyEvent[]
+  failed_uploads: DashboardFileEvent[] | null
+  recent_uploads: DashboardFileEvent[] | null
+  high_risks: DashboardRiskEvent[] | null
+  expiring_licenses: ExpiringLicenseEvent[] | null
+  expiring_users: ExpiringUserEvent[] | null
+  expiring_companies: ExpiringCompanyEvent[] | null
 }
 
 export interface SystemSettings {

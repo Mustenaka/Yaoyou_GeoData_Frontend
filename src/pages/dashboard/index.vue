@@ -335,7 +335,7 @@ const storageGaugeOption = computed(() => {
 const expiryRows = computed<DashboardRow[]>(() => {
   if (!recent.value) return []
   const rows: DashboardRow[] = []
-  recent.value.expiring_companies.forEach((item) => {
+  ;(recent.value.expiring_companies || []).forEach((item) => {
     rows.push({
       key: `company-${item.id}`,
       title: item.company_name,
@@ -344,7 +344,7 @@ const expiryRows = computed<DashboardRow[]>(() => {
       tone: 'tone-amber',
     })
   })
-  recent.value.expiring_licenses.forEach((item) => {
+  ;(recent.value.expiring_licenses || []).forEach((item) => {
     rows.push({
       key: `license-${item.id}`,
       title: item.username || `用户 ${item.user_id ?? '-'}`,
@@ -353,7 +353,7 @@ const expiryRows = computed<DashboardRow[]>(() => {
       tone: 'tone-blue',
     })
   })
-  recent.value.expiring_users.forEach((item) => {
+  ;(recent.value.expiring_users || []).forEach((item) => {
     rows.push({
       key: `user-${item.id}`,
       title: item.username,
@@ -377,7 +377,7 @@ const eventSections = computed<DashboardSection[]>(() => {
       actionLabel: '文件同步',
       action: goFailedUploads,
       emptyText: '暂无失败上传',
-      rows: recent.value.failed_uploads.slice(0, 6).map((item) => ({
+      rows: (recent.value.failed_uploads || []).slice(0, 6).map((item) => ({
         key: `failed-${item.file_id}`,
         title: item.original_filename || item.file_id,
         desc: `${objectTypeLabel(item.object_type)} / ${item.parse_message || item.upload_status}`,
@@ -392,7 +392,7 @@ const eventSections = computed<DashboardSection[]>(() => {
       actionLabel: '安全风险',
       action: goRisks,
       emptyText: '暂无高风险事件',
-      rows: recent.value.high_risks.slice(0, 6).map((item) => ({
+      rows: (recent.value.high_risks || []).slice(0, 6).map((item) => ({
         key: `risk-${item.id}`,
         title: item.risk_type,
         desc: `${riskLevelLabel(item.risk_level)} / 企业 ${item.company_id ?? '-'} / 用户 ${item.user_id ?? '-'}`,
@@ -407,7 +407,7 @@ const eventSections = computed<DashboardSection[]>(() => {
       actionLabel: '文件同步',
       action: () => router.push({ name: 'sync-files' }),
       emptyText: '暂无同步记录',
-      rows: recent.value.recent_uploads.slice(0, 6).map((item) => ({
+      rows: (recent.value.recent_uploads || []).slice(0, 6).map((item) => ({
         key: `sync-${item.file_id}`,
         title: item.original_filename || item.file_id,
         desc: `${clientTypeLabel(item.source_client)} / ${objectTypeLabel(item.object_type)} / ${item.project_uuid || '-'}`,
