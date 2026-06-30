@@ -193,6 +193,7 @@ const routeIcons: Record<string, unknown> = {
   dashboard: GridOutline,
   companies: BusinessOutline,
   users: PeopleOutline,
+  'registration-applications': DocumentTextOutline,
   licenses: KeyOutline,
   devices: DesktopOutline,
   'device-change-requests': TimeOutline,

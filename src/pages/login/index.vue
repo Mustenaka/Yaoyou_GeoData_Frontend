@@ -25,6 +25,9 @@
         <n-button type="primary" block size="large" :loading="submitting" @click="handleLogin">
           登录
         </n-button>
+        <div class="login-actions">
+          <router-link to="/apply">申请开通</router-link>
+        </div>
       </n-form>
     </section>
   </div>
@@ -128,5 +131,16 @@ async function handleLogin() {
   margin: 5px 0 0;
   color: var(--yy-text-secondary);
   font-size: 13px;
+}
+
+.login-actions {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.login-actions a {
+  color: var(--yy-primary);
+  text-decoration: none;
 }
 </style>

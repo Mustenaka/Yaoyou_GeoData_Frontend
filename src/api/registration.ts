@@ -1,0 +1,35 @@
+import request from './request'
+import type {
+  ListParams,
+  PageResult,
+  RegistrationApplication,
+  RegistrationApplicationPayload,
+  RegistrationApproveResponse,
+  RegistrationReceipt,
+  RegistrationStatus,
+} from '@/types/api'
+
+export interface RegistrationListParams extends ListParams {
+  status?: RegistrationStatus
+  keyword?: string
+  start_at?: string
+  end_at?: string
+}
+
+export const registrationApi = {
+  submit(payload: RegistrationApplicationPayload) {
+    return request.post<RegistrationReceipt, RegistrationReceipt>('/registration/applications', payload)
+  },
+  list(params: RegistrationListParams) {
+    return request.get<PageResult<RegistrationApplication>, PageResult<RegistrationApplication>>('/admin/registration/applications', { params })
+  },
+  detail(id: number) {
+    return request.get<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}`)
+  },
+  approve(id: number, note?: string) {
+    return request.post<RegistrationApproveResponse, RegistrationApproveResponse>(`/admin/registration/applications/${id}/approve`, { note: note || '' })
+  },
+  reject(id: number, note: string) {
+    return request.post<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}/reject`, { note })
+  },
+}

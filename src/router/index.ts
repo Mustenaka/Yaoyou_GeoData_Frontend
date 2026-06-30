@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '后台登录', requiresAuth: false },
   },
   {
+    path: '/apply',
+    name: 'apply',
+    component: () => import('@/pages/apply/index.vue'),
+    meta: { title: '开通申请', requiresAuth: false },
+  },
+  {
     path: '/',
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
@@ -45,6 +51,12 @@ const routes: RouteRecordRaw[] = [
         name: 'users',
         component: () => import('@/pages/user/index.vue'),
         meta: { title: '用户管理', roles: adminRoles },
+      },
+      {
+        path: 'registration/applications',
+        name: 'registration-applications',
+        component: () => import('@/pages/registration/index.vue'),
+        meta: { title: '注册申请', roles: adminRoles },
       },
       {
         path: 'licenses',

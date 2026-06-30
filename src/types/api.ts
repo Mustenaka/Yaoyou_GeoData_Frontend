@@ -41,6 +41,7 @@ export interface TokenUser {
   username: string
   role_code: RoleCode
   company_id?: number | null
+  must_change_password?: boolean
 }
 
 export interface TokenCompany {
@@ -75,6 +76,7 @@ export interface LoginResponse {
   policy: LoginPolicy
   server_time: string
   license_ticket?: string
+  request_signing_key?: string
 }
 
 export interface MeResponse {
@@ -83,6 +85,58 @@ export interface MeResponse {
   authorization: TokenAuthorization
   policy: LoginPolicy
   server_time: string
+  request_signing_key?: string
+}
+
+export type RegistrationAppType = 'enterprise' | 'user'
+export type RegistrationProduct = 'mobile' | 'win' | 'both'
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
+
+export interface RegistrationApplicationPayload {
+  app_type: RegistrationAppType
+  company_name?: string
+  contact_name: string
+  phone: string
+  email: string
+  target_company_id?: number | null
+  requested_product: RegistrationProduct
+  requested_role?: RoleCode
+  reason?: string
+}
+
+export interface RegistrationReceipt {
+  id: number
+  status: RegistrationStatus
+  created_at: string
+}
+
+export interface RegistrationApplication {
+  id: number
+  app_type: RegistrationAppType
+  company_name: string
+  contact_name: string
+  phone: string
+  email: string
+  target_company_id?: number | null
+  requested_product: RegistrationProduct
+  requested_role: RoleCode | string
+  reason: string
+  status: RegistrationStatus
+  created_ip: string
+  created_at: string
+  updated_at: string
+  handled_by?: number | null
+  handled_at?: string | null
+  handle_note?: string
+  created_account_user_id?: number | null
+  created_company_id?: number | null
+}
+
+export interface RegistrationApproveResponse {
+  application: RegistrationApplication
+  user: UserItem
+  company?: CompanyItem
+  temporary_password?: string
 }
 
 export interface CompanyItem {
