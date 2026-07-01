@@ -35,6 +35,7 @@ import { archiveApi } from '@/api/archive'
 import { companyApi } from '@/api/company'
 import type { ProjectArchiveItem } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
+import { pageList, queryValue } from '@/utils/query'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,7 +77,7 @@ const columns: DataTableColumns<ProjectArchiveItem> = [
 
 async function loadCompanies() {
   const result = await companyApi.list({ page: 1, page_size: 200 })
-  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+  companyOptions.value = pageList(result.list).map((item) => ({ label: item.company_name, value: item.id }))
 }
 
 async function fetchList() {
@@ -85,10 +86,10 @@ async function fetchList() {
     const result = await archiveApi.listProjects({
       page: pagination.page,
       page_size: pagination.pageSize,
-      company_id: filters.company_id || undefined,
-      keyword: filters.keyword || undefined,
+      company_id: queryValue(filters.company_id),
+      keyword: queryValue(filters.keyword),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

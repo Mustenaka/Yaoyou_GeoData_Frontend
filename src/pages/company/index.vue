@@ -145,6 +145,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { CompanyItem, CompanyPayload, CompanyPolicyPayload } from '@/types/api'
 import { companyStatusOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { pageList, queryString, queryValue } from '@/utils/query'
 
 const authStore = useAuthStore()
 const message = useMessage()
@@ -252,10 +253,10 @@ async function fetchList() {
     const result = await companyApi.list({
       page: pagination.page,
       page_size: pagination.pageSize,
-      keyword: filters.keyword || undefined,
-      status: filters.status === null ? undefined : String(filters.status),
+      keyword: queryValue(filters.keyword),
+      status: queryString(filters.status),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

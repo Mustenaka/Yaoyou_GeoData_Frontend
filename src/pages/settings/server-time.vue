@@ -54,6 +54,7 @@ import { securityApi } from '@/api/security'
 import type { ServerTimeLogItem } from '@/types/api'
 import { formatDateTime, shortHash } from '@/utils/format'
 import { booleanFilterOptions, clientTypeLabel, clientTypeOptions } from '@/utils/labels'
+import { pageList, queryValue } from '@/utils/query'
 
 const router = useRouter()
 const loading = ref(false)
@@ -111,10 +112,10 @@ async function fetchList() {
       page: pagination.page,
       page_size: pagination.pageSize,
       user_id: numberFilter(filters.user_id_text),
-      client_type: filters.client_type || undefined,
-      abnormal: filters.abnormal,
+      client_type: queryValue(filters.client_type),
+      abnormal: queryValue(filters.abnormal),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

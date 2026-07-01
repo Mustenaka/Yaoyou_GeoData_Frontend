@@ -84,6 +84,7 @@ import { securityApi } from '@/api/security'
 import type { SecurityRiskEvent } from '@/types/api'
 import { compactText, formatDateTime } from '@/utils/format'
 import { booleanFilterOptions, riskLevelLabel, riskLevelOptions } from '@/utils/labels'
+import { pageList, queryValue } from '@/utils/query'
 
 const route = useRoute()
 const message = useMessage()
@@ -147,7 +148,7 @@ const columns: DataTableColumns<SecurityRiskEvent> = [
 
 async function loadCompanies() {
   const result = await companyApi.list({ page: 1, page_size: 200 })
-  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+  companyOptions.value = pageList(result.list).map((item) => ({ label: item.company_name, value: item.id }))
 }
 
 function numberFilter(value: string) {
@@ -161,13 +162,13 @@ async function fetchList() {
     const result = await securityApi.risks({
       page: pagination.page,
       page_size: pagination.pageSize,
-      company_id: filters.company_id || undefined,
+      company_id: queryValue(filters.company_id),
       user_id: numberFilter(filters.user_id_text),
-      risk_type: filters.risk_type || undefined,
-      risk_level: filters.risk_level || undefined,
-      handled: filters.handled,
+      risk_type: queryValue(filters.risk_type),
+      risk_level: queryValue(filters.risk_level),
+      handled: queryValue(filters.handled),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

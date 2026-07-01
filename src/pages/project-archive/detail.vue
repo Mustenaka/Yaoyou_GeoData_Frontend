@@ -108,6 +108,7 @@ import { syncFileApi } from '@/api/syncFile'
 import type { ClientFileItem, ConfigSnapshotItem, FormDataSnapshot, OperationAuditEvent, ProjectArchiveItem } from '@/types/api'
 import { formatBytes, formatDateTime, shortHash } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
+import { pageList } from '@/utils/query'
 import {
   auditResultLabel,
   clientTypeLabel,
@@ -240,7 +241,7 @@ const auditColumns: DataTableColumns<OperationAuditEvent> = [
 
 async function loadConfigs() {
   const result = await archiveApi.projectConfigs(projectId.value, { page: 1, page_size: 100 })
-  configs.value = result.list
+  configs.value = pageList(result.list)
 }
 
 async function loadDetail() {
@@ -262,11 +263,11 @@ async function loadDetail() {
       auditApi.list({ page: 1, page_size: 100, project_uuid: project.project_uuid }),
       loadConfigs(),
     ])
-    projectFiles.value = files.list
-    mobileData.value = mobile.list
-    winResults.value = win.list
-    logFiles.value = logs.list
-    auditEvents.value = audits.list
+    projectFiles.value = pageList(files.list)
+    mobileData.value = pageList(mobile.list)
+    winResults.value = pageList(win.list)
+    logFiles.value = pageList(logs.list)
+    auditEvents.value = pageList(audits.list)
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '项目详情加载失败'
   } finally {

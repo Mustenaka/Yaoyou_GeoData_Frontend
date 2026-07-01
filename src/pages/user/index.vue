@@ -123,6 +123,7 @@ import type { RoleCode, UserItem, UserPayload, UserStatus } from '@/types/api'
 import { roleLabel, roleOptions, userStatusLabel, userStatusOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
 import { passwordPolicyText, stripSpaces, validateOptionalPasswordInput, validateUsernameInput } from '@/utils/accountPolicy'
+import { pageList, queryValue } from '@/utils/query'
 
 const authStore = useAuthStore()
 const message = useMessage()
@@ -245,7 +246,7 @@ const columns: DataTableColumns<UserItem> = [
 async function fetchCompanies() {
   if (!authStore.isBackOfficeScopeAll) return
   const result = await companyApi.list({ page: 1, page_size: 200 })
-  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+  companyOptions.value = pageList(result.list).map((item) => ({ label: item.company_name, value: item.id }))
 }
 
 async function fetchList() {
@@ -254,12 +255,12 @@ async function fetchList() {
     const result = await userApi.list({
       page: pagination.page,
       page_size: pagination.pageSize,
-      keyword: filters.keyword || undefined,
-      company_id: filters.company_id,
-      role_code: filters.role_code || undefined,
-      status: filters.status || undefined,
+      keyword: queryValue(filters.keyword),
+      company_id: queryValue(filters.company_id),
+      role_code: queryValue(filters.role_code),
+      status: queryValue(filters.status),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

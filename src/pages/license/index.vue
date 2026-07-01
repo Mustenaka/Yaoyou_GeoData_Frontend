@@ -88,6 +88,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { AuthorizationStatus, LicenseItem, LicensePayload } from '@/types/api'
 import { authStatusLabel, authStatusOptions, clientTypeLabel, clientTypeOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { pageList, queryValue } from '@/utils/query'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -175,9 +176,9 @@ async function loadOptions() {
     userApi.list({ page: 1, page_size: 300 }),
     deviceApi.list({ page: 1, page_size: 300 }),
   ])
-  companyOptions.value = companies.list.map((item) => ({ label: item.company_name, value: item.id }))
-  userOptions.value = users.list.map((item) => ({ label: `${item.username} · ${item.company_name || '-'}`, value: item.id }))
-  deviceOptions.value = devices.list.map((item) => ({
+  companyOptions.value = pageList(companies.list).map((item) => ({ label: item.company_name, value: item.id }))
+  userOptions.value = pageList(users.list).map((item) => ({ label: `${item.username} · ${item.company_name || '-'}`, value: item.id }))
+  deviceOptions.value = pageList(devices.list).map((item) => ({
     label: `#${item.id} · ${clientTypeLabel(item.client_type)} · ${item.username || '-'} · ${item.authorization_status || 'pending'}`,
     value: item.id,
   }))
@@ -189,12 +190,12 @@ async function fetchList() {
     const result = await licenseApi.list({
       page: pagination.page,
       page_size: pagination.pageSize,
-      company_id: filters.company_id,
-      user_id: filters.user_id,
-      status: filters.status || undefined,
-      client_type: filters.client_type || undefined,
+      company_id: queryValue(filters.company_id),
+      user_id: queryValue(filters.user_id),
+      status: queryValue(filters.status),
+      client_type: queryValue(filters.client_type),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

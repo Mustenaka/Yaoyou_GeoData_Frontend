@@ -77,6 +77,7 @@ import { registrationApi } from '@/api/registration'
 import type { RegistrationApplication, RegistrationApproveResponse, RegistrationStatus } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { roleLabel } from '@/utils/labels'
+import { pageList, queryValue } from '@/utils/query'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -170,10 +171,10 @@ async function fetchList() {
     const result = await registrationApi.list({
       page: pagination.page,
       page_size: pagination.pageSize,
-      keyword: filters.keyword || undefined,
-      status: filters.status || undefined,
+      keyword: queryValue(filters.keyword),
+      status: queryValue(filters.status),
     })
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

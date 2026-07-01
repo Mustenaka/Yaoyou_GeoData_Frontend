@@ -92,6 +92,7 @@ import {
   deviceStatusOptions,
 } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { pageList, queryValue } from '@/utils/query'
 
 type DeviceTab = 'mobile' | 'win' | 'change' | 'risk'
 
@@ -248,14 +249,14 @@ async function fetchDevices() {
     const result = await deviceApi.list({
       page: pagination.page,
       page_size: pagination.pageSize,
-      company_id: filters.company_id,
-      user_id: filters.user_id,
+      company_id: queryValue(filters.company_id),
+      user_id: queryValue(filters.user_id),
       client_type: activeTab.value === 'risk' ? undefined : activeTab.value,
-      status: filters.status || undefined,
-      authorization_status: filters.authorization_status || undefined,
+      status: queryValue(filters.status),
+      authorization_status: queryValue(filters.authorization_status),
       risk_level: activeTab.value === 'risk' ? 'high' : undefined,
     })
-    devices.value = result.list
+    devices.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false
@@ -268,9 +269,9 @@ async function fetchChangeRequests() {
     const result = await deviceApi.changeRequests({
       page: pagination.page,
       page_size: pagination.pageSize,
-      status: changeStatus.value || undefined,
+      status: queryValue(changeStatus.value),
     })
-    changeRequests.value = result.list
+    changeRequests.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false

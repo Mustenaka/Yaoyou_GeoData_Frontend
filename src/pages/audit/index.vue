@@ -95,6 +95,7 @@ import type { ClientFileItem, OperationAuditEvent } from '@/types/api'
 import { compactText, formatBytes, formatDateTime, shortHash } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { auditResultLabel, auditResultOptions, clientTypeLabel, parseStatusLabel, parseStatusOptions } from '@/utils/labels'
+import { pageList, queryValue } from '@/utils/query'
 
 const route = useRoute()
 const activeTab = ref('audit')
@@ -201,7 +202,7 @@ const logColumns: DataTableColumns<ClientFileItem> = [
 
 async function loadCompanies() {
   const result = await companyApi.list({ page: 1, page_size: 200 })
-  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+  companyOptions.value = pageList(result.list).map((item) => ({ label: item.company_name, value: item.id }))
 }
 
 function numberFilter(value: string) {
@@ -215,15 +216,15 @@ async function fetchAuditList() {
     const result = await auditApi.list({
       page: auditPagination.page,
       page_size: auditPagination.pageSize,
-      company_id: auditFilters.company_id || undefined,
+      company_id: queryValue(auditFilters.company_id),
       user_id: numberFilter(auditFilters.user_id_text),
       device_fingerprint_id: numberFilter(auditFilters.device_id_text),
-      project_uuid: auditFilters.project_uuid || undefined,
-      module: auditFilters.module || undefined,
-      action: auditFilters.action || undefined,
-      result: auditFilters.result || undefined,
+      project_uuid: queryValue(auditFilters.project_uuid),
+      module: queryValue(auditFilters.module),
+      action: queryValue(auditFilters.action),
+      result: queryValue(auditFilters.result),
     })
-    auditRows.value = result.list
+    auditRows.value = pageList(result.list)
     auditPagination.itemCount = result.total
   } finally {
     auditLoading.value = false
@@ -236,14 +237,14 @@ async function fetchClientLogs() {
     const result = await syncFileApi.list({
       page: logPagination.page,
       page_size: logPagination.pageSize,
-      company_id: logFilters.company_id || undefined,
+      company_id: queryValue(logFilters.company_id),
       user_id: numberFilter(logFilters.user_id_text),
       device_fingerprint_id: numberFilter(logFilters.device_id_text),
-      project_uuid: logFilters.project_uuid || undefined,
-      parse_status: logFilters.parse_status || undefined,
+      project_uuid: queryValue(logFilters.project_uuid),
+      parse_status: queryValue(logFilters.parse_status),
       object_type: 'client_log',
     })
-    logRows.value = result.list
+    logRows.value = pageList(result.list)
     logPagination.itemCount = result.total
   } finally {
     logLoading.value = false

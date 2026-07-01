@@ -84,6 +84,7 @@ import {
   uploadStatusLabel,
   uploadStatusOptions,
 } from '@/utils/labels'
+import { pageList, queryValue } from '@/utils/query'
 
 const route = useRoute()
 const router = useRouter()
@@ -182,7 +183,7 @@ const columns: DataTableColumns<ClientFileItem> = [
 
 async function loadCompanies() {
   const result = await companyApi.list({ page: 1, page_size: 200 })
-  companyOptions.value = result.list.map((item) => ({ label: item.company_name, value: item.id }))
+  companyOptions.value = pageList(result.list).map((item) => ({ label: item.company_name, value: item.id }))
 }
 
 function currentParams() {
@@ -190,12 +191,12 @@ function currentParams() {
     ...filters,
     page: pagination.page,
     page_size: pagination.pageSize,
-    company_id: filters.company_id || undefined,
-    object_type: filters.object_type || undefined,
-    project_uuid: filters.project_uuid || undefined,
-    project_code: filters.project_code || undefined,
-    upload_status: filters.upload_status || undefined,
-    parse_status: filters.parse_status || undefined,
+    company_id: queryValue(filters.company_id),
+    object_type: queryValue(filters.object_type),
+    project_uuid: queryValue(filters.project_uuid),
+    project_code: queryValue(filters.project_code),
+    upload_status: queryValue(filters.upload_status),
+    parse_status: queryValue(filters.parse_status),
   }
 }
 
@@ -203,7 +204,7 @@ async function fetchList() {
   loading.value = true
   try {
     const result = await syncFileApi.list(currentParams())
-    rows.value = result.list
+    rows.value = pageList(result.list)
     pagination.itemCount = result.total
   } finally {
     loading.value = false
