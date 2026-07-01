@@ -91,9 +91,11 @@ export interface MeResponse {
 export type RegistrationAppType = 'enterprise' | 'user'
 export type RegistrationProduct = 'mobile' | 'win' | 'both'
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
+export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site'
 
 export interface RegistrationApplicationPayload {
   app_type: RegistrationAppType
+  source_channel?: RegistrationSourceChannel
   company_name?: string
   contact_name: string
   phone: string
@@ -113,6 +115,7 @@ export interface RegistrationReceipt {
 export interface RegistrationApplication {
   id: number
   app_type: RegistrationAppType
+  source_channel: RegistrationSourceChannel | string
   company_name: string
   contact_name: string
   phone: string

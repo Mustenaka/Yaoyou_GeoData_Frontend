@@ -6,11 +6,13 @@ import type {
   RegistrationApplicationPayload,
   RegistrationApproveResponse,
   RegistrationReceipt,
+  RegistrationSourceChannel,
   RegistrationStatus,
 } from '@/types/api'
 
 export interface RegistrationListParams extends ListParams {
   status?: RegistrationStatus
+  source_channel?: RegistrationSourceChannel
   keyword?: string
   start_at?: string
   end_at?: string

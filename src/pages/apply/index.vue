@@ -145,6 +145,7 @@ async function submit() {
   try {
     const payload: RegistrationApplicationPayload = {
       app_type: form.app_type,
+      source_channel: 'admin_apply_page',
       company_name: form.app_type === 'enterprise' ? form.company_name : '',
       contact_name: form.contact_name,
       phone: form.phone,

@@ -5,6 +5,7 @@
     <div class="page-card toolbar">
       <n-input v-model:value="filters.keyword" clearable placeholder="单位 / 联系人 / 手机 / 邮箱" style="width: 280px" @keyup.enter="fetchList" />
       <n-select v-model:value="filters.status" clearable :options="statusOptions" placeholder="状态" style="width: 140px" />
+      <n-select v-model:value="filters.source_channel" clearable :options="sourceOptions" placeholder="来源" style="width: 150px" />
       <div class="toolbar__spacer" />
       <n-button @click="fetchList">查询</n-button>
       <n-button quaternary @click="resetFilters">重置</n-button>
@@ -28,6 +29,7 @@
         <n-descriptions v-if="selected" label-placement="left" :column="1" bordered>
           <n-descriptions-item label="申请 ID">{{ selected.id }}</n-descriptions-item>
           <n-descriptions-item label="类型">{{ appTypeLabel(selected.app_type) }}</n-descriptions-item>
+          <n-descriptions-item label="来源">{{ sourceLabel(selected.source_channel) }}</n-descriptions-item>
           <n-descriptions-item label="单位">{{ selected.company_name || `企业 #${selected.target_company_id ?? '-'}` }}</n-descriptions-item>
           <n-descriptions-item label="联系人">{{ selected.contact_name }}</n-descriptions-item>
           <n-descriptions-item label="手机">{{ selected.phone }}</n-descriptions-item>
@@ -74,7 +76,7 @@ import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { registrationApi } from '@/api/registration'
-import type { RegistrationApplication, RegistrationApproveResponse, RegistrationStatus } from '@/types/api'
+import type { RegistrationApplication, RegistrationApproveResponse, RegistrationSourceChannel, RegistrationStatus } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { roleLabel } from '@/utils/labels'
 import { pageList, queryValue } from '@/utils/query'
@@ -94,6 +96,7 @@ const approveResult = ref<RegistrationApproveResponse | null>(null)
 const filters = reactive({
   keyword: '',
   status: 'pending' as RegistrationStatus | null,
+  source_channel: null as RegistrationSourceChannel | null,
 })
 
 const pagination = reactive<PaginationProps>({
@@ -110,9 +113,15 @@ const statusOptions: Array<{ label: string; value: RegistrationStatus }> = [
   { label: '已拒绝', value: 'rejected' },
 ]
 
+const sourceOptions: Array<{ label: string; value: RegistrationSourceChannel }> = [
+  { label: '官网首页', value: 'official_site' },
+  { label: '后台申请页', value: 'admin_apply_page' },
+]
+
 const columns: DataTableColumns<RegistrationApplication> = [
   { title: 'ID', key: 'id', width: 80 },
   { title: '类型', key: 'app_type', width: 100, render: (row) => appTypeLabel(row.app_type) },
+  { title: '来源', key: 'source_channel', width: 120, render: (row) => sourceLabel(row.source_channel) },
   { title: '单位', key: 'company_name', minWidth: 170, render: (row) => row.company_name || `企业 #${row.target_company_id ?? '-'}` },
   { title: '联系人', key: 'contact_name', width: 120 },
   { title: '手机', key: 'phone', width: 140 },
@@ -158,6 +167,12 @@ function appTypeLabel(type?: string) {
   return type || '-'
 }
 
+function sourceLabel(source?: string) {
+  if (source === 'official_site') return '官网首页'
+  if (source === 'admin_apply_page' || !source) return '后台申请页'
+  return source
+}
+
 function productLabel(product?: string) {
   if (product === 'both') return 'Mobile + Win'
   if (product === 'mobile') return 'Mobile'
@@ -173,6 +188,7 @@ async function fetchList() {
       page_size: pagination.pageSize,
       keyword: queryValue(filters.keyword),
       status: queryValue(filters.status),
+      source_channel: queryValue(filters.source_channel),
     })
     rows.value = pageList(result.list)
     pagination.itemCount = result.total
@@ -184,6 +200,7 @@ async function fetchList() {
 function resetFilters() {
   filters.keyword = ''
   filters.status = 'pending'
+  filters.source_channel = null
   pagination.page = 1
   fetchList()
 }
