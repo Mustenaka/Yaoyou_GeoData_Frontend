@@ -41,11 +41,11 @@ root.innerHTML = `
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow">Geotechnical Data Platform</p>
+          <p class="eyebrow">项目介绍</p>
           <h1 id="hero-title">垚无忧土工数据系统</h1>
           <p class="hero-lead">
-            使用移动设备从蓝牙天平和蓝牙扫码枪提取开土数据表并导出，支持 Windows 上按照上勘/华宁的格式处理诸如开土数据、
-            土样描述及密度、含水率、界限含水率、剪切试验等试验处理并导出为数据结果。
+            移动端一键提取完工开土数据表并导出，数据无缝适配 Windows 端私有格式处理链路，全面覆盖开土数据、土样描述、密度、含水率、
+            界限含水率、剪切试验等多项核心模块，最终输出标准化数据结果文件。
           </p>
           <div class="hero-actions">
             <a class="primary-action" href="#apply">申请使用</a>
@@ -86,11 +86,11 @@ root.innerHTML = `
               <img src="/assets/mobile-entry-portrait.jpg" alt="垚无忧移动端录入界面" loading="lazy" />
             </div>
             <div class="app-card__body">
-              <p class="app-kicker">Mobile 版本</p>
+              <p class="app-kicker">移动版本</p>
               <h3>现场项目与开土记录录入</h3>
               <p>
-                使用蓝牙设备进行数据录入，面向移动现场场景，支持项目创建、记录录入、配置读取、项目包输出与云端上传，
-                减少重复整理和人工传递成本。
+                蓝牙直连秒传数据至移动端设备，专为现场作业场景打造；覆盖项目创建、记录录入、配置读取、项目包输出、云端上传全流程，
+                省去人工传递与重复整理环节，大幅降本提效。
               </p>
             </div>
           </article>
@@ -99,11 +99,11 @@ root.innerHTML = `
               <img src="/assets/win-home.png" alt="垚无忧 Windows 端数据处理界面" loading="lazy" />
             </div>
             <div class="app-card__body">
-              <p class="app-kicker">Windows 版本</p>
+              <p class="app-kicker">Win</p>
               <h3>数据处理与结果整理</h3>
               <p>
-                按照上勘/华宁进行数据处理和结果整理，面向各类格式的数据源进行数据处理流程，
-                可按照项目/项目列表式进行海量数据批量处理，进行归档式的结果输出和记录、签章，以支持各种分析、工作流执行。
+                可直接对接移动端采集的数据表，完成私有格式数据处理与标准化输出，兼容各类数据源格式并采用统一处理逻辑；
+                支持按项目维度对海量数据进行批量处理，全工作流自动化运行，有效降低人工操作成本，保障数据处理的效率与一致性。
               </p>
             </div>
           </article>
