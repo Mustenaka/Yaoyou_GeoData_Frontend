@@ -113,6 +113,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '基本设置', group: '系统设置', roles: superRoles },
       },
       {
+        path: 'settings/mail',
+        name: 'mail-settings',
+        component: () => import('@/pages/settings/mail.vue'),
+        meta: { title: '邮件系统', group: '系统设置', roles: superRoles },
+      },
+      {
         path: 'settings/system-logs',
         name: 'system-logs',
         component: () => import('@/pages/settings/system-logs.vue'),

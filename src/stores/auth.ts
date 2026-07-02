@@ -37,6 +37,7 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'audit',
       'about',
       'settings',
+      'mail-settings',
       'system-logs',
       'risks',
       'server-time',

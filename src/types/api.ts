@@ -761,6 +761,80 @@ export interface SystemSettings {
 
 export type SystemSettingsPayload = Partial<SystemSettings>
 
+export type MailSecureMode = 'none' | 'starttls' | 'tls'
+export type MailDeliveryStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+export type MailEventType = 'registration_submitted' | 'registration_approved' | 'registration_rejected' | 'test'
+
+export interface MailSettings {
+  enabled: boolean
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  has_password: boolean
+  smtp_secure_mode: MailSecureMode | string
+  from_address: string
+  from_name: string
+  reply_to: string
+  timeout_seconds: number
+  last_test_at?: string | null
+  last_test_status: MailDeliveryStatus | string
+  last_test_error: string
+}
+
+export interface MailSettingsPayload {
+  enabled?: boolean
+  smtp_host?: string
+  smtp_port?: number
+  smtp_username?: string
+  smtp_password?: string
+  smtp_secure_mode?: MailSecureMode
+  from_address?: string
+  from_name?: string
+  reply_to?: string
+  timeout_seconds?: number
+}
+
+export interface MailDeliveryLog {
+  id: number
+  event_type: MailEventType | string
+  recipient_masked: string
+  subject: string
+  status: MailDeliveryStatus | string
+  error_message: string
+  related_application_id?: number | null
+  related_user_id?: number | null
+  attempt_count: number
+  sent_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MailDeliveryListParams {
+  page?: number
+  page_size?: number
+  status?: MailDeliveryStatus | ''
+  event_type?: MailEventType | ''
+  keyword?: string
+  start_at?: string | null
+  end_at?: string | null
+}
+
+export interface MailDeliverySummary {
+  since: string
+  sent: number
+  failed: number
+  skipped: number
+  pending: number
+}
+
+export interface MailDeliveryListResponse {
+  list: MailDeliveryLog[]
+  total: number
+  page: number
+  page_size: number
+  summary_24h: MailDeliverySummary
+}
+
 export interface MaintenanceBackupResponse {
   backup_path: string
   size_bytes: number
