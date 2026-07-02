@@ -1,4 +1,4 @@
-# Yaoyou GeoData Frontend
+# 垚无忧土工数据管理系统 Frontend
 
 遥佑土工 GeoData 管理后台前端，面向系统管理员和企业管理员提供企业、用户、授权、设备、项目档案、文件同步、Mobile/Win 数据、配置、审计、安全和运维管理界面。本项目是 Vue 3 + Vite 单页应用，生产路径挂载在 `/admin/`。
 

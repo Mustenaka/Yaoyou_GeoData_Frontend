@@ -76,7 +76,7 @@
               </n-grid-item>
               <n-grid-item>
                 <n-form-item label="From name">
-                  <n-input v-model:value="form.from_name" clearable placeholder="Yaoyou GeoData" />
+                  <n-input v-model:value="form.from_name" clearable placeholder="垚无忧土工数据管理系统" />
                 </n-form-item>
               </n-grid-item>
               <n-grid-item>
@@ -207,7 +207,7 @@ const form = reactive({
   smtp_password: '',
   smtp_secure_mode: 'starttls' as MailSecureMode,
   from_address: '',
-  from_name: 'Yaoyou GeoData',
+  from_name: '垚无忧土工数据管理系统',
   reply_to: '',
   timeout_seconds: 10,
 })
@@ -280,7 +280,7 @@ function applySettings(data: MailSettings) {
   form.smtp_password = ''
   form.smtp_secure_mode = (data.smtp_secure_mode || 'starttls') as MailSecureMode
   form.from_address = data.from_address || ''
-  form.from_name = data.from_name || 'Yaoyou GeoData'
+  form.from_name = data.from_name || '垚无忧土工数据管理系统'
   form.reply_to = data.reply_to || ''
   form.timeout_seconds = data.timeout_seconds || 10
 }
