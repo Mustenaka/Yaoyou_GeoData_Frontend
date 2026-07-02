@@ -180,4 +180,8 @@ export async function downloadBlob(url: string, params?: Record<string, unknown>
   return request.get<Blob, Blob>(url, { params, responseType: 'blob' })
 }
 
+export async function downloadBlobPost(url: string, data?: unknown) {
+  return request.post<Blob, Blob>(url, data, { responseType: 'blob' })
+}
+
 export default request

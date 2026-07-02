@@ -197,13 +197,15 @@
               <td>{{ item.user.real_name || '-' }}</td>
               <td>{{ roleLabel(item.user.role_code) }}</td>
               <td><span class="mono">{{ item.temporary_password || '-' }}</span></td>
-              <td>{{ item.user.must_change_password ? '是' : '否' }}</td>
+              <td>{{ credentialMustChangePassword(item) ? '是' : '否' }}</td>
             </tr>
           </tbody>
         </n-table>
       </n-space>
       <template #footer>
         <n-space justify="end">
+          <n-button :loading="copyingCredentials" :disabled="!approveCreatedUsers.length" @click="copyCredentials">复制口令</n-button>
+          <n-button :loading="exportingCredentials" :disabled="!approveCreatedUsers.length" @click="exportCredentialsExcel">导出Excel</n-button>
           <n-button type="primary" @click="passwordVisible = false">关闭</n-button>
         </n-space>
       </template>
@@ -217,7 +219,7 @@ import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { NButton, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
-import { registrationApi } from '@/api/registration'
+import { registrationApi, type RegistrationCredentialExportAccount } from '@/api/registration'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import type {
@@ -236,6 +238,7 @@ import type {
 import { formatDateTime } from '@/utils/format'
 import { roleLabel } from '@/utils/labels'
 import { pageList, queryValue } from '@/utils/query'
+import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 
 type AccountForm = {
   username_manual: boolean
@@ -255,6 +258,8 @@ const rejectingId = ref<number | null>(null)
 const rejectNote = ref('')
 const passwordVisible = ref(false)
 const approveResult = ref<RegistrationApproveResponse | null>(null)
+const exportingCredentials = ref(false)
+const copyingCredentials = ref(false)
 
 const editVisible = ref(false)
 const editTarget = ref<RegistrationApplication | null>(null)
@@ -649,6 +654,90 @@ async function submitApprove() {
     await fetchList()
   } finally {
     submittingApprove.value = false
+  }
+}
+
+function credentialMustChangePassword(item: RegistrationCreatedUserResponse) {
+  const user = item.user as RegistrationCreatedUserResponse['user'] & { must_change_password?: boolean }
+  return Boolean(user.must_change_password)
+}
+
+function credentialAccounts(): RegistrationCredentialExportAccount[] {
+  return approveCreatedUsers.value.map((item) => ({
+    username: item.user.username,
+    real_name: item.user.real_name || '',
+    role_code: item.user.role_code,
+    temporary_password: item.temporary_password || '',
+    must_change_password: credentialMustChangePassword(item),
+  }))
+}
+
+async function exportCredentialsExcel() {
+  const applicationId = approveResult.value?.application?.id
+  const accounts = credentialAccounts()
+  if (!applicationId || !accounts.length) {
+    message.error('暂无可导出的口令')
+    return
+  }
+  exportingCredentials.value = true
+  try {
+    const blob = await registrationApi.exportCredentials(applicationId, accounts)
+    ensureXlsxBlob(blob)
+    saveBlob(blob, timestampedXlsxFilename('registration-credentials'))
+    message.success('Excel 已导出')
+  } catch {
+    message.error('导出失败，请稍后重试')
+  } finally {
+    exportingCredentials.value = false
+  }
+}
+
+async function copyCredentials() {
+  const items = approveCreatedUsers.value
+  if (!items.length) {
+    message.error('暂无可复制的口令')
+    return
+  }
+  const companyName = approveResult.value?.company?.company_name || '无企业'
+  const lines = [
+    '【垚无忧土工数据系统】账号开通',
+    `单位：${companyName}`,
+    '账户名\t实名\t角色\t临时口令',
+    ...items.map((item) =>
+      [item.user.username, item.user.real_name || '-', roleLabel(item.user.role_code), item.temporary_password || '-'].join('\t'),
+    ),
+    '提示：首次登录需修改初始口令。',
+  ]
+  copyingCredentials.value = true
+  try {
+    await writeClipboardText(lines.join('\n'))
+    message.success('口令已复制')
+  } catch {
+    message.error('复制失败，请手动选择表格内容复制')
+  } finally {
+    copyingCredentials.value = false
+  }
+}
+
+async function writeClipboardText(text: string) {
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'readonly')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  textarea.style.top = '0'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  if (!copied) {
+    throw new Error('clipboard copy failed')
   }
 }
 

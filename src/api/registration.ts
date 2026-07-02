@@ -1,4 +1,4 @@
-import request from './request'
+import request, { downloadBlobPost } from './request'
 import type {
   ListParams,
   PageResult,
@@ -20,6 +20,14 @@ export interface RegistrationListParams extends ListParams {
   end_at?: string
 }
 
+export interface RegistrationCredentialExportAccount {
+  username: string
+  real_name: string
+  role_code: string
+  temporary_password: string
+  must_change_password: boolean
+}
+
 export const registrationApi = {
   submit(payload: RegistrationApplicationPayload) {
     return request.post<RegistrationReceipt, RegistrationReceipt>('/registration/applications', payload)
@@ -38,5 +46,8 @@ export const registrationApi = {
   },
   reject(id: number, note: string) {
     return request.post<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}/reject`, { note })
+  },
+  exportCredentials(id: number, accounts: RegistrationCredentialExportAccount[]) {
+    return downloadBlobPost(`/admin/registration/applications/${id}/credentials/export`, { accounts })
   },
 }
