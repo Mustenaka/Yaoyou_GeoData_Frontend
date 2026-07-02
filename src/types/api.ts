@@ -39,6 +39,7 @@ export type ConfigScope = 'global' | 'project'
 export interface TokenUser {
   id: number
   username: string
+  real_name?: string
   role_code: RoleCode
   company_id?: number | null
   must_change_password?: boolean
@@ -91,11 +92,12 @@ export interface MeResponse {
 export type RegistrationAppType = 'enterprise' | 'user'
 export type RegistrationProduct = 'mobile' | 'win' | 'both'
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
-export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site'
+export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site' | 'mobile_app'
 
 export interface RegistrationApplicationPayload {
   app_type: RegistrationAppType
   source_channel?: RegistrationSourceChannel
+  desired_username: string
   company_name?: string
   contact_name: string
   phone: string
@@ -109,6 +111,7 @@ export interface RegistrationApplicationPayload {
 }
 
 export interface RegistrationApplicationUpdatePayload {
+  desired_username?: string
   company_name?: string
   contact_name: string
   phone: string
@@ -124,6 +127,7 @@ export interface RegistrationApplicationUpdatePayload {
 export interface RegistrationAccountPayload {
   username?: string
   password?: string
+  real_name?: string
 }
 
 export interface RegistrationApprovePayload {
@@ -147,6 +151,7 @@ export interface RegistrationApplication {
   id: number
   app_type: RegistrationAppType
   source_channel: RegistrationSourceChannel | string
+  desired_username: string
   company_name: string
   contact_name: string
   phone: string
@@ -250,6 +255,7 @@ export interface CompanyPolicyPayload {
 export interface UserItem {
   id: number
   username: string
+  real_name?: string
   email: string
   phone: string
   company_id?: number | null
@@ -268,6 +274,7 @@ export interface UserItem {
 
 export interface UserPayload {
   username?: string
+  real_name?: string
   password?: string
   email?: string
   phone?: string

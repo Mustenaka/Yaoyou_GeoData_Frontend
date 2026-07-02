@@ -3,7 +3,7 @@
     <PageHeader title="注册申请" subtitle="审核公开提交的企业与用户开通申请。" />
 
     <div class="page-card toolbar">
-      <n-input v-model:value="filters.keyword" clearable placeholder="单位 / 联系人 / 手机 / 邮箱" style="width: 280px" @keyup.enter="fetchList" />
+      <n-input v-model:value="filters.keyword" clearable placeholder="单位 / 账户名 / 实名 / 手机 / 邮箱" style="width: 320px" @keyup.enter="fetchList" />
       <n-select v-model:value="filters.status" clearable :options="statusOptions" placeholder="状态" style="width: 140px" />
       <n-select v-model:value="filters.source_channel" clearable :options="sourceOptions" placeholder="来源" style="width: 150px" />
       <div class="toolbar__spacer" />
@@ -19,7 +19,7 @@
         :loading="loading"
         :pagination="pagination"
         :row-key="(row: RegistrationApplication) => row.id"
-        scroll-x="1180"
+        scroll-x="1320"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
       />
@@ -31,10 +31,11 @@
           <n-descriptions-item label="申请 ID">{{ selected.id }}</n-descriptions-item>
           <n-descriptions-item label="类型">{{ appTypeLabel(selected.app_type) }}</n-descriptions-item>
           <n-descriptions-item label="来源">{{ sourceLabel(selected.source_channel) }}</n-descriptions-item>
+          <n-descriptions-item label="账户名">{{ selected.desired_username || '-' }}</n-descriptions-item>
           <n-descriptions-item label="单位">{{ applicationCompanyLabel(selected) }}</n-descriptions-item>
           <n-descriptions-item label="无企业">{{ selected.no_company ? '是' : '否' }}</n-descriptions-item>
           <n-descriptions-item label="管理人">{{ managerLabel(selected) }}</n-descriptions-item>
-          <n-descriptions-item label="联系人">{{ selected.contact_name }}</n-descriptions-item>
+          <n-descriptions-item label="姓名/实名">{{ selected.contact_name }}</n-descriptions-item>
           <n-descriptions-item label="手机">{{ selected.phone }}</n-descriptions-item>
           <n-descriptions-item label="邮箱">{{ selected.email }}</n-descriptions-item>
           <n-descriptions-item label="产品">{{ productLabel(selected.requested_product) }}</n-descriptions-item>
@@ -51,6 +52,10 @@
 
     <n-modal v-model:show="editVisible" preset="card" title="编辑申请" :style="modalStyle('680px')">
       <n-form :model="editForm" label-placement="top">
+        <n-form-item label="账户名">
+          <n-input v-model:value="editForm.desired_username" maxlength="64" placeholder="用于登录的账户名，不可包含空格" />
+        </n-form-item>
+
         <n-form-item v-if="editTarget?.app_type === 'enterprise'" label="单位名称">
           <n-input v-model:value="editForm.company_name" maxlength="128" />
         </n-form-item>
@@ -74,7 +79,7 @@
         </template>
 
         <div class="form-grid">
-          <n-form-item label="联系人">
+          <n-form-item label="姓名/实名">
             <n-input v-model:value="editForm.contact_name" maxlength="64" />
           </n-form-item>
           <n-form-item label="手机">
@@ -115,8 +120,8 @@
                 <n-tag :type="index === 0 ? 'success' : 'default'">{{ index === 0 ? '企业管理员' : '普通用户' }}</n-tag>
               </div>
               <div class="account-cell">
-                <n-checkbox v-model:checked="account.username_manual">自填用户名</n-checkbox>
-                <n-input v-if="account.username_manual" v-model:value="account.username" size="small" placeholder="留空则随机生成" />
+                <n-checkbox v-model:checked="account.username_manual">自填账户名</n-checkbox>
+                <n-input v-if="account.username_manual" v-model:value="account.username" size="small" placeholder="默认使用申请账户名，留空则自动生成" />
               </div>
               <div class="account-cell">
                 <n-checkbox v-model:checked="account.password_manual">自填密码</n-checkbox>
@@ -147,8 +152,8 @@
               <n-tag>{{ roleLabel(approveForm.requested_role) }}</n-tag>
             </div>
             <div class="account-cell">
-              <n-checkbox v-model:checked="userAccount.username_manual">自填用户名</n-checkbox>
-              <n-input v-if="userAccount.username_manual" v-model:value="userAccount.username" size="small" placeholder="留空则随机生成" />
+              <n-checkbox v-model:checked="userAccount.username_manual">自填账户名</n-checkbox>
+              <n-input v-if="userAccount.username_manual" v-model:value="userAccount.username" size="small" placeholder="默认使用申请账户名，留空则自动生成" />
             </div>
             <div class="account-cell">
               <n-checkbox v-model:checked="userAccount.password_manual">自填密码</n-checkbox>
@@ -179,7 +184,8 @@
         <n-table :single-line="false" size="small">
           <thead>
             <tr>
-              <th>用户名</th>
+              <th>账户名</th>
+              <th>实名</th>
               <th>角色</th>
               <th>临时口令</th>
               <th>首登改密</th>
@@ -188,6 +194,7 @@
           <tbody>
             <tr v-for="item in approveCreatedUsers" :key="item.user.id">
               <td>{{ item.user.username }}</td>
+              <td>{{ item.user.real_name || '-' }}</td>
               <td>{{ roleLabel(item.user.role_code) }}</td>
               <td><span class="mono">{{ item.temporary_password || '-' }}</span></td>
               <td>{{ item.user.must_change_password ? '是' : '否' }}</td>
@@ -279,6 +286,7 @@ const pagination = reactive<PaginationProps>({
 })
 
 const editForm = reactive({
+  desired_username: '',
   company_name: '',
   contact_name: '',
   phone: '',
@@ -309,6 +317,7 @@ const statusOptions: Array<{ label: string; value: RegistrationStatus }> = [
 const sourceOptions: Array<{ label: string; value: RegistrationSourceChannel }> = [
   { label: '官网首页', value: 'official_site' },
   { label: '后台申请页', value: 'admin_apply_page' },
+  { label: '移动端', value: 'mobile_app' },
 ]
 
 const userRoleOptions: Array<{ label: string; value: RoleCode }> = [
@@ -332,8 +341,9 @@ const columns: DataTableColumns<RegistrationApplication> = [
   { title: 'ID', key: 'id', width: 80 },
   { title: '类型', key: 'app_type', width: 90, render: (row) => appTypeLabel(row.app_type) },
   { title: '来源', key: 'source_channel', width: 110, render: (row) => sourceLabel(row.source_channel) },
+  { title: '账户名', key: 'desired_username', minWidth: 130, render: (row) => h('span', { class: 'mono' }, row.desired_username || '-') },
   { title: '单位', key: 'company_name', minWidth: 190, render: (row) => applicationCompanyLabel(row) },
-  { title: '联系人', key: 'contact_name', width: 110 },
+  { title: '姓名/实名', key: 'contact_name', width: 120 },
   { title: '手机', key: 'phone', width: 132 },
   { title: '产品', key: 'requested_product', width: 112, render: (row) => productLabel(row.requested_product) },
   { title: '账号', key: 'created_user_count', width: 90, render: (row) => createdAccountLabel(row) },
@@ -384,6 +394,7 @@ function appTypeLabel(type?: string) {
 }
 
 function sourceLabel(source?: string) {
+  if (source === 'mobile_app') return '移动端'
   if (source === 'official_site') return '官网首页'
   if (source === 'admin_apply_page' || !source) return '后台申请页'
   return source
@@ -476,6 +487,7 @@ async function openEdit(row: RegistrationApplication) {
   if (!editTarget.value) return
   Object.assign(editForm, {
     company_name: editTarget.value.company_name || '',
+    desired_username: editTarget.value.desired_username || '',
     contact_name: editTarget.value.contact_name || '',
     phone: editTarget.value.phone || '',
     email: editTarget.value.email || '',
@@ -509,8 +521,12 @@ async function loadManagersForEdit(value: number | null) {
 
 async function submitEdit() {
   if (!editTarget.value) return
+  if (!editForm.desired_username?.trim() || /\s/.test(editForm.desired_username)) {
+    message.error('请填写账户名，且不可包含空格')
+    return
+  }
   if (!editForm.contact_name || !editForm.phone || !editForm.email) {
-    message.error('请填写联系人、手机和邮箱')
+    message.error('请填写姓名/实名、手机和邮箱')
     return
   }
   if (editTarget.value.app_type === 'enterprise' && !editForm.company_name) {
@@ -524,6 +540,7 @@ async function submitEdit() {
   submittingEdit.value = true
   try {
     const payload: RegistrationApplicationUpdatePayload = {
+      desired_username: editForm.desired_username.trim(),
       company_name: editTarget.value.app_type === 'enterprise' ? editForm.company_name : '',
       contact_name: editForm.contact_name,
       phone: editForm.phone,
@@ -554,8 +571,8 @@ async function openApprove(row: RegistrationApplication) {
   approveForm.manager_user_id = approveTarget.value.manager_user_id ?? null
   approveForm.requested_role = (approveTarget.value.requested_role || 'normal_user') as RoleCode
   approveCompanyMode.value = approveForm.no_company ? 'none' : 'company'
-  enterpriseAccounts.value = [emptyAccount()]
-  Object.assign(userAccount, emptyAccount())
+  enterpriseAccounts.value = [accountWithDesiredUsername(approveTarget.value.desired_username)]
+  Object.assign(userAccount, accountWithDesiredUsername(approveTarget.value.desired_username))
   await loadManagers(approveForm.target_company_id)
   approveVisible.value = true
 }
@@ -588,6 +605,16 @@ function accountPayload(account: AccountForm) {
     username: account.username_manual ? account.username.trim() : '',
     password: account.password_manual ? account.password : '',
   }
+}
+
+function accountWithDesiredUsername(desiredUsername?: string): AccountForm {
+  const account = emptyAccount()
+  const username = desiredUsername?.trim() || ''
+  if (username) {
+    account.username_manual = true
+    account.username = username
+  }
+  return account
 }
 
 async function submitApprove() {

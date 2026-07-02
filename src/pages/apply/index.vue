@@ -21,9 +21,13 @@
       <n-form v-else ref="formRef" :model="form" :rules="rules" label-placement="top">
         <n-form-item label="申请类型" path="app_type">
           <n-radio-group v-model:value="form.app_type">
-            <n-radio-button value="enterprise">企业开通</n-radio-button>
-            <n-radio-button value="user">用户开通</n-radio-button>
+            <n-radio-button value="enterprise">单位注册申请</n-radio-button>
+            <n-radio-button value="user">个人注册申请</n-radio-button>
           </n-radio-group>
+        </n-form-item>
+
+        <n-form-item label="账户名" path="desired_username">
+          <n-input v-model:value="form.desired_username" maxlength="64" placeholder="用于登录的账户名，不可包含空格" />
         </n-form-item>
 
         <n-form-item v-if="form.app_type === 'enterprise'" label="单位名称" path="company_name">
@@ -43,7 +47,7 @@
 
         <n-grid :cols="2" :x-gap="12">
           <n-grid-item>
-            <n-form-item label="联系人" path="contact_name">
+            <n-form-item label="姓名/实名" path="contact_name">
               <n-input v-model:value="form.contact_name" maxlength="64" />
             </n-form-item>
           </n-grid-item>
@@ -96,6 +100,7 @@ const userCompanyMode = ref<'company' | 'none'>('company')
 
 const form = reactive<RegistrationApplicationPayload>({
   app_type: 'enterprise',
+  desired_username: '',
   company_name: '',
   contact_name: '',
   phone: '',
@@ -108,9 +113,20 @@ const form = reactive<RegistrationApplicationPayload>({
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const phonePattern = /^[0-9+\-() ]{6,32}$/
+const whitespacePattern = /\s/
 
 const rules: FormRules = {
   app_type: [{ required: true, message: '请选择申请类型', trigger: ['blur', 'change'] }],
+  desired_username: [
+    { required: true, message: '请输入账户名', trigger: ['blur', 'input'] },
+    {
+      validator: () => {
+        const value = form.desired_username?.trim() || ''
+        return value && !whitespacePattern.test(value) ? true : new Error('账户名不可为空或包含空格')
+      },
+      trigger: ['blur', 'input'],
+    },
+  ],
   company_name: [
     {
       validator: () => (form.app_type !== 'enterprise' || form.company_name ? true : new Error('请输入单位名称')),
@@ -123,7 +139,7 @@ const rules: FormRules = {
       trigger: ['blur', 'change'],
     },
   ],
-  contact_name: [{ required: true, message: '请输入联系人', trigger: ['blur', 'input'] }],
+  contact_name: [{ required: true, message: '请输入姓名/实名', trigger: ['blur', 'input'] }],
   phone: [
     { required: true, message: '请输入手机', trigger: ['blur', 'input'] },
     { validator: () => (phonePattern.test(form.phone || '') ? true : new Error('手机格式不正确')), trigger: ['blur', 'input'] },
@@ -138,6 +154,7 @@ const rules: FormRules = {
 function resetForm() {
   Object.assign(form, {
     app_type: 'enterprise',
+    desired_username: '',
     company_name: '',
     contact_name: '',
     phone: '',
@@ -158,6 +175,7 @@ async function submit() {
     const payload: RegistrationApplicationPayload = {
       app_type: form.app_type,
       source_channel: 'admin_apply_page',
+      desired_username: form.desired_username.trim(),
       company_name: form.app_type === 'enterprise' ? form.company_name : '',
       contact_name: form.contact_name,
       phone: form.phone,

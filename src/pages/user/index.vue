@@ -5,7 +5,7 @@
     </PageHeader>
 
     <div class="page-card toolbar">
-      <n-input v-model:value="filters.keyword" clearable placeholder="用户名 / 邮箱 / 手机" style="width: 230px" @keyup.enter="fetchList" />
+      <n-input v-model:value="filters.keyword" clearable placeholder="账户名 / 实名 / 邮箱 / 手机" style="width: 260px" @keyup.enter="fetchList" />
       <n-select v-if="authStore.isBackOfficeScopeAll" v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" style="width: 210px" />
       <n-select v-model:value="filters.role_code" clearable :options="availableRoleOptions" placeholder="角色" style="width: 150px" />
       <n-select v-model:value="filters.status" clearable :options="userStatusOptions" placeholder="状态" style="width: 130px" />
@@ -30,8 +30,11 @@
     <n-drawer v-model:show="drawerVisible" width="560">
       <n-drawer-content :title="editingId ? '编辑用户' : '新建用户'">
         <n-form ref="formRef" :model="form" :rules="rules" label-placement="top">
-          <n-form-item label="用户名" path="username">
+          <n-form-item label="账户名" path="username">
             <n-input :value="form.username" :disabled="Boolean(editingId)" @update:value="handleUsernameUpdate" />
+          </n-form-item>
+          <n-form-item label="实名">
+            <n-input v-model:value="form.real_name" maxlength="64" />
           </n-form-item>
           <n-form-item v-if="!editingId" label="初始密码" path="password">
             <n-input
@@ -157,6 +160,7 @@ const pagination = reactive<PaginationProps>({
 
 const form = reactive<UserPayload>({
   username: '',
+  real_name: '',
   password: '',
   email: '',
   phone: '',
@@ -182,7 +186,7 @@ const availableRoleOptions = computed(() => roleOptions.filter((item) => assigna
 
 const rules: FormRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: ['blur', 'input'] },
+    { required: true, message: '请输入账户名', trigger: ['blur', 'input'] },
     {
       validator: () => {
         const error = validateUsernameInput(form.username)
@@ -203,7 +207,8 @@ const rules: FormRules = {
 }
 
 const columns: DataTableColumns<UserItem> = [
-  { title: '用户名', key: 'username', minWidth: 150, render: (row) => h('span', { class: 'mono' }, row.username) },
+  { title: '账户名', key: 'username', minWidth: 150, render: (row) => h('span', { class: 'mono' }, row.username) },
+  { title: '实名', key: 'real_name', minWidth: 120, render: (row) => row.real_name || '-' },
   { title: '企业', key: 'company_name', minWidth: 150, render: (row) => row.company_name || '-' },
   { title: '角色', key: 'role_code', width: 120, render: (row) => roleLabel(row.role_code) },
   {
@@ -302,6 +307,7 @@ function handleResetPasswordUpdate(value: string) {
 function resetForm() {
   Object.assign(form, {
     username: '',
+    real_name: '',
     password: '',
     email: '',
     phone: '',
@@ -330,6 +336,7 @@ async function openEdit(row: UserItem) {
   originalStatus.value = detail.status
   Object.assign(form, {
     username: detail.username,
+    real_name: detail.real_name || '',
     password: '',
     email: detail.email,
     phone: detail.phone,
@@ -347,6 +354,7 @@ async function openEdit(row: UserItem) {
 function cleanPayload(): UserPayload {
   return {
     username: form.username,
+    real_name: form.real_name || '',
     password: form.password || undefined,
     email: form.email || '',
     phone: form.phone || '',
