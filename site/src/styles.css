@@ -241,23 +241,6 @@ h3 {
   background: #fff;
 }
 
-.trust-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 28px;
-}
-
-.trust-strip span {
-  padding: 8px 11px;
-  border: 1px solid rgba(213, 222, 219, 0.9);
-  border-radius: 8px;
-  color: #344c45;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .preview-stage {
   position: relative;
   min-height: 560px;

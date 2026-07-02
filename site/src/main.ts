@@ -42,7 +42,7 @@ root.innerHTML = `
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
           <p class="eyebrow">项目介绍</p>
-          <h1 id="hero-title">垚无忧土工移动端与桌面端</h1>
+          <h1 id="hero-title">垚无忧土工数据管理系统</h1>
           <p class="hero-lead">
             垚无忧土工移动端一键提取完工开土数据表并导出，数据无缝适配垚无忧土工桌面端私有格式处理链路，全面覆盖开土数据、土样描述、密度、含水率、
             界限含水率、剪切试验等多项核心模块，最终输出标准化数据结果文件。
@@ -50,12 +50,6 @@ root.innerHTML = `
           <div class="hero-actions">
             <a class="primary-action" href="#apply">申请使用</a>
             <a class="secondary-action" href="#apps">查看应用</a>
-          </div>
-          <div class="trust-strip" aria-label="平台能力">
-            <span>统一登录</span>
-            <span>设备授权</span>
-            <span>项目归档</span>
-            <span>数据追溯</span>
           </div>
         </div>
 
@@ -113,7 +107,7 @@ root.innerHTML = `
       <section id="apply" class="section apply-section" aria-labelledby="apply-title">
         <div class="apply-copy">
           <p class="eyebrow">Access Request</p>
-          <h2 id="apply-title">申请使用垚无忧土工移动端与桌面端</h2>
+          <h2 id="apply-title">申请使用垚无忧土工数据管理系统</h2>
           <p>
             提交后会进入后台注册申请列表，管理员审核通过后再创建账号。
             申请不会自动生成可登录账号。
@@ -156,7 +150,7 @@ root.innerHTML = `
     </main>
 
     <footer class="site-footer">
-      <span>垚无忧土工移动端与桌面端 / Yaowuyou</span>
+      <span>垚无忧土工数据管理系统 / Yaowuyou</span>
       <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">苏ICP备2026044110号</a>
     </footer>
   </div>
