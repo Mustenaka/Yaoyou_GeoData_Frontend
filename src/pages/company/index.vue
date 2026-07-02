@@ -124,6 +124,9 @@
           <n-form-item label="启用风险阻断">
             <n-switch v-model:value="policyForm.risk_block_enabled" />
           </n-form-item>
+          <n-form-item v-if="authStore.isBackOfficeScopeAll" label="首个设备自动授权">
+            <n-switch v-model:value="policyForm.auto_activate_first_device" />
+          </n-form-item>
         </n-form>
         <template #footer>
           <div class="drawer-footer">
@@ -200,6 +203,7 @@ const policyForm = reactive<CompanyPolicyPayload>({
   log_retention_days: undefined,
   storage_quota_gb: undefined,
   risk_block_enabled: undefined,
+  auto_activate_first_device: undefined,
 })
 
 const rules: FormRules = {
@@ -342,6 +346,7 @@ function openPolicy(row: CompanyItem) {
     log_retention_days: undefined,
     storage_quota_gb: undefined,
     risk_block_enabled: undefined,
+    auto_activate_first_device: undefined,
   })
   policyVisible.value = true
 }

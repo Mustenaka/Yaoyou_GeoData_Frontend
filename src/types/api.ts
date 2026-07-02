@@ -220,6 +220,7 @@ export interface CompanyPolicy {
   log_retention_days: number
   storage_quota_gb: number
   risk_block_enabled: boolean
+  auto_activate_first_device: boolean
 }
 
 export interface CompanyDetail extends CompanyItem {
@@ -250,6 +251,7 @@ export interface CompanyPolicyPayload {
   log_retention_days?: number
   storage_quota_gb?: number
   risk_block_enabled?: boolean
+  auto_activate_first_device?: boolean
 }
 
 export interface UserItem {
