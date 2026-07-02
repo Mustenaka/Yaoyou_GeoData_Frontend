@@ -42,9 +42,9 @@ root.innerHTML = `
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
           <p class="eyebrow">项目介绍</p>
-          <h1 id="hero-title">垚无忧土工数据系统</h1>
+          <h1 id="hero-title">垚无忧土工移动端与桌面端</h1>
           <p class="hero-lead">
-            移动端一键提取完工开土数据表并导出，数据无缝适配 Windows 端私有格式处理链路，全面覆盖开土数据、土样描述、密度、含水率、
+            垚无忧土工移动端一键提取完工开土数据表并导出，数据无缝适配垚无忧土工桌面端私有格式处理链路，全面覆盖开土数据、土样描述、密度、含水率、
             界限含水率、剪切试验等多项核心模块，最终输出标准化数据结果文件。
           </p>
           <div class="hero-actions">
@@ -64,29 +64,29 @@ root.innerHTML = `
             <div class="window-bar">
               <span></span><span></span><span></span>
             </div>
-            <img src="/assets/win-home.png" alt="垚无忧 Windows 端首页预览" />
+            <img src="/assets/win-home.png" alt="垚无忧土工桌面端首页预览" />
           </div>
           <div class="preview-window preview-window--pad">
-            <img src="/assets/pad-project-landscape.jpg" alt="垚无忧 Pad 端项目页横屏预览" />
+            <img src="/assets/pad-project-landscape.jpg" alt="垚无忧土工移动端项目页横屏预览" />
           </div>
           <div class="phone-frame">
-            <img src="/assets/mobile-entry-portrait.jpg" alt="垚无忧移动端录入页面预览" />
+            <img src="/assets/mobile-entry-portrait.jpg" alt="垚无忧土工移动端录入页面预览" />
           </div>
         </div>
       </section>
 
       <section id="apps" class="section apps-section" aria-labelledby="apps-title">
         <div class="section-heading">
-          <p class="eyebrow">Win / Mobile</p>
-          <h2 id="apps-title">移动版本录入 / Windows处理</h2>
+          <p class="eyebrow">移动端 / 桌面端</p>
+          <h2 id="apps-title">移动端录入 / 桌面端处理</h2>
         </div>
         <div class="app-showcase">
           <article class="app-card">
             <div class="app-card__media app-card__media--mobile">
-              <img src="/assets/mobile-entry-portrait.jpg" alt="垚无忧移动端录入界面" loading="lazy" />
+              <img src="/assets/mobile-entry-portrait.jpg" alt="垚无忧土工移动端录入界面" loading="lazy" />
             </div>
             <div class="app-card__body">
-              <p class="app-kicker">移动版本</p>
+              <p class="app-kicker">垚无忧土工移动端</p>
               <h3>现场项目与开土记录录入</h3>
               <p>
                 蓝牙直连秒传数据至移动端设备，专为现场作业场景打造；覆盖项目创建、记录录入、配置读取、项目包输出、云端上传全流程，
@@ -96,10 +96,10 @@ root.innerHTML = `
           </article>
           <article class="app-card">
             <div class="app-card__media app-card__media--desktop">
-              <img src="/assets/win-home.png" alt="垚无忧 Windows 端数据处理界面" loading="lazy" />
+              <img src="/assets/win-home.png" alt="垚无忧土工桌面端数据处理界面" loading="lazy" />
             </div>
             <div class="app-card__body">
-              <p class="app-kicker">Win</p>
+              <p class="app-kicker">垚无忧土工桌面端</p>
               <h3>数据处理与结果整理</h3>
               <p>
                 可直接对接移动端采集的数据表，完成私有格式数据处理与标准化输出，兼容各类数据源格式并采用统一处理逻辑；
@@ -113,7 +113,7 @@ root.innerHTML = `
       <section id="apply" class="section apply-section" aria-labelledby="apply-title">
         <div class="apply-copy">
           <p class="eyebrow">Access Request</p>
-          <h2 id="apply-title">申请使用垚无忧土工数据系统</h2>
+          <h2 id="apply-title">申请使用垚无忧土工移动端与桌面端</h2>
           <p>
             提交后会进入后台注册申请列表，管理员审核通过后再创建账号。
             申请不会自动生成可登录账号。
@@ -141,9 +141,9 @@ root.innerHTML = `
           </label>
           <fieldset>
             <legend>申请产品</legend>
-            <label><input type="radio" name="requested_product" value="both" checked /> Mobile + Win</label>
-            <label><input type="radio" name="requested_product" value="mobile" /> Mobile</label>
-            <label><input type="radio" name="requested_product" value="win" /> Win</label>
+            <label><input type="radio" name="requested_product" value="both" checked /> 垚无忧土工移动端 + 垚无忧土工桌面端</label>
+            <label><input type="radio" name="requested_product" value="mobile" /> 垚无忧土工移动端</label>
+            <label><input type="radio" name="requested_product" value="win" /> 垚无忧土工桌面端</label>
           </fieldset>
           <label>
             <span>申请说明</span>
@@ -156,7 +156,7 @@ root.innerHTML = `
     </main>
 
     <footer class="site-footer">
-      <span>垚无忧土工数据系统 / Yaowuyou</span>
+      <span>垚无忧土工移动端与桌面端 / Yaowuyou</span>
       <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">苏ICP备2026044110号</a>
     </footer>
   </div>
