@@ -2,8 +2,10 @@ import request from './request'
 import type {
   ListParams,
   PageResult,
+  RegistrationApprovePayload,
   RegistrationApplication,
   RegistrationApplicationPayload,
+  RegistrationApplicationUpdatePayload,
   RegistrationApproveResponse,
   RegistrationReceipt,
   RegistrationSourceChannel,
@@ -28,8 +30,11 @@ export const registrationApi = {
   detail(id: number) {
     return request.get<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}`)
   },
-  approve(id: number, note?: string) {
-    return request.post<RegistrationApproveResponse, RegistrationApproveResponse>(`/admin/registration/applications/${id}/approve`, { note: note || '' })
+  update(id: number, payload: RegistrationApplicationUpdatePayload) {
+    return request.put<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}`, payload)
+  },
+  approve(id: number, payload: RegistrationApprovePayload = {}) {
+    return request.post<RegistrationApproveResponse, RegistrationApproveResponse>(`/admin/registration/applications/${id}/approve`, payload)
   },
   reject(id: number, note: string) {
     return request.post<RegistrationApplication, RegistrationApplication>(`/admin/registration/applications/${id}/reject`, { note })

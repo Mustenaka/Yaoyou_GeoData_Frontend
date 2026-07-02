@@ -29,9 +29,17 @@
         <n-form-item v-if="form.app_type === 'enterprise'" label="单位名称" path="company_name">
           <n-input v-model:value="form.company_name" maxlength="128" />
         </n-form-item>
-        <n-form-item v-else label="目标企业 ID" path="target_company_id">
-          <n-input-number v-model:value="form.target_company_id" :min="1" style="width: 100%" />
-        </n-form-item>
+        <template v-else>
+          <n-form-item label="企业归属">
+            <n-radio-group v-model:value="userCompanyMode">
+              <n-radio-button value="company">已有企业</n-radio-button>
+              <n-radio-button value="none">无企业</n-radio-button>
+            </n-radio-group>
+          </n-form-item>
+          <n-form-item v-if="userCompanyMode === 'company'" label="目标企业 ID" path="target_company_id">
+            <n-input-number v-model:value="form.target_company_id" :min="1" style="width: 100%" />
+          </n-form-item>
+        </template>
 
         <n-grid :cols="2" :x-gap="12">
           <n-grid-item>
@@ -84,6 +92,7 @@ const message = useMessage()
 const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
 const receipt = ref<RegistrationReceipt | null>(null)
+const userCompanyMode = ref<'company' | 'none'>('company')
 
 const form = reactive<RegistrationApplicationPayload>({
   app_type: 'enterprise',
@@ -92,6 +101,7 @@ const form = reactive<RegistrationApplicationPayload>({
   phone: '',
   email: '',
   target_company_id: null,
+  no_company: false,
   requested_product: 'both',
   reason: '',
 })
@@ -109,7 +119,7 @@ const rules: FormRules = {
   ],
   target_company_id: [
     {
-      validator: () => (form.app_type !== 'user' || form.target_company_id ? true : new Error('请输入目标企业 ID')),
+      validator: () => (form.app_type !== 'user' || userCompanyMode.value === 'none' || form.target_company_id ? true : new Error('请输入目标企业 ID')),
       trigger: ['blur', 'change'],
     },
   ],
@@ -133,9 +143,11 @@ function resetForm() {
     phone: '',
     email: '',
     target_company_id: null,
+    no_company: false,
     requested_product: 'both',
     reason: '',
   })
+  userCompanyMode.value = 'company'
   receipt.value = null
 }
 
@@ -150,7 +162,8 @@ async function submit() {
       contact_name: form.contact_name,
       phone: form.phone,
       email: form.email,
-      target_company_id: form.app_type === 'user' ? form.target_company_id : null,
+      target_company_id: form.app_type === 'user' && userCompanyMode.value === 'company' ? form.target_company_id : null,
+      no_company: form.app_type === 'user' && userCompanyMode.value === 'none',
       requested_product: form.requested_product,
       requested_role: form.app_type === 'enterprise' ? 'enterprise_admin' : 'normal_user',
       reason: form.reason,

@@ -101,9 +101,40 @@ export interface RegistrationApplicationPayload {
   phone: string
   email: string
   target_company_id?: number | null
+  no_company?: boolean
+  manager_user_id?: number | null
   requested_product: RegistrationProduct
   requested_role?: RoleCode
   reason?: string
+}
+
+export interface RegistrationApplicationUpdatePayload {
+  company_name?: string
+  contact_name: string
+  phone: string
+  email: string
+  target_company_id?: number | null
+  no_company?: boolean
+  manager_user_id?: number | null
+  requested_product: RegistrationProduct
+  requested_role?: RoleCode
+  reason?: string
+}
+
+export interface RegistrationAccountPayload {
+  username?: string
+  password?: string
+}
+
+export interface RegistrationApprovePayload {
+  note?: string
+  account_count?: number
+  accounts?: RegistrationAccountPayload[]
+  account?: RegistrationAccountPayload
+  target_company_id?: number | null
+  no_company?: boolean
+  manager_user_id?: number | null
+  requested_role?: RoleCode
 }
 
 export interface RegistrationReceipt {
@@ -121,6 +152,9 @@ export interface RegistrationApplication {
   phone: string
   email: string
   target_company_id?: number | null
+  no_company?: boolean
+  manager_user_id?: number | null
+  manager_username?: string
   requested_product: RegistrationProduct
   requested_role: RoleCode | string
   reason: string
@@ -133,6 +167,12 @@ export interface RegistrationApplication {
   handle_note?: string
   created_account_user_id?: number | null
   created_company_id?: number | null
+  created_user_count?: number
+}
+
+export interface RegistrationCreatedUserResponse {
+  user: UserItem
+  temporary_password?: string
 }
 
 export interface RegistrationApproveResponse {
@@ -140,6 +180,7 @@ export interface RegistrationApproveResponse {
   user: UserItem
   company?: CompanyItem
   temporary_password?: string
+  created_users?: RegistrationCreatedUserResponse[]
 }
 
 export interface CompanyItem {
