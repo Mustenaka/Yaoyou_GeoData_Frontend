@@ -90,7 +90,7 @@ async function handleLogin() {
   min-height: 100vh;
   place-items: center;
   padding: 20px;
-  background: #eef2f5;
+  background: var(--yy-bg);
 }
 
 .login-panel {
@@ -98,7 +98,7 @@ async function handleLogin() {
   padding: 28px;
   border: 1px solid var(--yy-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--yy-surface);
   box-shadow: 0 12px 30px var(--yy-shadow);
 }
 
