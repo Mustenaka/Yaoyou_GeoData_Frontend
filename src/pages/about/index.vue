@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="系统信息" subtitle="垚无优土工数据管理系统 / Yaowuyou">
+    <PageHeader title="系统信息" subtitle="垚无忧土工数据管理系统 / Yaowuyou">
       <n-button :loading="loading" @click="loadHealth">
         <template #icon>
           <n-icon :component="RefreshOutline" />
@@ -14,7 +14,7 @@
         <div class="about-brand">
           <div class="about-brand__logo">YY</div>
           <div>
-            <h2>垚无优土工数据管理系统</h2>
+            <h2>垚无忧土工数据管理系统</h2>
             <p>Yaowuyou GeoData Management System</p>
           </div>
         </div>
@@ -53,7 +53,7 @@
           </div>
         </div>
         <n-descriptions :column="2" label-placement="left" bordered>
-          <n-descriptions-item label="系统名称">垚无优土工数据管理系统</n-descriptions-item>
+          <n-descriptions-item label="系统名称">垚无忧土工数据管理系统</n-descriptions-item>
           <n-descriptions-item label="英文标识">Yaowuyou</n-descriptions-item>
           <n-descriptions-item label="版权">© 2026 Yaowuyou</n-descriptions-item>
           <n-descriptions-item label="联系方式">请联系项目管理员</n-descriptions-item>

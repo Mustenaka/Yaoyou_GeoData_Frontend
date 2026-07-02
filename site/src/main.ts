@@ -35,7 +35,7 @@ root.innerHTML = `
         <a href="#apps">应用简介</a>
         <a href="#apply">申请使用</a>
       </nav>
-      <a class="admin-link" href="http://yaowuyoutech.com/admin/login?redirect=/dashboard">管理端登录</a>
+      <a class="admin-link" href="https://www.yaowuyoutech.com/admin/login?redirect=/dashboard">管理端登录</a>
     </header>
 
     <main id="top">

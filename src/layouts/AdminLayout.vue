@@ -14,7 +14,7 @@
       <div class="brand" :class="{ collapsed }">
         <div class="brand__logo">YY</div>
         <div v-if="!collapsed" class="brand__text">
-          <strong>垚无优土工数据管理系统</strong>
+          <strong>垚无忧土工数据管理系统</strong>
           <span>Yaowuyou</span>
         </div>
       </div>

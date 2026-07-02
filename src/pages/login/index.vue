@@ -4,7 +4,7 @@
       <div class="login-header">
         <div class="login-logo">YY</div>
         <div>
-          <h1>垚无优土工数据管理系统</h1>
+          <h1>垚无忧土工数据管理系统</h1>
           <p>Yaowuyou</p>
         </div>
       </div>
