@@ -10,6 +10,7 @@
       <div class="toolbar__spacer" />
       <n-button @click="fetchList">查询</n-button>
       <n-button quaternary @click="resetFilters">重置</n-button>
+      <n-button :loading="exporting" @click="exportExcel">导出Excel</n-button>
     </div>
 
     <div class="page-card">
@@ -145,12 +146,14 @@ import { useAuthStore } from '@/stores/auth'
 import type { CompanyItem, CompanyPayload, CompanyPolicyPayload } from '@/types/api'
 import { companyStatusOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { pageList, queryString, queryValue } from '@/utils/query'
 
 const authStore = useAuthStore()
 const message = useMessage()
 const loading = ref(false)
 const saving = ref(false)
+const exporting = ref(false)
 const rows = ref<CompanyItem[]>([])
 const drawerVisible = ref(false)
 const policyVisible = ref(false)
@@ -279,6 +282,23 @@ function handlePageSize(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   fetchList()
+}
+
+async function exportExcel() {
+  exporting.value = true
+  try {
+    const blob = await companyApi.exportXlsx({
+      keyword: queryValue(filters.keyword),
+      status: queryString(filters.status),
+    })
+    ensureXlsxBlob(blob)
+    saveBlob(blob, timestampedXlsxFilename('companies'))
+    message.success('导出Excel成功')
+  } catch {
+    message.error('导出Excel失败，请稍后重试')
+  } finally {
+    exporting.value = false
+  }
 }
 
 function assignForm(payload: CompanyPayload) {

@@ -12,6 +12,7 @@
       <div class="toolbar__spacer" />
       <n-button @click="fetchList">查询</n-button>
       <n-button quaternary @click="resetFilters">重置</n-button>
+      <n-button :loading="exporting" @click="exportExcel">导出Excel</n-button>
     </div>
 
     <div class="page-card">
@@ -125,6 +126,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { RoleCode, UserItem, UserPayload, UserStatus } from '@/types/api'
 import { roleLabel, roleOptions, userStatusLabel, userStatusOptions } from '@/utils/labels'
 import { formatDateTime } from '@/utils/format'
+import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { passwordPolicyText, stripSpaces, validateOptionalPasswordInput, validateUsernameInput } from '@/utils/accountPolicy'
 import { pageList, queryValue } from '@/utils/query'
 
@@ -133,6 +135,7 @@ const message = useMessage()
 const dialog = useDialog()
 const loading = ref(false)
 const saving = ref(false)
+const exporting = ref(false)
 const rows = ref<UserItem[]>([])
 const drawerVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -290,6 +293,25 @@ function handlePageSize(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   fetchList()
+}
+
+async function exportExcel() {
+  exporting.value = true
+  try {
+    const blob = await userApi.exportXlsx({
+      keyword: queryValue(filters.keyword),
+      company_id: queryValue(filters.company_id),
+      role_code: queryValue(filters.role_code),
+      status: queryValue(filters.status),
+    })
+    ensureXlsxBlob(blob)
+    saveBlob(blob, timestampedXlsxFilename('users'))
+    message.success('导出Excel成功')
+  } catch {
+    message.error('导出Excel失败，请稍后重试')
+  } finally {
+    exporting.value = false
+  }
 }
 
 function handleUsernameUpdate(value: string) {

@@ -1,4 +1,4 @@
-import request from './request'
+import request, { downloadBlob } from './request'
 import type {
   CompanyDetail,
   CompanyItem,
@@ -12,6 +12,9 @@ import type {
 export const companyApi = {
   list(params: Pick<ListParams, 'page' | 'page_size' | 'keyword' | 'status'>) {
     return request.get<PageResult<CompanyItem>, PageResult<CompanyItem>>('/admin/companies', { params })
+  },
+  exportXlsx(params: Pick<ListParams, 'keyword' | 'status'>) {
+    return downloadBlob('/admin/companies/export', params as Record<string, unknown>)
   },
   create(payload: CompanyPayload) {
     return request.post<CompanyDetail, CompanyDetail>('/admin/companies', payload)
