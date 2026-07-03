@@ -242,6 +242,7 @@ export interface CompanyPayload {
   status?: number
   valid_from?: string | null
   valid_until?: string | null
+  cascade_user_valid_until?: boolean
   remark?: string
 }
 

@@ -145,7 +145,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
 import type { DataTableColumns, FormInst, FormRules, PaginationProps } from 'naive-ui'
-import { NButton, NPopconfirm, NTag, useMessage } from 'naive-ui'
+import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
 import { useAuthStore } from '@/stores/auth'
@@ -157,6 +157,7 @@ import { pageList, queryString, queryValue } from '@/utils/query'
 
 const authStore = useAuthStore()
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const saving = ref(false)
 const exporting = ref(false)
@@ -164,6 +165,9 @@ const rows = ref<CompanyItem[]>([])
 const drawerVisible = ref(false)
 const policyVisible = ref(false)
 const editingId = ref<number | null>(null)
+const editingOriginalValidUntil = ref<string | null>(null)
+const editingCompanyName = ref('')
+const editingUserCount = ref(0)
 const policyCompanyId = ref<number | null>(null)
 const formRef = ref<FormInst | null>(null)
 
@@ -180,7 +184,7 @@ const pagination = reactive<PaginationProps>({
   pageSizes: [10, 20, 50],
 })
 
-type CompanyForm = Omit<CompanyPayload, 'valid_from' | 'valid_until'> & {
+type CompanyForm = Omit<CompanyPayload, 'valid_from' | 'valid_until' | 'cascade_user_valid_until'> & {
   valid_from_value: number | null
   valid_until_value: number | null
   valid_until_permanent: boolean
@@ -319,6 +323,22 @@ function formatCompanyValidity(value?: string | null) {
   return value ? formatDateTime(value) : '长期有效'
 }
 
+function normalizeValidUntil(value?: string | null) {
+  return datePickerISOString(datePickerValue(value))
+}
+
+function currentValidUntilValue() {
+  return form.valid_until_permanent ? null : datePickerISOString(form.valid_until_value)
+}
+
+function validUntilChanged() {
+  return currentValidUntilValue() !== editingOriginalValidUntil.value
+}
+
+function validUntilConfirmText(value: string | null) {
+  return value ? formatDateTime(value) : '长期有效'
+}
+
 function handleValidUntilPermanentUpdate(checked: boolean) {
   if (checked) {
     form.valid_until_value = null
@@ -333,6 +353,9 @@ function assignForm(payload: Partial<CompanyForm>) {
 
 function openCreate() {
   editingId.value = null
+  editingOriginalValidUntil.value = null
+  editingCompanyName.value = ''
+  editingUserCount.value = 0
   assignForm({ ...emptyForm })
   drawerVisible.value = true
 }
@@ -340,6 +363,9 @@ function openCreate() {
 async function openEdit(row: CompanyItem) {
   const detail = await companyApi.detail(row.id)
   editingId.value = row.id
+  editingOriginalValidUntil.value = normalizeValidUntil(detail.valid_until)
+  editingCompanyName.value = detail.company_name || row.company_name
+  editingUserCount.value = row.user_count ?? 0
   assignForm({
     company_name: detail.company_name,
     company_short_name: detail.company_short_name,
@@ -402,11 +428,33 @@ function cleanPolicyPayload(): CompanyPolicyPayload {
 
 async function submitCompany() {
   await formRef.value?.validate()
+  if (editingId.value && authStore.isBackOfficeScopeAll && validUntilChanged()) {
+    const nextValidUntil = currentValidUntilValue()
+    const userCount = editingUserCount.value
+    const companyName = editingCompanyName.value || form.company_name
+    dialog.warning({
+      title: '同步旗下账号有效期',
+      content: `将把「${companyName}」旗下 ${userCount} 个账号的有效期统一改为 ${validUntilConfirmText(nextValidUntil)}，是否同步？`,
+      positiveText: '同步并保存',
+      negativeText: '仅改企业',
+      onPositiveClick: () => saveCompany(true, `已同步 ${userCount} 个账号有效期`),
+      onNegativeClick: () => saveCompany(false, '企业资料已更新'),
+    })
+    return
+  }
+  await saveCompany()
+}
+
+async function saveCompany(cascadeUserValidUntil?: boolean, successText?: string) {
   saving.value = true
   try {
     if (editingId.value) {
-      await companyApi.update(editingId.value, cleanCompanyPayload())
-      message.success('企业资料已更新')
+      const payload = cleanCompanyPayload()
+      if (cascadeUserValidUntil !== undefined) {
+        payload.cascade_user_valid_until = cascadeUserValidUntil
+      }
+      await companyApi.update(editingId.value, payload)
+      message.success(successText || '企业资料已更新')
     } else {
       await companyApi.create(cleanCompanyPayload())
       message.success('企业已创建')
