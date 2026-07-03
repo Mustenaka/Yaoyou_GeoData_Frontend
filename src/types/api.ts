@@ -487,6 +487,33 @@ export interface ProjectArchiveItem {
   updated_at: string
 }
 
+export interface ArchiveCompanyItem {
+  company_id: number | null
+  company_name: string
+  device_count: number
+  project_count: number
+  last_uploaded_at?: string | null
+}
+
+export interface ArchiveDeviceItem {
+  device_fingerprint_id: number
+  device_name: string
+  client_type: ClientType | string
+  fingerprint_hash_masked: string
+  status: DeviceStatus | string
+  authorization_status: AuthorizationStatus | string
+  valid_until?: string | null
+  last_seen_at: string
+  project_count: number
+  last_uploaded_at?: string | null
+}
+
+export interface ArchiveDeviceProjectItem extends ProjectArchiveItem {
+  form_types: string[]
+  row_count_total: number
+  sample_count_total: number
+}
+
 export interface FormDataSnapshot {
   id: number
   project_cloud_index_id: number

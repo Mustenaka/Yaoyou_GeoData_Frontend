@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader :title="detailTitle" subtitle="项目档案详情：项目信息、Mobile 录入、Win 结果、项目配置、客户端日志和操作记录。">
+    <PageHeader :title="detailTitle" subtitle="项目档案详情：①项目基本信息 ②工作表单配置 ③数据填充结果，并保留 Win 结果、客户端日志和操作记录。">
       <n-space>
         <n-button @click="router.push({ name: 'projects' })">返回列表</n-button>
         <n-button :loading="loading" @click="loadDetail">刷新</n-button>
@@ -14,7 +14,7 @@
     <n-spin :show="loading">
       <div v-if="detail" class="page-card">
         <n-tabs v-model:value="activeTab" type="line" animated>
-          <n-tab-pane name="base" tab="项目信息">
+          <n-tab-pane name="base" tab="① 项目基本信息">
             <n-descriptions label-placement="left" bordered :column="2">
               <n-descriptions-item label="project_uuid">
                 <span class="mono">{{ detail.project_uuid }}</span>
@@ -37,16 +37,18 @@
             <n-data-table :columns="fileColumns" :data="projectFiles" :loading="loading" :pagination="{ pageSize: 8 }" />
           </n-tab-pane>
 
-          <n-tab-pane name="mobile" tab="Mobile录入">
+          <n-tab-pane name="configs" tab="② 工作表单配置">
+            <div class="section-title">项目配置快照</div>
+            <n-data-table :columns="configColumns" :data="configs" :loading="loading" :pagination="{ pageSize: 10 }" />
+          </n-tab-pane>
+
+          <n-tab-pane name="mobile" tab="③ 数据填充结果">
+            <div class="section-title">Mobile 录入快照</div>
             <n-data-table :columns="mobileColumns" :data="mobileData" :loading="loading" :pagination="{ pageSize: 10 }" />
           </n-tab-pane>
 
           <n-tab-pane name="win" tab="Win结果">
             <n-data-table :columns="fileColumns" :data="winResults" :loading="loading" :pagination="{ pageSize: 10 }" />
-          </n-tab-pane>
-
-          <n-tab-pane name="configs" tab="项目配置">
-            <n-data-table :columns="configColumns" :data="configs" :loading="loading" :pagination="{ pageSize: 10 }" />
           </n-tab-pane>
 
           <n-tab-pane name="logs" tab="客户端日志">

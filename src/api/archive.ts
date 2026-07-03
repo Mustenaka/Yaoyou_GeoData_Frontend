@@ -1,5 +1,8 @@
 import request, { downloadBlob } from './request'
 import type {
+  ArchiveCompanyItem,
+  ArchiveDeviceItem,
+  ArchiveDeviceProjectItem,
   ClientFileItem,
   ConfigSnapshotItem,
   ConfigSnapshotListParams,
@@ -9,6 +12,18 @@ import type {
 } from '@/types/api'
 
 export const archiveApi = {
+  listArchiveCompanies() {
+    return request.get<ArchiveCompanyItem[], ArchiveCompanyItem[]>('/admin/archive/companies')
+  },
+  listCompanyDevices(companyId: number | 'null') {
+    return request.get<ArchiveDeviceItem[], ArchiveDeviceItem[]>(`/admin/archive/companies/${companyId}/devices`)
+  },
+  listDeviceProjects(deviceFingerprintId: number, params: { page?: number; page_size?: number }) {
+    return request.get<PageResult<ArchiveDeviceProjectItem>, PageResult<ArchiveDeviceProjectItem>>(
+      `/admin/archive/devices/${deviceFingerprintId}/projects`,
+      { params },
+    )
+  },
   listProjects(params: { page?: number; page_size?: number; company_id?: number | null; keyword?: string }) {
     return request.get<PageResult<ProjectArchiveItem>, PageResult<ProjectArchiveItem>>('/admin/projects', { params })
   },
