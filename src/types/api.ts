@@ -107,6 +107,8 @@ export interface RegistrationApplicationPayload {
   requested_product: RegistrationProduct
   requested_role?: RoleCode
   valid_until?: string | null
+  device_client_type?: string
+  device_fingerprint?: Record<string, unknown>
   reason?: string
 }
 
@@ -166,6 +168,9 @@ export interface RegistrationApplication {
   requested_product: RegistrationProduct
   requested_role: RoleCode | string
   valid_until?: string | null
+  device_client_type?: string | null
+  device_fingerprint_payload_json?: string | null
+  device_fingerprint_hash?: string | null
   reason: string
   status: RegistrationStatus
   created_ip: string

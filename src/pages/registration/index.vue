@@ -41,6 +41,12 @@
           <n-descriptions-item label="产品">{{ productLabel(selected.requested_product) }}</n-descriptions-item>
           <n-descriptions-item label="角色">{{ roleLabel(selected.requested_role) }}</n-descriptions-item>
           <n-descriptions-item label="账户有效期">{{ formatValidity(selected.valid_until) }}</n-descriptions-item>
+          <n-descriptions-item label="申请设备">
+            <div class="device-snapshot">
+              <n-tag :type="registrationHasDevice(selected) ? 'success' : 'default'">{{ registrationDeviceStatus(selected) }}</n-tag>
+              <span v-if="registrationHasDevice(selected)" class="device-snapshot__summary">{{ registrationDeviceSummary(selected) }}</span>
+            </div>
+          </n-descriptions-item>
           <n-descriptions-item label="状态">{{ statusLabel(selected.status) }}</n-descriptions-item>
           <n-descriptions-item label="创建账号">{{ createdAccountLabel(selected) }}</n-descriptions-item>
           <n-descriptions-item label="提交时间">{{ formatDateTime(selected.created_at) }}</n-descriptions-item>
@@ -117,6 +123,10 @@
 
     <n-modal v-model:show="approveVisible" preset="card" title="审批配置" :style="modalStyle('920px')">
       <n-form v-if="approveTarget" label-placement="top">
+        <n-alert :type="registrationHasDevice(approveTarget) ? 'info' : 'warning'" class="device-preauth-alert">
+          {{ approveDeviceMessage(approveTarget) }}
+        </n-alert>
+
         <template v-if="approveTarget.app_type === 'enterprise'">
           <n-form-item label="账号数量">
             <n-input-number v-model:value="approveForm.account_count" :min="1" :max="50" @update:value="syncEnterpriseAccounts" />
@@ -194,6 +204,7 @@
     <n-modal v-model:show="passwordVisible" preset="card" title="审批通过" :style="modalStyle('760px')">
       <n-space v-if="approveResult" vertical>
         <n-alert type="success">账号已创建，临时口令仅本次展示。</n-alert>
+        <n-alert v-if="approvePreauthorizedDeviceMessage" type="success">{{ approvePreauthorizedDeviceMessage }}</n-alert>
         <n-table :single-line="false" size="small">
           <thead>
             <tr>
@@ -357,6 +368,10 @@ const approveCreatedUsers = computed<RegistrationCreatedUserResponse[]>(() => {
   }
   return []
 })
+const approvePreauthorizedDeviceMessage = computed(() => {
+  const application = approveResult.value?.application
+  return application && registrationHasDevice(application) ? `已预授权申请设备：${registrationDeviceSummary(application)}` : ''
+})
 
 const columns: DataTableColumns<RegistrationApplication> = [
   { title: 'ID', key: 'id', width: 80 },
@@ -430,6 +445,59 @@ function productLabel(product?: string) {
 
 function formatValidity(value?: string | null) {
   return value ? formatDateTime(value) : '长期有效'
+}
+
+function registrationHasDevice(row?: RegistrationApplication | null) {
+  return Boolean(row?.device_client_type && row?.device_fingerprint_hash)
+}
+
+function registrationDeviceStatus(row?: RegistrationApplication | null) {
+  return registrationHasDevice(row) ? `${deviceClientLabel(row?.device_client_type)} 设备` : '未携带设备'
+}
+
+function registrationDeviceSummary(row?: RegistrationApplication | null) {
+  if (!registrationHasDevice(row)) return '首登回落设备授权流程'
+  const payload = parseRegistrationDevicePayload(row)
+  const parts = [deviceClientLabel(row?.device_client_type)]
+  const deviceName = [stringValue(payload.brand), stringValue(payload.model)].filter(Boolean).join(' ')
+  const osVersion = stringValue(payload.os_version)
+  if (deviceName) parts.push(deviceName)
+  if (osVersion) parts.push(osVersion)
+  parts.push(deviceHashLabel(row))
+  return parts.join(' · ')
+}
+
+function approveDeviceMessage(row?: RegistrationApplication | null) {
+  if (registrationHasDevice(row)) {
+    return `申请已携带${deviceClientLabel(row?.device_client_type)}设备指纹；审批通过后将预授权主账号。${deviceHashLabel(row)}`
+  }
+  return '该申请未携带设备；审批后首登将回落设备授权流程。'
+}
+
+function deviceClientLabel(value?: string | null) {
+  if (value === 'mobile') return 'Mobile'
+  if (value === 'win') return 'Win'
+  return value || '-'
+}
+
+function deviceHashLabel(row?: RegistrationApplication | null) {
+  const hash = row?.device_fingerprint_hash || ''
+  return hash.length > 20 ? `hash ${hash.slice(0, 12)}...${hash.slice(-8)}` : `hash ${hash || '-'}`
+}
+
+function parseRegistrationDevicePayload(row?: RegistrationApplication | null): Record<string, unknown> {
+  const source = row?.device_fingerprint_payload_json
+  if (!source) return {}
+  try {
+    const parsed = JSON.parse(source)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function validityPayload(permanent: boolean, value: number | null) {
@@ -725,6 +793,9 @@ async function submitApprove() {
     approveVisible.value = false
     passwordVisible.value = true
     message.success('申请已通过')
+    if (registrationHasDevice(approveResult.value.application)) {
+      message.success('已预授权申请设备')
+    }
     await fetchList()
   } finally {
     submittingApprove.value = false
@@ -882,6 +953,23 @@ onMounted(async () => {
   gap: 12px;
   align-items: center;
   width: 100%;
+}
+
+.device-preauth-alert {
+  margin-bottom: 16px;
+}
+
+.device-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.device-snapshot__summary {
+  color: var(--yy-text-secondary);
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
