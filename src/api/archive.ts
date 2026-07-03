@@ -51,6 +51,12 @@ export const archiveApi = {
   downloadConfig(id: number) {
     return downloadBlob(`/admin/config-snapshots/${id}/download`)
   },
+  downloadProjectPackage(id: number) {
+    return downloadBlob(`/admin/archive/projects/${id}/export/package`)
+  },
+  downloadProjectTable(id: number, params: { form_type?: string; kind?: 'data' | 'sample' }) {
+    return downloadBlob(`/admin/archive/projects/${id}/export/table`, params)
+  },
   markConfigLatest(id: number) {
     return request.post<ConfigSnapshotItem, ConfigSnapshotItem>(`/admin/config-snapshots/${id}/mark-latest`)
   },

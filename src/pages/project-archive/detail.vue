@@ -3,6 +3,7 @@
     <PageHeader :title="detailTitle" subtitle="项目档案详情：①项目基本信息 ②工作表单配置 ③数据填充结果，并保留 Win 结果、客户端日志和操作记录。">
       <n-space>
         <n-button @click="router.push({ name: 'projects' })">返回列表</n-button>
+        <n-button type="primary" :loading="packageExporting" @click="downloadProjectPackage">导出项目包</n-button>
         <n-button :loading="loading" @click="loadDetail">刷新</n-button>
       </n-space>
     </PageHeader>
@@ -44,6 +45,15 @@
 
           <n-tab-pane name="mobile" tab="③ 数据填充结果">
             <div class="section-title">Mobile 录入快照</div>
+            <div v-if="mobileFormTypes.length" class="form-export-list">
+              <div v-for="formType in mobileFormTypes" :key="formType" class="form-export-row">
+                <span class="form-export-name">{{ formType }}</span>
+                <n-space size="small">
+                  <n-button size="small" :loading="isTableExporting(formType, 'data')" @click="downloadProjectTable(formType, 'data')">导出表格</n-button>
+                  <n-button size="small" :loading="isTableExporting(formType, 'sample')" @click="downloadProjectTable(formType, 'sample')">导出录入日期/试验员</n-button>
+                </n-space>
+              </div>
+            </div>
             <n-data-table :columns="mobileColumns" :data="mobileData" :loading="loading" :pagination="{ pageSize: 10 }" />
           </n-tab-pane>
 
@@ -125,6 +135,8 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const loading = ref(false)
+const packageExporting = ref(false)
+const tableExporting = ref<Record<string, boolean>>({})
 const errorText = ref('')
 const activeTab = ref('base')
 const detail = ref<ProjectArchiveItem | null>(null)
@@ -142,6 +154,14 @@ const jsonPreview = ref('')
 
 const projectId = computed(() => Number(route.params.id))
 const detailTitle = computed(() => detail.value?.project_name || detail.value?.project_uuid || '项目详情')
+const mobileFormTypes = computed(() => {
+  const seen = new Set<string>()
+  mobileData.value.forEach((item) => {
+    const formType = item.form_type?.trim()
+    if (formType) seen.add(formType)
+  })
+  return Array.from(seen)
+})
 
 function statusTagType(status: string) {
   if (status === 'uploaded' || status === 'parsed') return 'success'
@@ -302,6 +322,78 @@ async function downloadConfig(row: ConfigSnapshotItem) {
   saveBlob(blob, `config-${row.id}-${row.config_type || 'snapshot'}.json`)
 }
 
+async function downloadProjectPackage() {
+  packageExporting.value = true
+  try {
+    const blob = await archiveApi.downloadProjectPackage(projectId.value)
+    await ensureArchiveDownloadBlob(blob)
+    saveBlob(blob, `${projectFilenamePrefix()}-project-package.zip`)
+    message.success('项目包导出已开始')
+  } catch (error) {
+    message.error(readDownloadError(error))
+  } finally {
+    packageExporting.value = false
+  }
+}
+
+async function downloadProjectTable(formType: string, kind: 'data' | 'sample') {
+  const key = tableExportKey(formType, kind)
+  setTableExporting(key, true)
+  try {
+    const blob = await archiveApi.downloadProjectTable(projectId.value, { form_type: formType, kind })
+    await ensureArchiveDownloadBlob(blob)
+    saveBlob(blob, `${projectFilenamePrefix()}-${safeFilenamePart(formType)}-${kind}.xlsx`)
+    message.success(kind === 'sample' ? '录入日期/试验员表格导出已开始' : '填充结果表格导出已开始')
+  } catch (error) {
+    message.error(readDownloadError(error))
+  } finally {
+    setTableExporting(key, false)
+  }
+}
+
+function isTableExporting(formType: string, kind: 'data' | 'sample') {
+  return Boolean(tableExporting.value[tableExportKey(formType, kind)])
+}
+
+function setTableExporting(key: string, value: boolean) {
+  tableExporting.value = { ...tableExporting.value, [key]: value }
+}
+
+function tableExportKey(formType: string, kind: 'data' | 'sample') {
+  return `${formType}:${kind}`
+}
+
+async function ensureArchiveDownloadBlob(blob: Blob) {
+  if (!blob || blob.size === 0) {
+    throw new Error('导出文件为空')
+  }
+  if (blob.type.includes('application/json')) {
+    const text = await blob.text()
+    try {
+      const payload = JSON.parse(text) as { message?: string; msg?: string }
+      throw new Error(payload.message || payload.msg || '导出失败')
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error(text || '导出失败')
+      }
+      throw error
+    }
+  }
+}
+
+function readDownloadError(error: unknown) {
+  return error instanceof Error ? error.message : '导出失败'
+}
+
+function projectFilenamePrefix() {
+  return safeFilenamePart(detail.value?.project_code || detail.value?.project_name || detail.value?.project_uuid || `project-${projectId.value}`)
+}
+
+function safeFilenamePart(value: string) {
+  const safe = value.trim().replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '')
+  return safe || 'project'
+}
+
 async function markLatest(row: ConfigSnapshotItem) {
   await archiveApi.markConfigLatest(row.id)
   message.success('已标记最新')
@@ -335,6 +427,28 @@ onMounted(loadDetail)
   margin: 18px 0 12px;
   font-size: 14px;
   font-weight: 700;
+}
+
+.form-export-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.form-export-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--yy-border-color);
+}
+
+.form-export-name {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-word;
 }
 
 .json-preview {
