@@ -205,7 +205,6 @@ function roleLabel(role: RoleCode | '') {
     admin: '普通管理员',
     enterprise_admin: '企业管理员',
     normal_user: '普通用户',
-    trial_user: '试用用户',
     temporary_user: '临时用户',
   }
   return labels[role] || '未识别角色'

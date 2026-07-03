@@ -9,6 +9,25 @@ export function formatDateTime(value?: string | number | null) {
   })
 }
 
+export function datePickerValue(value?: string | number | null) {
+  if (!value) return null
+  const date = typeof value === 'number' ? new Date(value) : new Date(value)
+  const time = date.getTime()
+  return Number.isNaN(time) ? null : time
+}
+
+export function datePickerISOString(value?: number | null) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
+export function addMonthsDatePickerValue(months = 1, from = Date.now()) {
+  const date = new Date(from)
+  date.setMonth(date.getMonth() + months)
+  return date.getTime()
+}
+
 export function formatPercent(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return '--'
   return `${value.toFixed(1)}%`

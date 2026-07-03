@@ -16,7 +16,6 @@ export type RoleCode =
   | 'admin'
   | 'enterprise_admin'
   | 'normal_user'
-  | 'trial_user'
   | 'temporary_user'
 
 export type UserStatus = 'active' | 'disabled' | 'expired' | 'locked'
@@ -107,6 +106,7 @@ export interface RegistrationApplicationPayload {
   manager_user_id?: number | null
   requested_product: RegistrationProduct
   requested_role?: RoleCode
+  valid_until?: string | null
   reason?: string
 }
 
@@ -121,6 +121,7 @@ export interface RegistrationApplicationUpdatePayload {
   manager_user_id?: number | null
   requested_product: RegistrationProduct
   requested_role?: RoleCode
+  valid_until?: string | null
   reason?: string
 }
 
@@ -128,6 +129,7 @@ export interface RegistrationAccountPayload {
   username?: string
   password?: string
   real_name?: string
+  valid_until?: string | null
 }
 
 export interface RegistrationApprovePayload {
@@ -139,6 +141,7 @@ export interface RegistrationApprovePayload {
   no_company?: boolean
   manager_user_id?: number | null
   requested_role?: RoleCode
+  valid_until?: string | null
 }
 
 export interface RegistrationReceipt {
@@ -162,6 +165,7 @@ export interface RegistrationApplication {
   manager_username?: string
   requested_product: RegistrationProduct
   requested_role: RoleCode | string
+  valid_until?: string | null
   reason: string
   status: RegistrationStatus
   created_ip: string
@@ -264,8 +268,7 @@ export interface UserItem {
   company_name?: string
   role_code: RoleCode
   status: UserStatus
-  trial_expires_at?: string | null
-  temporary_expires_at?: string | null
+  valid_until?: string | null
   can_use_mobile: boolean
   can_use_win: boolean
   last_login_at?: string | null
@@ -283,8 +286,7 @@ export interface UserPayload {
   company_id?: number | null
   role_code?: RoleCode
   status?: UserStatus
-  trial_expires_at?: string | null
-  temporary_expires_at?: string | null
+  valid_until?: string | null
   can_use_mobile?: boolean
   can_use_win?: boolean
 }
@@ -772,8 +774,7 @@ export interface ExpiringUserEvent {
   company_id?: number | null
   username: string
   role_code: RoleCode | string
-  trial_expires_at?: string | null
-  temporary_expires_at?: string | null
+  valid_until?: string | null
 }
 
 export interface ExpiringCompanyEvent {

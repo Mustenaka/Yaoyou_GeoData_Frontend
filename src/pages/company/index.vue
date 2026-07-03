@@ -53,12 +53,15 @@
           <n-grid :cols="2" :x-gap="12">
             <n-grid-item>
               <n-form-item label="有效期开始">
-                <n-input v-model:value="form.valid_from" placeholder="2026-01-01T00:00:00Z" />
+                <n-date-picker v-model:value="form.valid_from_value" type="datetime" clearable />
               </n-form-item>
             </n-grid-item>
             <n-grid-item>
               <n-form-item label="有效期结束">
-                <n-input v-model:value="form.valid_until" placeholder="2027-01-01T00:00:00Z" />
+                <div class="validity-field">
+                  <n-date-picker v-model:value="form.valid_until_value" type="datetime" clearable :disabled="form.valid_until_permanent" />
+                  <n-checkbox v-model:checked="form.valid_until_permanent" @update:checked="handleValidUntilPermanentUpdate">长期有效</n-checkbox>
+                </div>
               </n-form-item>
             </n-grid-item>
           </n-grid>
@@ -148,7 +151,7 @@ import { companyApi } from '@/api/company'
 import { useAuthStore } from '@/stores/auth'
 import type { CompanyItem, CompanyPayload, CompanyPolicyPayload } from '@/types/api'
 import { companyStatusOptions } from '@/utils/labels'
-import { formatDateTime } from '@/utils/format'
+import { datePickerISOString, datePickerValue, formatDateTime } from '@/utils/format'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { pageList, queryString, queryValue } from '@/utils/query'
 
@@ -177,7 +180,13 @@ const pagination = reactive<PaginationProps>({
   pageSizes: [10, 20, 50],
 })
 
-const emptyForm: CompanyPayload = {
+type CompanyForm = Omit<CompanyPayload, 'valid_from' | 'valid_until'> & {
+  valid_from_value: number | null
+  valid_until_value: number | null
+  valid_until_permanent: boolean
+}
+
+const emptyForm: CompanyForm = {
   company_name: '',
   company_short_name: '',
   credit_code: '',
@@ -186,12 +195,13 @@ const emptyForm: CompanyPayload = {
   contact_email: '',
   address: '',
   status: 1,
-  valid_from: '',
-  valid_until: '',
+  valid_from_value: null,
+  valid_until_value: null,
+  valid_until_permanent: true,
   remark: '',
 }
 
-const form = reactive<CompanyPayload>({ ...emptyForm })
+const form = reactive<CompanyForm>({ ...emptyForm })
 
 const policyForm = reactive<CompanyPolicyPayload>({
   allow_normal_user_config_edit: undefined,
@@ -222,7 +232,7 @@ const columns: DataTableColumns<CompanyItem> = [
     render: (row) =>
       h(NTag, { type: row.status === 1 ? 'success' : 'error', round: true }, { default: () => (row.status === 1 ? '启用' : '禁用') }),
   },
-  { title: '有效期', key: 'valid_until', width: 170, render: (row) => formatDateTime(row.valid_until) },
+  { title: '有效期', key: 'valid_until', width: 170, render: (row) => formatCompanyValidity(row.valid_until) },
   { title: '用户数', key: 'user_count', width: 86, render: (row) => row.user_count ?? 0 },
   { title: 'Mobile 授权', key: 'mobile_license_count', width: 110, render: (row) => row.mobile_license_count ?? 0 },
   { title: 'Win 授权', key: 'win_license_count', width: 96, render: (row) => row.win_license_count ?? 0 },
@@ -305,7 +315,19 @@ async function exportExcel() {
   }
 }
 
-function assignForm(payload: CompanyPayload) {
+function formatCompanyValidity(value?: string | null) {
+  return value ? formatDateTime(value) : '长期有效'
+}
+
+function handleValidUntilPermanentUpdate(checked: boolean) {
+  if (checked) {
+    form.valid_until_value = null
+  } else if (!form.valid_until_value) {
+    form.valid_until_value = Date.now()
+  }
+}
+
+function assignForm(payload: Partial<CompanyForm>) {
   Object.assign(form, emptyForm, payload)
 }
 
@@ -327,8 +349,9 @@ async function openEdit(row: CompanyItem) {
     contact_email: detail.contact_email,
     address: detail.address,
     status: detail.status,
-    valid_from: detail.valid_from || '',
-    valid_until: detail.valid_until || '',
+    valid_from_value: datePickerValue(detail.valid_from),
+    valid_until_value: datePickerValue(detail.valid_until),
+    valid_until_permanent: !detail.valid_until,
     remark: detail.remark,
   })
   drawerVisible.value = true
@@ -353,9 +376,17 @@ function openPolicy(row: CompanyItem) {
 
 function cleanCompanyPayload(): CompanyPayload {
   return {
-    ...form,
-    valid_from: form.valid_from || null,
-    valid_until: form.valid_until || null,
+    company_name: form.company_name,
+    company_short_name: form.company_short_name,
+    credit_code: form.credit_code,
+    legal_person: form.legal_person,
+    contact_phone: form.contact_phone,
+    contact_email: form.contact_email,
+    address: form.address,
+    status: form.status,
+    valid_from: datePickerISOString(form.valid_from_value),
+    valid_until: form.valid_until_permanent ? null : datePickerISOString(form.valid_until_value),
+    remark: form.remark,
   }
 }
 
@@ -407,3 +438,19 @@ async function toggleStatus(row: CompanyItem) {
 
 onMounted(fetchList)
 </script>
+
+<style scoped>
+.validity-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .validity-field {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -40,6 +40,7 @@
           <n-descriptions-item label="邮箱">{{ selected.email }}</n-descriptions-item>
           <n-descriptions-item label="产品">{{ productLabel(selected.requested_product) }}</n-descriptions-item>
           <n-descriptions-item label="角色">{{ roleLabel(selected.requested_role) }}</n-descriptions-item>
+          <n-descriptions-item label="账户有效期">{{ formatValidity(selected.valid_until) }}</n-descriptions-item>
           <n-descriptions-item label="状态">{{ statusLabel(selected.status) }}</n-descriptions-item>
           <n-descriptions-item label="创建账号">{{ createdAccountLabel(selected) }}</n-descriptions-item>
           <n-descriptions-item label="提交时间">{{ formatDateTime(selected.created_at) }}</n-descriptions-item>
@@ -74,7 +75,13 @@
             <n-select v-model:value="editForm.manager_user_id" filterable clearable :options="managerOptions" placeholder="企业级管理，不指定具体管理员" />
           </n-form-item>
           <n-form-item label="申请角色">
-            <n-select v-model:value="editForm.requested_role" :options="userRoleOptions" />
+            <n-select v-model:value="editForm.requested_role" :options="userRoleOptions" @update:value="handleEditRoleUpdate" />
+          </n-form-item>
+          <n-form-item v-if="editForm.requested_role === 'temporary_user'" label="授权时长">
+            <div class="validity-field">
+              <n-date-picker v-model:value="editForm.valid_until_value" type="datetime" clearable :disabled="editForm.valid_until_permanent" />
+              <n-checkbox v-model:checked="editForm.valid_until_permanent" @update:checked="handleEditPermanentUpdate">长期有效</n-checkbox>
+            </div>
           </n-form-item>
         </template>
 
@@ -145,7 +152,13 @@
             <n-select v-model:value="approveForm.manager_user_id" filterable clearable :options="managerOptions" placeholder="企业级管理，不指定具体管理员" />
           </n-form-item>
           <n-form-item label="创建角色">
-            <n-select v-model:value="approveForm.requested_role" :options="userRoleOptions" />
+            <n-select v-model:value="approveForm.requested_role" :options="userRoleOptions" @update:value="handleApproveRoleUpdate" />
+          </n-form-item>
+          <n-form-item v-if="approveForm.requested_role === 'temporary_user'" label="授权时长">
+            <div class="validity-field">
+              <n-date-picker v-model:value="userAccount.valid_until_value" type="datetime" clearable :disabled="userAccount.valid_until_permanent" />
+              <n-checkbox v-model:checked="userAccount.valid_until_permanent" @update:checked="handleApprovePermanentUpdate">长期有效</n-checkbox>
+            </div>
           </n-form-item>
           <div class="account-row account-row--single">
             <div class="account-role">
@@ -235,7 +248,7 @@ import type {
   RoleCode,
   UserItem,
 } from '@/types/api'
-import { formatDateTime } from '@/utils/format'
+import { addMonthsDatePickerValue, datePickerISOString, datePickerValue, formatDateTime } from '@/utils/format'
 import { roleLabel } from '@/utils/labels'
 import { pageList, queryValue } from '@/utils/query'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
@@ -245,6 +258,8 @@ type AccountForm = {
   username: string
   password_manual: boolean
   password: string
+  valid_until_value: number | null
+  valid_until_permanent: boolean
 }
 
 const message = useMessage()
@@ -301,6 +316,8 @@ const editForm = reactive({
   manager_user_id: null as number | null,
   requested_product: 'both' as RegistrationProduct,
   requested_role: 'normal_user' as RoleCode,
+  valid_until_value: null as number | null,
+  valid_until_permanent: true,
   reason: '',
 })
 
@@ -327,7 +344,6 @@ const sourceOptions: Array<{ label: string; value: RegistrationSourceChannel }> 
 
 const userRoleOptions: Array<{ label: string; value: RoleCode }> = [
   { label: '普通用户', value: 'normal_user' },
-  { label: '试用用户', value: 'trial_user' },
   { label: '临时用户', value: 'temporary_user' },
 ]
 
@@ -379,7 +395,7 @@ function modalStyle(width: string) {
 }
 
 function emptyAccount(): AccountForm {
-  return { username_manual: false, username: '', password_manual: false, password: '' }
+  return { username_manual: false, username: '', password_manual: false, password: '', valid_until_value: null, valid_until_permanent: true }
 }
 
 function statusLabel(status?: string) {
@@ -410,6 +426,21 @@ function productLabel(product?: string) {
   if (product === 'mobile') return 'Mobile'
   if (product === 'win') return 'Win'
   return product || '-'
+}
+
+function formatValidity(value?: string | null) {
+  return value ? formatDateTime(value) : '长期有效'
+}
+
+function validityPayload(permanent: boolean, value: number | null) {
+  return permanent ? null : datePickerISOString(value)
+}
+
+function ensureDefaultTemporaryValidity(target: { valid_until_value: number | null; valid_until_permanent: boolean }) {
+  if (target.valid_until_permanent) {
+    target.valid_until_permanent = false
+    target.valid_until_value = addMonthsDatePickerValue()
+  }
 }
 
 function applicationCompanyLabel(row: RegistrationApplication) {
@@ -501,11 +532,30 @@ async function openEdit(row: RegistrationApplication) {
     manager_user_id: editTarget.value.manager_user_id ?? null,
     requested_product: editTarget.value.requested_product,
     requested_role: (editTarget.value.requested_role || 'normal_user') as RoleCode,
+    valid_until_value: datePickerValue(editTarget.value.valid_until),
+    valid_until_permanent: !editTarget.value.valid_until,
     reason: editTarget.value.reason || '',
   })
   editCompanyMode.value = editForm.no_company ? 'none' : 'company'
   await loadManagers(editForm.target_company_id)
   editVisible.value = true
+}
+
+function handleEditRoleUpdate(value: RoleCode) {
+  if (value === 'temporary_user') {
+    ensureDefaultTemporaryValidity(editForm)
+  } else {
+    editForm.valid_until_permanent = true
+    editForm.valid_until_value = null
+  }
+}
+
+function handleEditPermanentUpdate(checked: boolean) {
+  if (checked) {
+    editForm.valid_until_value = null
+  } else if (!editForm.valid_until_value) {
+    editForm.valid_until_value = addMonthsDatePickerValue()
+  }
 }
 
 function handleEditCompanyMode(value: string) {
@@ -555,6 +605,7 @@ async function submitEdit() {
       manager_user_id: editTarget.value.app_type === 'user' && !editForm.no_company ? editForm.manager_user_id : null,
       requested_product: editForm.requested_product,
       requested_role: editTarget.value.app_type === 'enterprise' ? 'enterprise_admin' : editForm.requested_role,
+      valid_until: editTarget.value.app_type === 'user' && editForm.requested_role === 'temporary_user' ? validityPayload(editForm.valid_until_permanent, editForm.valid_until_value) : null,
       reason: editForm.reason,
     }
     await registrationApi.update(editTarget.value.id, payload)
@@ -578,6 +629,11 @@ async function openApprove(row: RegistrationApplication) {
   approveCompanyMode.value = approveForm.no_company ? 'none' : 'company'
   enterpriseAccounts.value = [accountWithDesiredUsername(approveTarget.value.desired_username)]
   Object.assign(userAccount, accountWithDesiredUsername(approveTarget.value.desired_username))
+  userAccount.valid_until_value = datePickerValue(approveTarget.value.valid_until)
+  userAccount.valid_until_permanent = !approveTarget.value.valid_until
+  if (approveForm.requested_role === 'temporary_user' && !approveTarget.value.valid_until) {
+    ensureDefaultTemporaryValidity(userAccount)
+  }
   await loadManagers(approveForm.target_company_id)
   approveVisible.value = true
 }
@@ -605,10 +661,28 @@ async function loadManagersForApprove(value: number | null) {
   await loadManagers(value)
 }
 
+function handleApproveRoleUpdate(value: RoleCode) {
+  if (value === 'temporary_user') {
+    ensureDefaultTemporaryValidity(userAccount)
+  } else {
+    userAccount.valid_until_permanent = true
+    userAccount.valid_until_value = null
+  }
+}
+
+function handleApprovePermanentUpdate(checked: boolean) {
+  if (checked) {
+    userAccount.valid_until_value = null
+  } else if (!userAccount.valid_until_value) {
+    userAccount.valid_until_value = addMonthsDatePickerValue()
+  }
+}
+
 function accountPayload(account: AccountForm) {
   return {
     username: account.username_manual ? account.username.trim() : '',
     password: account.password_manual ? account.password : '',
+    valid_until: validityPayload(account.valid_until_permanent, account.valid_until_value),
   }
 }
 
@@ -802,9 +876,18 @@ onMounted(async () => {
   gap: 6px;
 }
 
+.validity-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
 @media (max-width: 720px) {
   .form-grid,
-  .account-row {
+  .account-row,
+  .validity-field {
     grid-template-columns: 1fr;
   }
 }

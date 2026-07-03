@@ -43,6 +43,18 @@
           <n-form-item v-if="userCompanyMode === 'company'" label="目标企业 ID" path="target_company_id">
             <n-input-number v-model:value="form.target_company_id" :min="1" style="width: 100%" />
           </n-form-item>
+          <n-form-item label="申请角色">
+            <n-radio-group v-model:value="form.requested_role" @update:value="handleRoleUpdate">
+              <n-radio-button value="normal_user">普通用户</n-radio-button>
+              <n-radio-button value="temporary_user">临时用户</n-radio-button>
+            </n-radio-group>
+          </n-form-item>
+          <n-form-item v-if="form.requested_role === 'temporary_user'" label="授权时长">
+            <div class="validity-field">
+              <n-date-picker v-model:value="validUntilValue" type="datetime" clearable :disabled="validUntilPermanent" />
+              <n-checkbox v-model:checked="validUntilPermanent" @update:checked="handlePermanentUpdate">长期有效</n-checkbox>
+            </div>
+          </n-form-item>
         </template>
 
         <n-grid :cols="2" :x-gap="12">
@@ -89,7 +101,8 @@ import type { FormInst, FormRules } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { registrationApi } from '@/api/registration'
-import type { RegistrationApplicationPayload, RegistrationReceipt } from '@/types/api'
+import type { RegistrationApplicationPayload, RegistrationReceipt, RoleCode } from '@/types/api'
+import { addMonthsDatePickerValue, datePickerISOString } from '@/utils/format'
 
 const router = useRouter()
 const message = useMessage()
@@ -97,6 +110,8 @@ const formRef = ref<FormInst | null>(null)
 const submitting = ref(false)
 const receipt = ref<RegistrationReceipt | null>(null)
 const userCompanyMode = ref<'company' | 'none'>('company')
+const validUntilValue = ref<number | null>(null)
+const validUntilPermanent = ref(true)
 
 const form = reactive<RegistrationApplicationPayload>({
   app_type: 'enterprise',
@@ -108,6 +123,8 @@ const form = reactive<RegistrationApplicationPayload>({
   target_company_id: null,
   no_company: false,
   requested_product: 'both',
+  requested_role: 'normal_user' as RoleCode,
+  valid_until: null,
   reason: '',
 })
 
@@ -162,10 +179,37 @@ function resetForm() {
     target_company_id: null,
     no_company: false,
     requested_product: 'both',
+    requested_role: 'normal_user',
+    valid_until: null,
     reason: '',
   })
   userCompanyMode.value = 'company'
+  validUntilValue.value = null
+  validUntilPermanent.value = true
   receipt.value = null
+}
+
+function handleRoleUpdate(value: string) {
+  if (value === 'temporary_user' && validUntilPermanent.value) {
+    validUntilPermanent.value = false
+    validUntilValue.value = addMonthsDatePickerValue()
+  }
+  if (value === 'normal_user') {
+    validUntilPermanent.value = true
+    validUntilValue.value = null
+  }
+}
+
+function handlePermanentUpdate(checked: boolean) {
+  if (checked) {
+    validUntilValue.value = null
+  } else if (!validUntilValue.value) {
+    validUntilValue.value = addMonthsDatePickerValue()
+  }
+}
+
+function validityPayload() {
+  return validUntilPermanent.value ? null : datePickerISOString(validUntilValue.value)
 }
 
 async function submit() {
@@ -183,7 +227,8 @@ async function submit() {
       target_company_id: form.app_type === 'user' && userCompanyMode.value === 'company' ? form.target_company_id : null,
       no_company: form.app_type === 'user' && userCompanyMode.value === 'none',
       requested_product: form.requested_product,
-      requested_role: form.app_type === 'enterprise' ? 'enterprise_admin' : 'normal_user',
+      requested_role: form.app_type === 'enterprise' ? 'enterprise_admin' : form.requested_role,
+      valid_until: form.app_type === 'user' && form.requested_role === 'temporary_user' ? validityPayload() : null,
       reason: form.reason,
     }
     receipt.value = await registrationApi.submit(payload)
@@ -243,5 +288,19 @@ async function submit() {
   margin: 5px 0 0;
   color: var(--yy-text-secondary);
   font-size: 13px;
+}
+
+.validity-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .validity-field {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

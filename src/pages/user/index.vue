@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="用户管理" subtitle="维护后台与客户端账号、角色、状态、试用和临时有效期。">
+    <PageHeader title="用户管理" subtitle="维护后台与客户端账号、角色、状态和账户有效期。">
       <n-button type="primary" @click="openCreate">新建用户</n-button>
     </PageHeader>
 
@@ -73,18 +73,12 @@
               </n-form-item>
             </n-grid-item>
           </n-grid>
-          <n-grid :cols="2" :x-gap="12">
-            <n-grid-item>
-              <n-form-item label="试用到期">
-                <n-input v-model:value="form.trial_expires_at" placeholder="2027-01-01T00:00:00Z" />
-              </n-form-item>
-            </n-grid-item>
-            <n-grid-item>
-              <n-form-item label="临时账号到期">
-                <n-input v-model:value="form.temporary_expires_at" placeholder="2027-01-01T00:00:00Z" />
-              </n-form-item>
-            </n-grid-item>
-          </n-grid>
+          <n-form-item label="账户有效期">
+            <div class="validity-field">
+              <n-date-picker v-model:value="form.valid_until_value" type="datetime" clearable :disabled="form.valid_until_permanent" />
+              <n-checkbox v-model:checked="form.valid_until_permanent" @update:checked="handleValidityPermanentUpdate">长期有效</n-checkbox>
+            </div>
+          </n-form-item>
           <n-space>
             <n-checkbox v-model:checked="form.can_use_mobile">允许 Mobile</n-checkbox>
             <n-checkbox v-model:checked="form.can_use_win">允许 Win</n-checkbox>
@@ -116,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, FormInst, FormRules, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -125,7 +119,7 @@ import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import type { RoleCode, UserItem, UserPayload, UserStatus } from '@/types/api'
 import { roleLabel, roleOptions, userStatusLabel, userStatusOptions } from '@/utils/labels'
-import { formatDateTime } from '@/utils/format'
+import { addMonthsDatePickerValue, datePickerISOString, datePickerValue, formatDateTime } from '@/utils/format'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { passwordPolicyText, stripSpaces, validateOptionalPasswordInput, validateUsernameInput } from '@/utils/accountPolicy'
 import { pageList, queryValue } from '@/utils/query'
@@ -161,7 +155,12 @@ const pagination = reactive<PaginationProps>({
   pageSizes: [10, 20, 50],
 })
 
-const form = reactive<UserPayload>({
+type UserForm = Omit<UserPayload, 'valid_until'> & {
+  valid_until_value: number | null
+  valid_until_permanent: boolean
+}
+
+const form = reactive<UserForm>({
   username: '',
   real_name: '',
   password: '',
@@ -170,8 +169,8 @@ const form = reactive<UserPayload>({
   company_id: null,
   role_code: 'normal_user',
   status: 'active',
-  trial_expires_at: '',
-  temporary_expires_at: '',
+  valid_until_value: null,
+  valid_until_permanent: true,
   can_use_mobile: true,
   can_use_win: true,
 })
@@ -181,8 +180,8 @@ const resetPasswordPolicyError = computed(() => validateOptionalPasswordInput(pa
 
 const assignableRoleValues = computed<RoleCode[]>(() => {
   if (authStore.isSuperAdmin) return roleOptions.map((item) => item.value)
-  if (authStore.isAdmin) return ['enterprise_admin', 'normal_user', 'trial_user', 'temporary_user']
-  return ['normal_user', 'trial_user', 'temporary_user']
+  if (authStore.isAdmin) return ['enterprise_admin', 'normal_user', 'temporary_user']
+  return ['normal_user', 'temporary_user']
 })
 
 const availableRoleOptions = computed(() => roleOptions.filter((item) => assignableRoleValues.value.includes(item.value)))
@@ -222,8 +221,7 @@ const columns: DataTableColumns<UserItem> = [
       h(NTag, { type: row.status === 'active' ? 'success' : 'warning', round: true }, { default: () => userStatusLabel(row.status) }),
   },
   { title: '产品', key: 'products', width: 110, render: (row) => [row.can_use_mobile ? 'Mobile' : '', row.can_use_win ? 'Win' : ''].filter(Boolean).join(' / ') || '-' },
-  { title: '试用到期', key: 'trial_expires_at', width: 160, render: (row) => formatDateTime(row.trial_expires_at) },
-  { title: '临时到期', key: 'temporary_expires_at', width: 160, render: (row) => formatDateTime(row.temporary_expires_at) },
+  { title: '有效期', key: 'valid_until', width: 170, render: (row) => formatValidity(row.valid_until) },
   { title: '最近登录', key: 'last_login_at', width: 170, render: (row) => formatDateTime(row.last_login_at) },
   {
     title: '操作',
@@ -326,6 +324,22 @@ function handleResetPasswordUpdate(value: string) {
   passwordForm.password = stripSpaces(value)
 }
 
+function handleValidityPermanentUpdate(checked: boolean) {
+  if (checked) {
+    form.valid_until_value = null
+  } else if (!form.valid_until_value) {
+    form.valid_until_value = addMonthsDatePickerValue()
+  }
+}
+
+function formatValidity(value?: string | null) {
+  return value ? formatDateTime(value) : '长期有效'
+}
+
+function currentValidUntilPayload() {
+  return form.valid_until_permanent ? null : datePickerISOString(form.valid_until_value)
+}
+
 function resetForm() {
   Object.assign(form, {
     username: '',
@@ -336,8 +350,8 @@ function resetForm() {
     company_id: authStore.isBackOfficeScopeAll ? null : authStore.companyId,
     role_code: 'normal_user',
     status: 'active',
-    trial_expires_at: '',
-    temporary_expires_at: '',
+    valid_until_value: null,
+    valid_until_permanent: true,
     can_use_mobile: true,
     can_use_win: true,
   })
@@ -365,16 +379,16 @@ async function openEdit(row: UserItem) {
     company_id: detail.company_id ?? null,
     role_code: detail.role_code,
     status: detail.status,
-    trial_expires_at: detail.trial_expires_at || '',
-    temporary_expires_at: detail.temporary_expires_at || '',
+    valid_until_value: datePickerValue(detail.valid_until),
+    valid_until_permanent: !detail.valid_until,
     can_use_mobile: detail.can_use_mobile,
     can_use_win: detail.can_use_win,
   })
   drawerVisible.value = true
 }
 
-function cleanPayload(): UserPayload {
-  return {
+function cleanPayload(includeValidity: boolean): UserPayload {
+  const payload: UserPayload = {
     username: form.username,
     real_name: form.real_name || '',
     password: form.password || undefined,
@@ -383,11 +397,13 @@ function cleanPayload(): UserPayload {
     company_id: form.company_id ?? null,
     role_code: form.role_code,
     status: form.status,
-    trial_expires_at: form.trial_expires_at || null,
-    temporary_expires_at: form.temporary_expires_at || null,
     can_use_mobile: Boolean(form.can_use_mobile),
     can_use_win: Boolean(form.can_use_win),
   }
+  if (includeValidity) {
+    payload.valid_until = currentValidUntilPayload()
+  }
+  return payload
 }
 
 async function submitUser() {
@@ -399,7 +415,7 @@ async function submitUser() {
   saving.value = true
   try {
     if (!editingId.value) {
-      const result = await userApi.create(cleanPayload())
+      const result = await userApi.create(cleanPayload(true))
       if (result.temporary_password) {
         dialog.success({
           title: '用户已创建',
@@ -410,7 +426,7 @@ async function submitUser() {
         message.success('用户已创建')
       }
     } else {
-      const payload = cleanPayload()
+      const payload = cleanPayload(false)
       await userApi.update(editingId.value, payload)
       if (form.role_code && form.role_code !== originalRole.value) {
         await userApi.updateRole(editingId.value, form.role_code)
@@ -418,12 +434,7 @@ async function submitUser() {
       if (form.status && form.status !== originalStatus.value) {
         await userApi.updateStatus(editingId.value, form.status)
       }
-      if (form.role_code === 'trial_user') {
-        await userApi.updateTrial(editingId.value, form.trial_expires_at || null)
-      }
-      if (form.role_code === 'temporary_user') {
-        await userApi.updateTemporary(editingId.value, form.temporary_expires_at || null)
-      }
+      await userApi.updateValidity(editingId.value, currentValidUntilPayload())
       message.success('用户已更新')
     }
     drawerVisible.value = false
@@ -478,4 +489,30 @@ onMounted(async () => {
   await fetchCompanies()
   await fetchList()
 })
+
+watch(
+  () => form.role_code,
+  (roleCode) => {
+    if (!editingId.value && roleCode === 'temporary_user' && form.valid_until_permanent) {
+      form.valid_until_permanent = false
+      form.valid_until_value = addMonthsDatePickerValue()
+    }
+  },
+)
 </script>
+
+<style scoped>
+.validity-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .validity-field {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -32,11 +32,8 @@ export const userApi = {
   updateStatus(id: number, status: UserStatus) {
     return request.put(`/admin/users/${id}/status`, { status })
   },
-  updateTrial(id: number, expiresAt: string | null) {
-    return request.put(`/admin/users/${id}/trial`, { expires_at: expiresAt })
-  },
-  updateTemporary(id: number, expiresAt: string | null) {
-    return request.put(`/admin/users/${id}/temporary`, { expires_at: expiresAt })
+  updateValidity(id: number, validUntil: string | null) {
+    return request.put(`/admin/users/${id}/validity`, { valid_until: validUntil })
   },
   resetPassword(id: number, password?: string) {
     return request.post<PasswordResetResponse, PasswordResetResponse>(`/admin/users/${id}/password/reset`, {

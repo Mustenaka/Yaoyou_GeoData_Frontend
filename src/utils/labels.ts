@@ -14,7 +14,6 @@ export const roleOptions: Array<{ label: string; value: RoleCode }> = [
   { label: '普通管理员', value: 'admin' },
   { label: '企业管理员', value: 'enterprise_admin' },
   { label: '普通用户', value: 'normal_user' },
-  { label: '试用用户', value: 'trial_user' },
   { label: '临时用户', value: 'temporary_user' },
 ]
 

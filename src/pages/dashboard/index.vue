@@ -486,7 +486,7 @@ const expiryRows = computed<EventRow[]>(() => {
     rows.push({ key: `license-${item.id}`, title: item.username || `用户 ${item.user_id ?? '-'}`, desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`, time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'blue', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'licenses' }) : undefined })
   })
   ;(recent.value?.expiring_users || []).forEach((item) => {
-    rows.push({ key: `user-${item.id}`, title: item.username, desc: roleLabel(item.role_code), time: formatDateTime(item.trial_expires_at || item.temporary_expires_at), sortAt: item.trial_expires_at || item.temporary_expires_at, tone: 'amber', route: () => router.push({ name: 'users' }) })
+    rows.push({ key: `user-${item.id}`, title: item.username, desc: roleLabel(item.role_code), time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'amber', route: () => router.push({ name: 'users' }) })
   })
   return rows.slice(0, 12)
 })

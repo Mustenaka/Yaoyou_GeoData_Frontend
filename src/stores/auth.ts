@@ -17,7 +17,7 @@ const legacySuperAdminRole = ['system', 'admin'].join('_')
 function normalizeRoleCode(value: string): RoleCode | '' {
   if (value === legacySuperAdminRole) return 'superadmin'
   if (value === 'superadmin' || value === 'admin' || value === 'enterprise_admin') return value
-  if (value === 'normal_user' || value === 'trial_user' || value === 'temporary_user') return value
+  if (value === 'normal_user' || value === 'temporary_user') return value
   return ''
 }
 
