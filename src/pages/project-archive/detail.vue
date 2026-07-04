@@ -98,7 +98,7 @@
                   :data="structuredConfig.mappingRules"
                   :pagination="{ pageSize: 20 }"
                   :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
-                  :scroll-x="1180"
+                  :scroll-x="1500"
                 >
                   <template #empty>
                     <n-empty description="配置中未找到具体规则" />
@@ -220,6 +220,38 @@
         </n-tabs>
       </div>
     </n-spin>
+
+    <n-modal
+      v-model:show="ruleDetailVisible"
+      preset="card"
+      :title="ruleDetailTitle"
+      style="width: min(920px, calc(100vw - 32px))"
+      :bordered="false"
+    >
+      <div v-if="selectedRule" class="rule-detail-modal-content">
+        <n-descriptions label-placement="left" bordered :column="2" size="small">
+          <n-descriptions-item label="字段">{{ selectedRule.columnLabel }}</n-descriptions-item>
+          <n-descriptions-item label="字段 key">
+            <span class="mono">{{ selectedRule.columnKey }}</span>
+          </n-descriptions-item>
+          <n-descriptions-item label="规则类型">{{ selectedRule.typeLabel }}</n-descriptions-item>
+          <n-descriptions-item label="规则 ID">
+            <span class="mono">{{ selectedRule.id }}</span>
+          </n-descriptions-item>
+          <n-descriptions-item label="启用">{{ selectedRule.active ? '是' : '否' }}</n-descriptions-item>
+          <n-descriptions-item label="说明">{{ selectedRule.summary || '-' }}</n-descriptions-item>
+        </n-descriptions>
+
+        <div class="section-title">规则内容</div>
+        <div v-if="selectedRuleDetailSegments.length" class="rule-detail-full">
+          <div v-for="(segment, index) in selectedRuleDetailSegments" :key="`${index}-${segment}`" class="rule-detail-segment">
+            <span class="rule-detail-segment__index">{{ index + 1 }}</span>
+            <span>{{ segment }}</span>
+          </div>
+        </div>
+        <n-empty v-else description="暂无规则内容" />
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -227,7 +259,7 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
-import { NTag, useMessage } from 'naive-ui'
+import { NButton, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
 import type { ConfigSnapshotItem, FormDataSnapshot, ProjectArchiveItem } from '@/types/api'
@@ -266,11 +298,13 @@ const configError = ref('')
 const formSnapshotError = ref('')
 const activeTab = ref('base')
 const activeFormTab = ref('excavation-record')
+const ruleDetailVisible = ref(false)
 const detail = ref<ProjectArchiveItem | null>(null)
 const mobileData = ref<FormDataSnapshot[]>([])
 const configs = ref<ConfigSnapshotItem[]>([])
 const latestConfigDetail = ref<ConfigSnapshotItem | null>(null)
 const formSnapshotViews = ref<FormSnapshotView[]>([])
+const selectedRule = ref<ConfigMappingRule | null>(null)
 
 const projectId = computed(() => Number(route.params.id))
 const detailTitle = computed(() => detail.value?.project_name || detail.value?.project_uuid || '项目详情')
@@ -280,6 +314,11 @@ const latestConfig = computed(() => {
   return [...configs.value].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''))[0] || null
 })
 const structuredConfig = computed<StructuredConfig | null>(() => (latestConfigDetail.value ? parseStructuredConfig(latestConfigDetail.value.snapshot_json) : null))
+const ruleDetailTitle = computed(() => {
+  const rule = selectedRule.value
+  return rule ? `${rule.columnLabel} · ${rule.typeLabel}` : '规则详情'
+})
+const selectedRuleDetailSegments = computed(() => splitRuleDetail(selectedRule.value?.detail))
 const visibleFormSnapshotViews = computed(() => {
   const latestExcavation = formSnapshotViews.value.find((view) => view.item.form_type === 'excavation-record')
   return latestExcavation ? [latestExcavation] : []
@@ -332,8 +371,20 @@ const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [
     width: 80,
     render: (row) => h(NTag, { type: row.active ? 'success' : 'default', round: true }, { default: () => (row.active ? '是' : '否') }),
   },
-  { title: '说明', key: 'summary', minWidth: 240, ellipsis: { tooltip: true } },
-  { title: '规则内容', key: 'detail', minWidth: 420, ellipsis: { tooltip: true } },
+  { title: '说明', key: 'summary', minWidth: 240, render: (row) => h('div', { class: 'rule-detail-text' }, row.summary || '-') },
+  { title: '规则内容', key: 'detail', minWidth: 560, render: (row) => h('div', { class: 'rule-detail-text' }, row.detail || '-') },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 100,
+    fixed: 'right',
+    render: (row) =>
+      h(
+        NButton,
+        { text: true, type: 'primary', size: 'small', onClick: () => openRuleDetail(row) },
+        { default: () => '查看详情' },
+      ),
+  },
 ]
 
 const configItemColumns: DataTableColumns<ConfigKeyValueItem> = [
@@ -345,6 +396,20 @@ const configItemColumns: DataTableColumns<ConfigKeyValueItem> = [
 async function loadConfigs() {
   const result = await archiveApi.projectConfigs(projectId.value, { page: 1, page_size: 100 })
   configs.value = pageList(result.list)
+}
+
+function openRuleDetail(rule: ConfigMappingRule) {
+  selectedRule.value = rule
+  ruleDetailVisible.value = true
+}
+
+function splitRuleDetail(detail?: string) {
+  const text = (detail || '').trim()
+  if (!text || text === '-') return []
+  return text
+    .split('；')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 async function loadLatestConfigDetail() {
@@ -545,6 +610,39 @@ onMounted(loadDetail)
 
 .debug-collapse {
   margin-top: 14px;
+}
+
+.rule-detail-text {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.rule-detail-modal-content {
+  display: grid;
+  gap: 14px;
+}
+
+.rule-detail-full {
+  display: grid;
+  gap: 8px;
+}
+
+.rule-detail-segment {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--yy-border);
+  border-radius: 6px;
+  background: var(--yy-surface-soft);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.rule-detail-segment__index {
+  color: var(--yy-text-muted);
+  font-family: var(--font-mono);
 }
 
 .summary-panel {
