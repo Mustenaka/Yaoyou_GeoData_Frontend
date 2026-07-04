@@ -87,6 +87,101 @@ export const formTypeOptions = [
   { label: '开土记录', value: 'excavation-record' },
 ]
 
+export const formSnapshotTableLabels: Record<string, string> = {
+  data: '开土记录',
+  rows: '开土记录',
+  sampleMeta: '录入日期/试验员',
+  sample_meta: '录入日期/试验员',
+  sampleRows: '录入日期/试验员',
+}
+
+export const excavationRecordColumnLabels: Record<string, string> = {
+  seq: '序号',
+  sampleCode: '孔号样号',
+  depth: '取土深度',
+  color: '颜色',
+  soilName: '土名',
+  state: '状态',
+  remark: '备注',
+  sieveWeight: '留筛土重',
+  clayContent: '粘粒含量',
+  avgWater: '平均w%',
+  avgDensity: '平均ρg/cm3',
+  waterWet1: 'W1湿土g',
+  waterWet2: 'W2湿土g',
+  densityWet1: 'ρ1湿土g',
+  densityWet2: 'ρ2湿土g',
+  waterDry1: 'W1干土g',
+  waterDry2: 'W2干土g',
+  testSelection: '试验选择',
+  waterCalc1: 'W1%',
+  waterCalc2: 'W2%',
+  waterCode1: 'W1盒号',
+  waterBoxWeight1: 'W1盒重g',
+  waterCode2: 'W2盒号',
+  waterBoxWeight2: 'W2盒重g',
+  ringCode1: 'ρ1HD号',
+  ringWeight1: 'ρ1HD重g',
+  ringCode2: 'ρ2HD号',
+  ringWeight2: 'ρ2HD重g',
+  humidity: '湿度',
+  compactness: '密实度',
+  shakeReaction: '摇振反应',
+  glossReaction: '光泽反应',
+  dryStrength: '干强度',
+  toughness: '韧性',
+  packingDisturbance: '包装与扰动情况',
+  llWet1: 'WL1湿土g',
+  llWet2: 'WL2湿土g',
+  llDry1: 'WL1干土g',
+  llDry2: 'WL2干土g',
+  llCode1: 'WL1盒号',
+  llBoxWeight1: 'WL1盒重g',
+  llCode2: 'WL2盒号',
+  llBoxWeight2: 'WL2盒重g',
+  plWet1: 'WP1湿土g',
+  plWet2: 'WP2湿土g',
+  plDry1: 'WP1干土g',
+  plDry2: 'WP2干土g',
+  plCode1: 'WP1盒号',
+  plBoxWeight1: 'WP1盒重g',
+  plCode2: 'WP2盒号',
+  plBoxWeight2: 'WP2盒重g',
+  zjInstrumentNo: 'ZJ仪器编号',
+  shearMethod: '剪切方法',
+  pressureSequence: '压力序列',
+  shearR1: 'r1',
+  shearR2: 'r2',
+  shearR3: 'r3',
+  shearR4: 'r4',
+  kfFlaskNo: 'KF烧瓶编号',
+  kfMeasuringCylinderNo: 'KF量筒编号',
+  kfHydrometerNo: 'KF密度计号',
+  kfTotalDrySoilWeight: 'KF总干土重g',
+  kfDrySoilWeight05To025: '0.5-0.25mm干土重g',
+  kfDrySoilWeight025To0075: '0.25-0.075mm干土重g',
+  kfDrySoilWeightLt0075: '<0.075mm干土重g',
+  specificGravityGs: '比重Gs',
+  waterTemperature: '水温℃',
+  hydrometer1min: '1min',
+  hydrometer5min: '5min',
+  hydrometer30min: '30min',
+  hydrometer120min: '120min',
+  hydrometer150min: '150min',
+  hydrometer180min: '180min',
+  hydrometer240min: '240min',
+  hydrometer1440min: '1440min',
+}
+
+export const sampleMetaColumnLabels: Record<string, string> = {
+  seq: '序号',
+  sampleCode: '孔号样号',
+  testDate: '开土日期',
+  entryDate: '录入日期',
+  tester: '试验员',
+  remark: '备注',
+}
+
 export const riskLevelOptions = [
   { label: '低', value: 'low' },
   { label: '中', value: 'medium' },
@@ -143,6 +238,17 @@ export function configTypeLabel(type?: string) {
 
 export function formTypeLabel(type?: string) {
   return formTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function formSnapshotTableLabel(kind?: string) {
+  return kind ? formSnapshotTableLabels[kind] || kind : '-'
+}
+
+export function formSnapshotColumnLabel(formType?: string, key?: string, kind: 'data' | 'sampleMeta' = 'data') {
+  if (!key) return ''
+  if (kind === 'sampleMeta') return sampleMetaColumnLabels[key] || excavationRecordColumnLabels[key] || ''
+  if (formType === 'excavation-record') return excavationRecordColumnLabels[key] || ''
+  return ''
 }
 
 export function riskLevelLabel(level?: string) {

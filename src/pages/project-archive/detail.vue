@@ -138,14 +138,14 @@
                   v-for="view in visibleFormSnapshotViews"
                   :key="view.item.id"
                   :name="view.item.form_type || 'unknown'"
-                  :tab="formTypeLabel(view.item.form_type)"
+                  :tab="view.parsed.formLabel || formTypeLabel(view.item.form_type)"
                 >
                   <div class="form-snapshot">
                     <div class="section-toolbar">
                       <div>
-                        <div class="section-title section-title--compact">{{ formTypeLabel(view.item.form_type) }}</div>
+                        <div class="section-title section-title--compact">{{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }}</div>
                         <div class="section-subtitle">
-                          {{ formTypeLabel(view.item.form_type) }} -&gt; {{ view.item.form_type || '-' }} ·
+                          {{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }} -&gt; {{ view.item.form_type || '-' }} ·
                           {{ formatDateTime(view.item.created_at) }}
                         </div>
                       </div>
@@ -166,7 +166,7 @@
                     <div class="data-section">
                       <div class="data-section__header">
                         <div>
-                          <div class="data-section__title">{{ formTypeLabel(view.item.form_type) }}</div>
+                          <div class="data-section__title">{{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }}</div>
                           <div class="section-subtitle">数据填充结果 · {{ view.item.row_count }} 行</div>
                         </div>
                       </div>
@@ -187,7 +187,7 @@
                     <div class="data-section">
                       <div class="data-section__header">
                         <div>
-                          <div class="data-section__title">录入日期/试验员</div>
+                          <div class="data-section__title">{{ view.parsed.sampleMetaLabel || '录入日期/试验员' }}</div>
                           <div class="section-subtitle">样品元数据 · {{ view.item.sample_count }} 条</div>
                         </div>
                       </div>

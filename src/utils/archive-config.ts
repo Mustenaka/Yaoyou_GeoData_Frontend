@@ -1,4 +1,5 @@
 import type { DataTableColumns } from 'naive-ui'
+import { formSnapshotColumnLabel, formSnapshotTableLabel, formTypeLabel } from './labels'
 
 export type JsonRecord = Record<string, unknown>
 export type SnapshotCell = string | number | boolean | null
@@ -48,6 +49,9 @@ export interface SnapshotColumnDef {
 export interface ParsedFormSnapshot {
   rawText: string
   error: string
+  formType: string
+  formLabel: string
+  sampleMetaLabel: string
   columns: SnapshotColumnDef[]
   rows: SnapshotTableRow[]
   sampleColumns: SnapshotColumnDef[]
@@ -85,16 +89,31 @@ export function parseFormSnapshot(raw?: string | null): ParsedFormSnapshot {
   const parsed = parseJSON(raw)
   if (!parsed.record) return emptyParsedFormSnapshot(parsed.error || '表单快照 JSON 为空或格式不正确', parsed.rawText)
 
+  const labels = asRecord(parsed.record.labels)
+  const formType = stringValue(parsed.record.formType) || stringValue(parsed.record.form_type)
+  const formLabel = firstNonEmptyString(parsed.record.formLabel, parsed.record.formTitle, labels?.form, formTypeLabel(formType))
+  const sampleMetaLabel = firstNonEmptyString(parsed.record.sampleMetaLabel, labels?.sampleMeta, formSnapshotTableLabel('sampleMeta'))
   const rowsRaw = asArray(parsed.record.rows)
-  const columns = normalizeColumns(asArray(parsed.record.columns), rowsRaw)
+  const columns = normalizeColumns(asArray(parsed.record.columns), rowsRaw, {
+    formType,
+    kind: 'data',
+    labelMap: asRecord(labels?.columns),
+  })
   const rows = normalizeRows(rowsRaw, columns)
   const sampleRowsRaw = firstArray(parsed.record, ['sampleMetaRows', 'sample_meta_rows', 'sampleRows'])
-  const sampleColumns = normalizeColumns(firstArray(parsed.record, ['sampleMetaColumns', 'sample_meta_columns', 'sampleColumns']), sampleRowsRaw)
+  const sampleColumns = normalizeColumns(firstArray(parsed.record, ['sampleMetaColumns', 'sample_meta_columns', 'sampleColumns']), sampleRowsRaw, {
+    formType,
+    kind: 'sampleMeta',
+    labelMap: asRecord(labels?.sampleMetaColumns),
+  })
   const sampleRows = normalizeRows(sampleRowsRaw, sampleColumns)
 
   return {
     rawText: parsed.rawText,
     error: parsed.error,
+    formType,
+    formLabel,
+    sampleMetaLabel,
     columns,
     rows,
     sampleColumns,
@@ -110,6 +129,9 @@ export function emptyParsedFormSnapshot(error = '', rawText = '{}'): ParsedFormS
   return {
     rawText,
     error,
+    formType: '',
+    formLabel: '',
+    sampleMetaLabel: formSnapshotTableLabel('sampleMeta'),
     columns: [],
     rows: [],
     sampleColumns: [],
@@ -314,27 +336,35 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
   return items
 }
 
-function normalizeColumns(rawColumns: unknown[], rawRows: unknown[]): SnapshotColumnDef[] {
+type SnapshotColumnKind = 'data' | 'sampleMeta'
+
+interface SnapshotColumnLabelOptions {
+  formType?: string
+  kind?: SnapshotColumnKind
+  labelMap?: JsonRecord | null
+}
+
+function normalizeColumns(rawColumns: unknown[], rawRows: unknown[], options: SnapshotColumnLabelOptions = {}): SnapshotColumnDef[] {
   const columns = rawColumns
     .map((item, index) => {
       if (isRecord(item)) {
         const key = stringValue(item.key) || stringValue(item.field) || `column_${index + 1}`
         return {
           key,
-          label: stringValue(item.label) || stringValue(item.title) || key,
+          label: resolveSnapshotColumnLabel(key, stringValue(item.label) || stringValue(item.title), options),
           width: normalizeColumnWidth(item.width),
           kind: stringValue(item.kind) || stringValue(item.type) || '',
         }
       }
       const key = stringValue(item) || `column_${index + 1}`
-      return { key, label: key, width: 140, kind: '' }
+      return { key, label: resolveSnapshotColumnLabel(key, '', options), width: 140, kind: '' }
     })
     .filter((item) => item.key)
   if (columns.length) return columns
-  return deriveColumnsFromRows(rawRows)
+  return deriveColumnsFromRows(rawRows, options)
 }
 
-function deriveColumnsFromRows(rawRows: unknown[]): SnapshotColumnDef[] {
+function deriveColumnsFromRows(rawRows: unknown[], options: SnapshotColumnLabelOptions = {}): SnapshotColumnDef[] {
   const keys: string[] = []
   rawRows.slice(0, 50).forEach((row) => {
     if (!isRecord(row)) return
@@ -342,7 +372,14 @@ function deriveColumnsFromRows(rawRows: unknown[]): SnapshotColumnDef[] {
       if (!keys.includes(key)) keys.push(key)
     })
   })
-  return keys.map((key) => ({ key, label: key, width: 140, kind: '' }))
+  return keys.map((key) => ({ key, label: resolveSnapshotColumnLabel(key, '', options), width: 140, kind: '' }))
+}
+
+function resolveSnapshotColumnLabel(key: string, explicitLabel: string, options: SnapshotColumnLabelOptions = {}) {
+  const mappedLabel = stringValue(options.labelMap?.[key])
+  const fallbackLabel = formSnapshotColumnLabel(options.formType, key, options.kind || 'data')
+  if (explicitLabel && explicitLabel !== key) return explicitLabel
+  return mappedLabel || fallbackLabel || explicitLabel || key
 }
 
 function normalizeRows(rawRows: unknown[], columns: SnapshotColumnDef[]): SnapshotTableRow[] {
