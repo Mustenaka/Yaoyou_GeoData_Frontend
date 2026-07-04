@@ -9,6 +9,7 @@ declare module 'vue-router' {
     roles?: RoleCode[]
     group?: string
     hideInMenu?: boolean
+    disabled?: boolean
   }
 }
 
@@ -59,6 +60,54 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '注册申请', roles: adminRoles },
       },
       {
+        path: 'projects',
+        name: 'projects',
+        component: () => import('@/pages/project-archive/index.vue'),
+        meta: { title: '项目与数据记录', group: '移动端项目与数据', roles: adminRoles },
+      },
+      {
+        path: 'projects/:id',
+        name: 'project-detail',
+        component: () => import('@/pages/project-archive/detail.vue'),
+        meta: { title: '项目详情', group: '移动端项目与数据', hideInMenu: true, roles: adminRoles },
+      },
+      {
+        path: 'mobile/global-config',
+        name: 'mobile-global-config',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: '全局配置记录', group: '移动端项目与数据', roles: adminRoles },
+      },
+      {
+        path: 'win/sky-projects',
+        name: 'win-sky',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: 'SKY 项目数据记录', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
+      },
+      {
+        path: 'win/huaning-projects',
+        name: 'win-huaning',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: 'Huaning 项目数据记录', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
+      },
+      {
+        path: 'win/global-config',
+        name: 'win-global-config',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: '全局配置记录', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
+      },
+      {
+        path: 'win/other',
+        name: 'win-other',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: '其他', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
+      },
+      {
+        path: 'sync-files',
+        name: 'sync-files',
+        component: () => import('@/pages/sync-file/index.vue'),
+        meta: { title: '文件同步中心', roles: superRoles },
+      },
+      {
         path: 'licenses',
         name: 'licenses',
         component: () => import('@/pages/license/index.vue'),
@@ -75,24 +124,6 @@ const routes: RouteRecordRaw[] = [
         name: 'device-change-requests',
         component: () => import('@/pages/device/index.vue'),
         meta: { title: '换机申请', group: '授权与设备', roles: adminRoles },
-      },
-      {
-        path: 'projects',
-        name: 'projects',
-        component: () => import('@/pages/project-archive/index.vue'),
-        meta: { title: '项目档案', group: '项目与数据', roles: adminRoles },
-      },
-      {
-        path: 'projects/:id',
-        name: 'project-detail',
-        component: () => import('@/pages/project-archive/detail.vue'),
-        meta: { title: '项目详情', group: '项目与数据', hideInMenu: true, roles: adminRoles },
-      },
-      {
-        path: 'sync-files',
-        name: 'sync-files',
-        component: () => import('@/pages/sync-file/index.vue'),
-        meta: { title: '文件同步中心', group: '项目与数据', roles: superRoles },
       },
       {
         path: 'audit',

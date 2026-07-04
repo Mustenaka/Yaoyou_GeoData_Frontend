@@ -133,6 +133,7 @@ import {
   MailOutline,
   MoonOutline,
   PeopleOutline,
+  PhonePortraitOutline,
   SettingsOutline,
   SunnyOutline,
   TimeOutline,
@@ -219,6 +220,11 @@ const routeIcons: Record<string, unknown> = {
   devices: DesktopOutline,
   'device-change-requests': TimeOutline,
   projects: FolderOpenOutline,
+  'mobile-global-config': SettingsOutline,
+  'win-sky': DocumentTextOutline,
+  'win-huaning': DocumentTextOutline,
+  'win-global-config': SettingsOutline,
+  'win-other': ListOutline,
   'sync-files': CloudUploadOutline,
   audit: ListOutline,
   about: InformationCircleOutline,
@@ -231,7 +237,8 @@ const routeIcons: Record<string, unknown> = {
 
 const groupIcons: Record<string, unknown> = {
   授权与设备: KeyOutline,
-  项目与数据: FolderOpenOutline,
+  移动端项目与数据: PhonePortraitOutline,
+  Win端项目与数据: DesktopOutline,
   系统设置: SettingsOutline,
 }
 
@@ -250,13 +257,19 @@ function canShowRoute(record: RouteRecordRaw) {
   return !roles?.length || roles.includes(authStore.roleCode as RoleCode)
 }
 
+function canActivateMenuRoute(record: RouteRecordRaw) {
+  return canShowRoute(record) && record.meta?.disabled !== true
+}
+
 const activeMenuKey = computed(() => {
+  if (route.meta.disabled === true) return ''
   if (!route.meta.hideInMenu) return String(route.name || 'dashboard')
-  const fallback = adminChildren.value.find((record) => record.meta?.group === route.meta.group && canShowRoute(record))
+  const fallback = adminChildren.value.find((record) => record.meta?.group === route.meta.group && canActivateMenuRoute(record))
   return String(fallback?.name || 'dashboard')
 })
 
 const activeGroupKey = computed(() => {
+  if (route.meta.disabled === true) return ''
   const group = typeof route.meta.group === 'string' ? route.meta.group : ''
   return group ? groupKey(group) : ''
 })
@@ -273,6 +286,7 @@ const visibleMenuOptions = computed<MenuOption[]>(() => {
       label: String(record.meta?.title || key),
       key,
       icon: renderIcon(routeIcons[key] || DocumentTextOutline),
+      disabled: record.meta?.disabled === true,
     }
     const group = typeof record.meta?.group === 'string' ? record.meta.group : ''
 
@@ -331,6 +345,8 @@ const themeOptions: MenuOption[] = [
 
 function onNavigate(key: string) {
   if (key.startsWith('group:')) return
+  const target = adminChildren.value.find((record) => String(record.name) === key)
+  if (target?.meta?.disabled === true) return
   router.push({ name: key })
 }
 
