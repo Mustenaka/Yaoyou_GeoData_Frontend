@@ -280,7 +280,10 @@ const latestConfig = computed(() => {
   return [...configs.value].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''))[0] || null
 })
 const structuredConfig = computed<StructuredConfig | null>(() => (latestConfigDetail.value ? parseStructuredConfig(latestConfigDetail.value.snapshot_json) : null))
-const visibleFormSnapshotViews = computed(() => formSnapshotViews.value.filter((view) => view.item.form_type === 'excavation-record'))
+const visibleFormSnapshotViews = computed(() => {
+  const latestExcavation = formSnapshotViews.value.find((view) => view.item.form_type === 'excavation-record')
+  return latestExcavation ? [latestExcavation] : []
+})
 const projectBaseFields = computed(() => {
   const project = detail.value
   if (!project) return []
