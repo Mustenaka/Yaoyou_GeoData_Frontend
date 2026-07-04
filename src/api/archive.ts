@@ -48,6 +48,9 @@ export const archiveApi = {
   configDetail(id: number) {
     return request.get<ConfigSnapshotItem, ConfigSnapshotItem>(`/admin/config-snapshots/${id}`)
   },
+  formSnapshotDetail(id: number) {
+    return request.get<FormDataSnapshot, FormDataSnapshot>(`/admin/form-snapshots/${id}`)
+  },
   downloadConfig(id: number) {
     return downloadBlob(`/admin/config-snapshots/${id}/download`)
   },

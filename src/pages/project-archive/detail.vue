@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader :title="detailTitle" subtitle="项目档案详情：①项目基本信息 ②工作表单配置 ③数据填充结果，并保留 Win 结果、客户端日志和操作记录。">
+    <PageHeader :title="detailTitle" subtitle="项目基本信息、工作表单配置、数据填充结果">
       <n-space>
         <n-button @click="router.push({ name: 'projects' })">返回列表</n-button>
         <n-button type="primary" :loading="packageExporting" @click="downloadProjectPackage">导出项目包</n-button>
@@ -23,88 +23,152 @@
               <n-descriptions-item label="工程编号">{{ detail.project_code || '-' }}</n-descriptions-item>
               <n-descriptions-item label="工程名称">{{ detail.project_name || '-' }}</n-descriptions-item>
               <n-descriptions-item label="委托单位">{{ detail.client_name || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="企业 ID">{{ detail.company_id ?? '-' }}</n-descriptions-item>
-              <n-descriptions-item label="UUID 回退">{{ detail.uuid_fallback ? '是' : '否' }}</n-descriptions-item>
               <n-descriptions-item label="最近上传">{{ formatDateTime(detail.last_uploaded_at) }}</n-descriptions-item>
               <n-descriptions-item label="最近解析">{{ formatDateTime(detail.last_parsed_at) }}</n-descriptions-item>
-              <n-descriptions-item label="Mobile 文件">{{ detail.source_mobile_file_id || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="Win 文件">{{ detail.latest_win_result_file_id || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="配置文件">{{ detail.latest_config_file_id || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="录入文件">{{ detail.latest_entry_data_file_id || '-' }}</n-descriptions-item>
               <n-descriptions-item label="解析消息" :span="2">{{ detail.parse_message || '-' }}</n-descriptions-item>
             </n-descriptions>
 
-            <div class="section-title">关联文件</div>
-            <n-data-table :columns="fileColumns" :data="projectFiles" :loading="loading" :pagination="{ pageSize: 8 }" />
-          </n-tab-pane>
-
-          <n-tab-pane name="configs" tab="② 工作表单配置">
-            <div class="section-title">项目配置快照</div>
-            <n-data-table :columns="configColumns" :data="configs" :loading="loading" :pagination="{ pageSize: 10 }" />
-          </n-tab-pane>
-
-          <n-tab-pane name="mobile" tab="③ 数据填充结果">
-            <div class="section-title">Mobile 录入快照</div>
-            <div v-if="mobileFormTypes.length" class="form-export-list">
-              <div v-for="formType in mobileFormTypes" :key="formType" class="form-export-row">
-                <span class="form-export-name">{{ formType }}</span>
-                <n-space size="small">
-                  <n-button size="small" :loading="isTableExporting(formType, 'data')" @click="downloadProjectTable(formType, 'data')">导出表格</n-button>
-                  <n-button size="small" :loading="isTableExporting(formType, 'sample')" @click="downloadProjectTable(formType, 'sample')">导出录入日期/试验员</n-button>
-                </n-space>
+            <div class="section-title">最新项目配置</div>
+            <div v-if="latestConfig" class="summary-panel">
+              <div class="summary-panel__main">
+                <div>
+                  <div class="summary-panel__title">{{ configTypeLabel(latestConfig.config_type) }}</div>
+                  <div class="summary-panel__meta">
+                    版本 {{ latestConfig.config_version || '-' }} · {{ formatDateTime(latestConfig.created_at) }}
+                  </div>
+                </div>
+                <n-tag :type="latestConfig.is_latest ? 'success' : 'default'" round>
+                  {{ latestConfig.is_latest ? '最新' : '最近一条' }}
+                </n-tag>
               </div>
+              <n-descriptions label-placement="left" :column="2" size="small">
+                <n-descriptions-item label="配置范围">{{ latestConfig.config_scope || '-' }}</n-descriptions-item>
+                <n-descriptions-item label="来源文件">{{ latestConfig.source_file_id || '-' }}</n-descriptions-item>
+              </n-descriptions>
+              <n-space>
+                <n-button type="primary" ghost @click="openConfigTab">查看结构化</n-button>
+                <n-button :loading="configDownloading === latestConfig.id" @click="downloadConfig(latestConfig)">下载</n-button>
+              </n-space>
             </div>
-            <n-data-table :columns="mobileColumns" :data="mobileData" :loading="loading" :pagination="{ pageSize: 10 }" />
+            <n-empty v-else description="暂无项目配置快照" />
           </n-tab-pane>
 
-          <n-tab-pane name="win" tab="Win结果">
-            <n-data-table :columns="fileColumns" :data="winResults" :loading="loading" :pagination="{ pageSize: 10 }" />
+          <n-tab-pane name="config" tab="② 工作表单配置">
+            <n-spin :show="configDetailLoading">
+              <n-alert v-if="configError" type="error" class="block-alert">
+                {{ configError }}
+              </n-alert>
+              <n-empty v-else-if="!latestConfig" description="暂无项目配置快照" />
+              <template v-else-if="structuredConfig">
+                <div class="section-toolbar">
+                  <div>
+                    <div class="section-title section-title--compact">配置快照</div>
+                    <div class="section-subtitle">
+                      {{ configTypeLabel(latestConfig.config_type) }} · 版本 {{ latestConfig.config_version || '-' }} ·
+                      {{ formatDateTime(latestConfig.created_at) }}
+                    </div>
+                  </div>
+                  <n-button :loading="configDownloading === latestConfig.id" @click="downloadConfig(latestConfig)">下载原始 JSON</n-button>
+                </div>
+
+                <n-alert v-if="structuredConfig.error" type="warning" class="block-alert">
+                  {{ structuredConfig.error }}
+                </n-alert>
+
+                <div class="section-title">映射列</div>
+                <n-data-table
+                  :columns="mappingPreviewColumns"
+                  :data="structuredConfig.mappingColumns"
+                  :pagination="{ pageSize: 20 }"
+                  :row-key="(row: ConfigMappingColumn) => row.key"
+                  :scroll-x="720"
+                >
+                  <template #empty>
+                    <n-empty description="配置中未找到工作表单映射列" />
+                  </template>
+                </n-data-table>
+
+                <div class="section-title">关键配置项</div>
+                <n-data-table
+                  :columns="configItemColumns"
+                  :data="structuredConfig.configItems"
+                  :pagination="{ pageSize: 20 }"
+                  :row-key="(row: ConfigKeyValueItem) => row.key"
+                  :scroll-x="720"
+                >
+                  <template #empty>
+                    <n-empty description="暂无可结构化展示的配置项" />
+                  </template>
+                </n-data-table>
+
+                <n-collapse class="raw-collapse">
+                  <n-collapse-item title="原始 JSON" name="raw-config-json">
+                    <pre class="json-preview">{{ structuredConfig.rawText }}</pre>
+                  </n-collapse-item>
+                </n-collapse>
+              </template>
+            </n-spin>
           </n-tab-pane>
 
-          <n-tab-pane name="logs" tab="客户端日志">
-            <n-data-table :columns="fileColumns" :data="logFiles" :loading="loading" :pagination="{ pageSize: 10 }" />
-          </n-tab-pane>
+          <n-tab-pane name="forms" tab="③ 数据填充结果">
+            <n-spin :show="formSnapshotLoading">
+              <n-alert v-if="formSnapshotError" type="warning" class="block-alert">
+                {{ formSnapshotError }}
+              </n-alert>
+              <n-empty v-if="!formSnapshotViews.length" description="暂无数据填充快照" />
+              <div v-for="view in formSnapshotViews" :key="view.item.id" class="form-snapshot">
+                <div class="section-toolbar">
+                  <div>
+                    <div class="section-title section-title--compact">{{ view.item.form_type || '未命名表单' }}</div>
+                    <div class="section-subtitle">
+                      {{ formatDateTime(view.item.created_at) }} · {{ view.item.row_count }} 行 · {{ view.item.sample_count }} 条录入日期/试验员
+                    </div>
+                  </div>
+                  <n-space>
+                    <n-button :loading="isTableExporting(view.item.form_type, 'data')" @click="downloadProjectTable(view.item.form_type, 'data')">
+                      下载 xlsx
+                    </n-button>
+                    <n-button :loading="isTableExporting(view.item.form_type, 'sample')" @click="downloadProjectTable(view.item.form_type, 'sample')">
+                      下载录入日期/试验员
+                    </n-button>
+                  </n-space>
+                </div>
 
-          <n-tab-pane name="audit" tab="操作记录">
-            <n-data-table :columns="auditColumns" :data="auditEvents" :loading="loading" :pagination="{ pageSize: 10 }" />
+                <n-alert v-if="view.parsed.error" type="warning" class="block-alert">
+                  {{ view.parsed.error }}
+                </n-alert>
+
+                <n-data-table
+                  :columns="view.parsed.tableColumns"
+                  :data="view.parsed.rows"
+                  :pagination="{ pageSize: 50 }"
+                  :row-key="(row: SnapshotTableRow) => row.__rowKey"
+                  :scroll-x="view.parsed.scrollX"
+                  :max-height="520"
+                >
+                  <template #empty>
+                    <n-empty description="快照中暂无行数据" />
+                  </template>
+                </n-data-table>
+
+                <n-collapse v-if="view.parsed.sampleRows.length" class="raw-collapse">
+                  <n-collapse-item title="录入日期/试验员预览" :name="`sample-${view.item.id}`">
+                    <n-data-table
+                      :columns="view.parsed.sampleTableColumns"
+                      :data="view.parsed.sampleRows"
+                      :pagination="{ pageSize: 50 }"
+                      :row-key="(row: SnapshotTableRow) => row.__rowKey"
+                      :scroll-x="view.parsed.sampleScrollX"
+                      :max-height="360"
+                    />
+                  </n-collapse-item>
+                </n-collapse>
+              </div>
+            </n-spin>
           </n-tab-pane>
         </n-tabs>
       </div>
     </n-spin>
-
-    <n-drawer v-model:show="fileDetailVisible" width="720">
-      <n-drawer-content :title="fileDetail?.original_filename || fileDetail?.file_id || '文件详情'">
-        <n-descriptions v-if="fileDetail" label-placement="left" bordered :column="2">
-          <n-descriptions-item label="文件 ID">{{ fileDetail.file_id }}</n-descriptions-item>
-          <n-descriptions-item label="来源端">{{ clientTypeLabel(fileDetail.source_client) }}</n-descriptions-item>
-          <n-descriptions-item label="企业 ID">{{ fileDetail.company_id ?? '-' }}</n-descriptions-item>
-          <n-descriptions-item label="用户 ID">{{ fileDetail.user_id }}</n-descriptions-item>
-          <n-descriptions-item label="设备 ID">{{ fileDetail.device_fingerprint_id ?? '-' }}</n-descriptions-item>
-          <n-descriptions-item label="类型">{{ objectTypeLabel(fileDetail.object_type) }}</n-descriptions-item>
-          <n-descriptions-item label="项目 UUID">{{ fileDetail.project_uuid || '-' }}</n-descriptions-item>
-          <n-descriptions-item label="工程编号">{{ fileDetail.project_code || '-' }}</n-descriptions-item>
-          <n-descriptions-item label="大小">{{ formatBytes(fileDetail.size_bytes) }}</n-descriptions-item>
-          <n-descriptions-item label="MIME">{{ fileDetail.mime_type || '-' }}</n-descriptions-item>
-          <n-descriptions-item label="上传状态">{{ uploadStatusLabel(fileDetail.upload_status) }}</n-descriptions-item>
-          <n-descriptions-item label="解析状态">{{ parseStatusLabel(fileDetail.parse_status) }}</n-descriptions-item>
-          <n-descriptions-item label="接收时间">{{ formatDateTime(fileDetail.server_received_at) }}</n-descriptions-item>
-          <n-descriptions-item label="更新时间">{{ formatDateTime(fileDetail.updated_at) }}</n-descriptions-item>
-          <n-descriptions-item label="SHA-256" :span="2">
-            <span class="mono">{{ fileDetail.sha256 || '-' }}</span>
-          </n-descriptions-item>
-          <n-descriptions-item label="失败原因" :span="2">{{ fileDetail.parse_message || '-' }}</n-descriptions-item>
-        </n-descriptions>
-        <template #footer>
-          <div class="drawer-footer">
-            <n-button v-if="fileDetail" @click="downloadFile(fileDetail)">下载</n-button>
-          </div>
-        </template>
-      </n-drawer-content>
-    </n-drawer>
-
-    <n-modal v-model:show="jsonVisible" preset="card" :title="jsonTitle" style="width: 760px">
-      <pre class="json-preview">{{ jsonPreview }}</pre>
-    </n-modal>
   </div>
 </template>
 
@@ -112,158 +176,156 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NPopconfirm, NTag, useMessage } from 'naive-ui'
+import { NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
-import { auditApi } from '@/api/audit'
-import { syncFileApi } from '@/api/syncFile'
-import type { ClientFileItem, ConfigSnapshotItem, FormDataSnapshot, OperationAuditEvent, ProjectArchiveItem } from '@/types/api'
-import { formatBytes, formatDateTime, shortHash } from '@/utils/format'
+import type { ConfigSnapshotItem, FormDataSnapshot, ProjectArchiveItem } from '@/types/api'
+import { formatDateTime } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { pageList } from '@/utils/query'
-import {
-  auditResultLabel,
-  clientTypeLabel,
-  configScopeLabel,
-  configTypeLabel,
-  objectTypeLabel,
-  parseStatusLabel,
-  uploadStatusLabel,
-} from '@/utils/labels'
+import { configTypeLabel } from '@/utils/labels'
+
+type JsonRecord = Record<string, unknown>
+type SnapshotCell = string | number | boolean | null
+type SnapshotTableRow = Record<string, SnapshotCell> & { __rowKey: string }
+
+interface ConfigMappingColumn {
+  key: string
+  label: string
+  width: string
+  kind: string
+  ruleCount: number
+}
+
+interface ConfigKeyValueItem {
+  key: string
+  label: string
+  value: string
+}
+
+interface StructuredConfig {
+  rawText: string
+  error: string
+  mappingColumns: ConfigMappingColumn[]
+  configItems: ConfigKeyValueItem[]
+}
+
+interface SnapshotColumnDef {
+  key: string
+  label: string
+  width: number
+  kind: string
+}
+
+interface ParsedFormSnapshot {
+  rawText: string
+  error: string
+  columns: SnapshotColumnDef[]
+  rows: SnapshotTableRow[]
+  sampleColumns: SnapshotColumnDef[]
+  sampleRows: SnapshotTableRow[]
+  tableColumns: DataTableColumns<SnapshotTableRow>
+  sampleTableColumns: DataTableColumns<SnapshotTableRow>
+  scrollX: number
+  sampleScrollX: number
+}
+
+interface FormSnapshotView {
+  item: FormDataSnapshot
+  parsed: ParsedFormSnapshot
+}
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const loading = ref(false)
+const configDetailLoading = ref(false)
+const formSnapshotLoading = ref(false)
 const packageExporting = ref(false)
+const configDownloading = ref<number | null>(null)
 const tableExporting = ref<Record<string, boolean>>({})
 const errorText = ref('')
+const configError = ref('')
+const formSnapshotError = ref('')
 const activeTab = ref('base')
 const detail = ref<ProjectArchiveItem | null>(null)
-const projectFiles = ref<ClientFileItem[]>([])
 const mobileData = ref<FormDataSnapshot[]>([])
-const winResults = ref<ClientFileItem[]>([])
 const configs = ref<ConfigSnapshotItem[]>([])
-const logFiles = ref<ClientFileItem[]>([])
-const auditEvents = ref<OperationAuditEvent[]>([])
-const fileDetail = ref<ClientFileItem | null>(null)
-const fileDetailVisible = ref(false)
-const jsonVisible = ref(false)
-const jsonTitle = ref('JSON 摘要')
-const jsonPreview = ref('')
+const latestConfigDetail = ref<ConfigSnapshotItem | null>(null)
+const formSnapshotViews = ref<FormSnapshotView[]>([])
 
 const projectId = computed(() => Number(route.params.id))
 const detailTitle = computed(() => detail.value?.project_name || detail.value?.project_uuid || '项目详情')
-const mobileFormTypes = computed(() => {
-  const seen = new Set<string>()
-  mobileData.value.forEach((item) => {
-    const formType = item.form_type?.trim()
-    if (formType) seen.add(formType)
-  })
-  return Array.from(seen)
+const latestConfig = computed(() => {
+  const latest = configs.value.find((item) => item.is_latest)
+  if (latest) return latest
+  return [...configs.value].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''))[0] || null
 })
+const structuredConfig = computed<StructuredConfig | null>(() => (latestConfigDetail.value ? parseStructuredConfig(latestConfigDetail.value.snapshot_json) : null))
 
-function statusTagType(status: string) {
-  if (status === 'uploaded' || status === 'parsed') return 'success'
-  if (status === 'failed') return 'error'
-  if (status === 'skipped') return 'default'
-  return 'warning'
-}
-
-const fileColumns: DataTableColumns<ClientFileItem> = [
-  { title: '时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.server_received_at || row.created_at) },
-  { title: '来源端', key: 'source_client', width: 90, render: (row) => clientTypeLabel(row.source_client) },
-  { title: '类型', key: 'object_type', width: 110, render: (row) => objectTypeLabel(row.object_type) },
-  { title: '文件名', key: 'original_filename', minWidth: 190, render: (row) => row.original_filename || row.safe_filename || '-' },
-  { title: '大小', key: 'size_bytes', width: 100, render: (row) => formatBytes(row.size_bytes) },
-  {
-    title: '解析',
-    key: 'parse_status',
-    width: 100,
-    render: (row) => h(NTag, { type: statusTagType(row.parse_status), round: true }, { default: () => parseStatusLabel(row.parse_status) }),
-  },
-  { title: '失败原因', key: 'parse_message', minWidth: 160, render: (row) => row.parse_message || '-' },
-  { title: 'SHA-256', key: 'sha256', width: 160, render: (row) => h('span', { class: 'mono' }, shortHash(row.sha256)) },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 140,
-    fixed: 'right',
-    render: (row) =>
-      h('div', { class: 'table-actions' }, [
-        h(NButton, { size: 'small', onClick: () => openFileDetail(row) }, { default: () => '详情' }),
-        h(NButton, { size: 'small', onClick: () => downloadFile(row) }, { default: () => '下载' }),
-      ]),
-  },
+const mappingPreviewColumns: DataTableColumns<ConfigMappingColumn> = [
+  { title: '字段 key', key: 'key', width: 180, render: (row) => h('span', { class: 'mono' }, row.key) },
+  { title: '显示名', key: 'label', minWidth: 180 },
+  { title: '宽度', key: 'width', width: 100 },
+  { title: '类型', key: 'kind', width: 120 },
+  { title: '规则数', key: 'ruleCount', width: 90 },
 ]
 
-const mobileColumns: DataTableColumns<FormDataSnapshot> = [
-  { title: '时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.created_at) },
-  { title: '表单', key: 'form_type', width: 160 },
-  { title: '行数', key: 'row_count', width: 90 },
-  { title: '样本数', key: 'sample_count', width: 90 },
-  { title: '来源文件', key: 'source_file_id', minWidth: 180 },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 150,
-    fixed: 'right',
-    render: (row) =>
-      h('div', { class: 'table-actions' }, [
-        h(NButton, { size: 'small', onClick: () => showJSON(row.snapshot_json, 'Mobile 录入快照') }, { default: () => '查看' }),
-        row.source_file_id ? h(NButton, { size: 'small', onClick: () => downloadByFileId(row.source_file_id, `${row.source_file_id}.bin`) }, { default: () => '下载' }) : null,
-      ]),
-  },
-]
-
-const configColumns: DataTableColumns<ConfigSnapshotItem> = [
-  { title: '时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.created_at) },
-  { title: '范围', key: 'config_scope', width: 90, render: (row) => configScopeLabel(row.config_scope) },
-  { title: '类型', key: 'config_type', width: 110, render: (row) => configTypeLabel(row.config_type) },
-  { title: '版本', key: 'config_version', width: 110, render: (row) => row.config_version || '-' },
-  {
-    title: '最新',
-    key: 'is_latest',
-    width: 80,
-    render: (row) => h(NTag, { type: row.is_latest ? 'success' : 'default', round: true }, { default: () => (row.is_latest ? '是' : '否') }),
-  },
-  { title: '来源文件', key: 'source_file_id', minWidth: 170 },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 240,
-    fixed: 'right',
-    render: (row) =>
-      h('div', { class: 'table-actions' }, [
-        h(NButton, { size: 'small', onClick: () => openConfig(row) }, { default: () => '摘要' }),
-        h(NButton, { size: 'small', onClick: () => downloadConfig(row) }, { default: () => '下载' }),
-        h(
-          NPopconfirm,
-          { onPositiveClick: () => markLatest(row) },
-          {
-            trigger: () => h(NButton, { size: 'small', type: 'primary', ghost: true, disabled: row.is_latest }, { default: () => '标记最新' }),
-            default: () => `确认将配置快照 #${row.id} 标记为最新？`,
-          },
-        ),
-      ]),
-  },
-]
-
-const auditColumns: DataTableColumns<OperationAuditEvent> = [
-  { title: '时间', key: 'server_ts', width: 170, render: (row) => formatDateTime(row.server_ts || row.created_at) },
-  { title: '企业', key: 'company_id', width: 90, render: (row) => row.company_id ?? '-' },
-  { title: '用户', key: 'user_id', width: 90, render: (row) => row.user_id ?? '-' },
-  { title: '设备', key: 'device_fingerprint_id', width: 90, render: (row) => row.device_fingerprint_id ?? '-' },
-  { title: '模块', key: 'module', width: 120 },
-  { title: '操作', key: 'action', width: 120 },
-  { title: '结果', key: 'result', width: 90, render: (row) => auditResultLabel(row.result) },
-  { title: '文件', key: 'file_id', minWidth: 160, render: (row) => row.file_id || '-' },
-  { title: '消息', key: 'message', minWidth: 220, render: (row) => row.message || '-' },
+const configItemColumns: DataTableColumns<ConfigKeyValueItem> = [
+  { title: '配置项', key: 'label', width: 220 },
+  { title: '键', key: 'key', width: 220, render: (row) => h('span', { class: 'mono' }, row.key) },
+  { title: '值', key: 'value', minWidth: 260 },
 ]
 
 async function loadConfigs() {
   const result = await archiveApi.projectConfigs(projectId.value, { page: 1, page_size: 100 })
   configs.value = pageList(result.list)
+}
+
+async function loadLatestConfigDetail() {
+  latestConfigDetail.value = null
+  configError.value = ''
+  const selected = latestConfig.value
+  if (!selected) return
+
+  configDetailLoading.value = true
+  try {
+    latestConfigDetail.value = await archiveApi.configDetail(selected.id)
+  } catch (error) {
+    configError.value = error instanceof Error ? error.message : '配置详情加载失败'
+  } finally {
+    configDetailLoading.value = false
+  }
+}
+
+async function loadFormSnapshotDetails(items: FormDataSnapshot[]) {
+  formSnapshotViews.value = []
+  formSnapshotError.value = ''
+  if (!items.length) return
+
+  formSnapshotLoading.value = true
+  try {
+    const results = await Promise.allSettled(items.map((item) => archiveApi.formSnapshotDetail(item.id)))
+    const views: FormSnapshotView[] = []
+    const errors: string[] = []
+    results.forEach((result, index) => {
+      const listItem = items[index]
+      if (result.status === 'fulfilled') {
+        views.push({ item: result.value, parsed: parseFormSnapshot(result.value.snapshot_json) })
+      } else {
+        const messageText = result.reason instanceof Error ? result.reason.message : '快照详情加载失败'
+        errors.push(`${listItem.form_type || listItem.id}: ${messageText}`)
+        views.push({
+          item: listItem,
+          parsed: emptyParsedFormSnapshot(messageText),
+        })
+      }
+    })
+    formSnapshotViews.value = views
+    formSnapshotError.value = errors.join('；')
+  } finally {
+    formSnapshotLoading.value = false
+  }
 }
 
 async function loadDetail() {
@@ -277,19 +339,12 @@ async function loadDetail() {
   try {
     const project = await archiveApi.projectDetail(projectId.value)
     detail.value = project
-    const [files, mobile, win, logs, audits] = await Promise.all([
-      archiveApi.projectFiles(projectId.value, { page: 1, page_size: 100 }),
+    const [mobile] = await Promise.all([
       archiveApi.projectMobileData(projectId.value, { page: 1, page_size: 100 }),
-      archiveApi.projectWinResults(projectId.value, { page: 1, page_size: 100 }),
-      syncFileApi.list({ page: 1, page_size: 100, project_uuid: project.project_uuid, object_type: 'client_log' }),
-      auditApi.list({ page: 1, page_size: 100, project_uuid: project.project_uuid }),
       loadConfigs(),
     ])
-    projectFiles.value = pageList(files.list)
     mobileData.value = pageList(mobile.list)
-    winResults.value = pageList(win.list)
-    logFiles.value = pageList(logs.list)
-    auditEvents.value = pageList(audits.list)
+    await Promise.all([loadLatestConfigDetail(), loadFormSnapshotDetails(mobileData.value)])
   } catch (error) {
     errorText.value = error instanceof Error ? error.message : '项目详情加载失败'
   } finally {
@@ -297,29 +352,22 @@ async function loadDetail() {
   }
 }
 
-async function openFileDetail(row: ClientFileItem) {
-  fileDetail.value = await syncFileApi.detail(row.file_id)
-  fileDetailVisible.value = true
-}
-
-async function downloadFile(row: ClientFileItem) {
-  const blob = await syncFileApi.download(row.file_id)
-  saveBlob(blob, row.original_filename || row.safe_filename || `${row.file_id}.bin`)
-}
-
-async function downloadByFileId(fileId: string, filename: string) {
-  const blob = await syncFileApi.download(fileId)
-  saveBlob(blob, filename)
-}
-
-async function openConfig(row: ConfigSnapshotItem) {
-  const item = await archiveApi.configDetail(row.id)
-  showJSON(item.summary_json || item.snapshot_json, `配置快照 #${item.id}`)
+function openConfigTab() {
+  activeTab.value = 'config'
 }
 
 async function downloadConfig(row: ConfigSnapshotItem) {
-  const blob = await archiveApi.downloadConfig(row.id)
-  saveBlob(blob, `config-${row.id}-${row.config_type || 'snapshot'}.json`)
+  configDownloading.value = row.id
+  try {
+    const blob = await archiveApi.downloadConfig(row.id)
+    await ensureArchiveDownloadBlob(blob)
+    saveBlob(blob, `config-${row.id}-${row.config_type || 'snapshot'}.json`)
+    message.success('配置下载已开始')
+  } catch (error) {
+    message.error(readDownloadError(error))
+  } finally {
+    configDownloading.value = null
+  }
 }
 
 async function downloadProjectPackage() {
@@ -337,13 +385,14 @@ async function downloadProjectPackage() {
 }
 
 async function downloadProjectTable(formType: string, kind: 'data' | 'sample') {
-  const key = tableExportKey(formType, kind)
+  const normalizedFormType = formType || 'excavation-record'
+  const key = tableExportKey(normalizedFormType, kind)
   setTableExporting(key, true)
   try {
-    const blob = await archiveApi.downloadProjectTable(projectId.value, { form_type: formType, kind })
+    const blob = await archiveApi.downloadProjectTable(projectId.value, { form_type: normalizedFormType, kind })
     await ensureArchiveDownloadBlob(blob)
-    saveBlob(blob, `${projectFilenamePrefix()}-${safeFilenamePart(formType)}-${kind}.xlsx`)
-    message.success(kind === 'sample' ? '录入日期/试验员表格导出已开始' : '填充结果表格导出已开始')
+    saveBlob(blob, `${projectFilenamePrefix()}-${safeFilenamePart(normalizedFormType)}-${kind}.xlsx`)
+    message.success(kind === 'sample' ? '录入日期/试验员表格下载已开始' : '数据填充结果表格下载已开始')
   } catch (error) {
     message.error(readDownloadError(error))
   } finally {
@@ -352,7 +401,7 @@ async function downloadProjectTable(formType: string, kind: 'data' | 'sample') {
 }
 
 function isTableExporting(formType: string, kind: 'data' | 'sample') {
-  return Boolean(tableExporting.value[tableExportKey(formType, kind)])
+  return Boolean(tableExporting.value[tableExportKey(formType || 'excavation-record', kind)])
 }
 
 function setTableExporting(key: string, value: boolean) {
@@ -365,16 +414,16 @@ function tableExportKey(formType: string, kind: 'data' | 'sample') {
 
 async function ensureArchiveDownloadBlob(blob: Blob) {
   if (!blob || blob.size === 0) {
-    throw new Error('导出文件为空')
+    throw new Error('下载文件为空')
   }
   if (blob.type.includes('application/json')) {
     const text = await blob.text()
     try {
       const payload = JSON.parse(text) as { message?: string; msg?: string }
-      throw new Error(payload.message || payload.msg || '导出失败')
+      throw new Error(payload.message || payload.msg || '下载失败')
     } catch (error) {
       if (error instanceof SyntaxError) {
-        throw new Error(text || '导出失败')
+        throw new Error(text || '下载失败')
       }
       throw error
     }
@@ -382,7 +431,7 @@ async function ensureArchiveDownloadBlob(blob: Blob) {
 }
 
 function readDownloadError(error: unknown) {
-  return error instanceof Error ? error.message : '导出失败'
+  return error instanceof Error ? error.message : '下载失败'
 }
 
 function projectFilenamePrefix() {
@@ -394,24 +443,297 @@ function safeFilenamePart(value: string) {
   return safe || 'project'
 }
 
-async function markLatest(row: ConfigSnapshotItem) {
-  await archiveApi.markConfigLatest(row.id)
-  message.success('已标记最新')
-  await loadConfigs()
-}
-
-function showJSON(raw?: string | null, title = 'JSON 摘要') {
-  jsonTitle.value = title
-  if (!raw) {
-    jsonPreview.value = '{}'
-  } else {
-    try {
-      jsonPreview.value = JSON.stringify(JSON.parse(raw), null, 2)
-    } catch {
-      jsonPreview.value = raw
+function parseStructuredConfig(raw?: string | null): StructuredConfig {
+  const parsed = parseJSON(raw)
+  if (!parsed.record) {
+    return {
+      rawText: parsed.rawText,
+      error: parsed.error || '配置 JSON 为空或格式不正确',
+      mappingColumns: [],
+      configItems: [],
     }
   }
-  jsonVisible.value = true
+
+  const mappingSource = findMappingSource(parsed.record)
+  return {
+    rawText: parsed.rawText,
+    error: parsed.error,
+    mappingColumns: mappingSource ? extractMappingColumns(mappingSource) : [],
+    configItems: extractConfigItems(parsed.record),
+  }
+}
+
+function parseFormSnapshot(raw?: string | null): ParsedFormSnapshot {
+  const parsed = parseJSON(raw)
+  if (!parsed.record) return emptyParsedFormSnapshot(parsed.error || '表单快照 JSON 为空或格式不正确', parsed.rawText)
+
+  const rowsRaw = asArray(parsed.record.rows)
+  const columns = normalizeColumns(asArray(parsed.record.columns), rowsRaw)
+  const rows = normalizeRows(rowsRaw, columns)
+  const sampleRowsRaw = firstArray(parsed.record, ['sampleMetaRows', 'sample_meta_rows', 'sampleRows'])
+  const sampleColumns = normalizeColumns(firstArray(parsed.record, ['sampleMetaColumns', 'sample_meta_columns', 'sampleColumns']), sampleRowsRaw)
+  const sampleRows = normalizeRows(sampleRowsRaw, sampleColumns)
+
+  return {
+    rawText: parsed.rawText,
+    error: parsed.error,
+    columns,
+    rows,
+    sampleColumns,
+    sampleRows,
+    tableColumns: buildDataTableColumns(columns),
+    sampleTableColumns: buildDataTableColumns(sampleColumns),
+    scrollX: tableScrollX(columns),
+    sampleScrollX: tableScrollX(sampleColumns),
+  }
+}
+
+function emptyParsedFormSnapshot(error = '', rawText = '{}'): ParsedFormSnapshot {
+  return {
+    rawText,
+    error,
+    columns: [],
+    rows: [],
+    sampleColumns: [],
+    sampleRows: [],
+    tableColumns: [],
+    sampleTableColumns: [],
+    scrollX: 0,
+    sampleScrollX: 0,
+  }
+}
+
+function parseJSON(raw?: string | null): { record: JsonRecord | null; rawText: string; error: string } {
+  if (!raw) return { record: null, rawText: '{}', error: '' }
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    const rawText = JSON.stringify(parsed, null, 2)
+    return { record: isRecord(parsed) ? parsed : null, rawText, error: isRecord(parsed) ? '' : 'JSON 顶层不是对象' }
+  } catch {
+    return { record: null, rawText: raw, error: 'JSON 解析失败' }
+  }
+}
+
+function findMappingSource(record: JsonRecord): JsonRecord | null {
+  const candidates = [
+    readNestedRecord(record, ['configs', 'dataEntryMapping', 'config']),
+    readNestedRecord(record, ['configs', 'dataEntryMapping']),
+    readNestedRecord(record, ['configs', 'globalMapping', 'config']),
+    readNestedRecord(record, ['configs', 'globalMapping']),
+    readNestedRecord(record, ['usageConfig', 'dataEntryMapping', 'config']),
+    readNestedRecord(record, ['usageConfig', 'dataEntryMapping']),
+    readNestedRecord(record, ['usageConfig', 'globalMapping', 'config']),
+    readNestedRecord(record, ['usageConfig', 'globalMapping']),
+    readNestedRecord(record, ['modules', 'dataEntryMapping']),
+    readNestedRecord(record, ['globalMapping']),
+    readNestedRecord(record, ['dataEntryMapping']),
+    record,
+  ]
+  return candidates.find((item) => item && hasMappingColumns(item)) || null
+}
+
+function hasMappingColumns(record: JsonRecord) {
+  return asArray(record.columnsList).length > 0 || asArray(record.columns).length > 0 || Object.keys(asRecord(record.columns) || {}).length > 0
+}
+
+function extractMappingColumns(source: JsonRecord): ConfigMappingColumn[] {
+  const columnsList = asArray(source.columnsList).length ? asArray(source.columnsList) : asArray(source.columns)
+  const columnBuckets = asRecord(source.columns)
+  if (columnsList.length) {
+    return columnsList.map((item, index) => {
+      const column = isRecord(item) ? item : { key: String(item), label: String(item) }
+      const key = stringValue(column.key) || `column_${index + 1}`
+      const bucket = columnBuckets ? asRecord(columnBuckets[key]) : null
+      const rules = bucket ? asArray(bucket.rules) : []
+      return {
+        key,
+        label: stringValue(column.label) || key,
+        width: stringValue(column.width) || '-',
+        kind: stringValue(column.kind) || stringValue(column.type) || '-',
+        ruleCount: rules.length,
+      }
+    })
+  }
+  if (columnBuckets) {
+    return Object.entries(columnBuckets).map(([key, value]) => {
+      const bucket = isRecord(value) ? value : {}
+      return {
+        key,
+        label: stringValue(bucket.label) || key,
+        width: stringValue(bucket.width) || '-',
+        kind: stringValue(bucket.kind) || stringValue(bucket.type) || '-',
+        ruleCount: asArray(bucket.rules).length,
+      }
+    })
+  }
+  return []
+}
+
+function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
+  const items: ConfigKeyValueItem[] = []
+  const add = (key: string, label: string, value: unknown) => {
+    if (value === undefined) return
+    items.push({ key, label, value: displayValue(value) })
+  }
+
+  add('packageVersion', '项目包版本', record.packageVersion)
+  add('version', '配置版本', record.version)
+  add('exportedAt', '导出时间', record.exportedAt)
+  add('usageConfig', '项目使用配置', objectSummary(record.usageConfig))
+  add('configs', '项目配置块', objectSummary(record.configs))
+  add('resources.files', '资源文件数', asArray(readNestedValue(record, ['resources', 'files'])).length || undefined)
+  add('appSettings', '应用设置', objectSummary(record.appSettings))
+  add('globalProjectConfig', '全局项目配置', objectSummary(record.globalProjectConfig))
+  add('globalMapping', '全局映射', objectSummary(record.globalMapping))
+  add('globalFillRule', '智能填充规则', objectSummary(record.globalFillRule))
+  add('fillConfigs', '智能填充配置表', arraySummary(record.fillConfigs))
+  add('equipmentTypes', '器材类型', arraySummary(record.equipmentTypes))
+  add('equipmentConfigs', '器材配置', arraySummary(record.equipmentConfigs))
+  add('modules', '模块配置', objectSummary(record.modules))
+
+  const operationSettings = readNestedRecord(record, ['usageConfig', 'operationSettings']) || readNestedRecord(record, ['appSettings'])
+  if (operationSettings) {
+    Object.entries(operationSettings).slice(0, 12).forEach(([key, value]) => add(`operationSettings.${key}`, `操作设置：${key}`, value))
+  }
+  return items
+}
+
+function normalizeColumns(rawColumns: unknown[], rawRows: unknown[]): SnapshotColumnDef[] {
+  const columns = rawColumns
+    .map((item, index) => {
+      if (isRecord(item)) {
+        const key = stringValue(item.key) || stringValue(item.field) || `column_${index + 1}`
+        return {
+          key,
+          label: stringValue(item.label) || stringValue(item.title) || key,
+          width: normalizeColumnWidth(item.width),
+          kind: stringValue(item.kind) || stringValue(item.type) || '',
+        }
+      }
+      const key = stringValue(item) || `column_${index + 1}`
+      return { key, label: key, width: 140, kind: '' }
+    })
+    .filter((item) => item.key)
+  if (columns.length) return columns
+  return deriveColumnsFromRows(rawRows)
+}
+
+function deriveColumnsFromRows(rawRows: unknown[]): SnapshotColumnDef[] {
+  const keys: string[] = []
+  rawRows.slice(0, 50).forEach((row) => {
+    if (!isRecord(row)) return
+    Object.keys(row).forEach((key) => {
+      if (!keys.includes(key)) keys.push(key)
+    })
+  })
+  return keys.map((key) => ({ key, label: key, width: 140, kind: '' }))
+}
+
+function normalizeRows(rawRows: unknown[], columns: SnapshotColumnDef[]): SnapshotTableRow[] {
+  return rawRows.map((row, index) => {
+    const normalized: SnapshotTableRow = { __rowKey: `row-${index + 1}` }
+    if (isRecord(row)) {
+      columns.forEach((column) => {
+        normalized[column.key] = normalizeCellValue(row[column.key])
+      })
+    } else if (Array.isArray(row)) {
+      columns.forEach((column, columnIndex) => {
+        normalized[column.key] = normalizeCellValue(row[columnIndex])
+      })
+    }
+    return normalized
+  })
+}
+
+function buildDataTableColumns(columns: SnapshotColumnDef[]): DataTableColumns<SnapshotTableRow> {
+  return columns.map((column) => ({
+    title: column.label || column.key,
+    key: column.key,
+    width: column.width,
+    minWidth: Math.min(Math.max(column.width, 100), 220),
+    ellipsis: { tooltip: true },
+    render: (row) => formatCell(row[column.key]),
+  }))
+}
+
+function tableScrollX(columns: SnapshotColumnDef[]) {
+  return Math.max(columns.reduce((sum, column) => sum + column.width, 0), 720)
+}
+
+function normalizeColumnWidth(value: unknown) {
+  const numberValue = typeof value === 'number' ? value : Number.parseInt(String(value || ''), 10)
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return 140
+  return Math.min(Math.max(numberValue, 90), 260)
+}
+
+function normalizeCellValue(value: unknown): SnapshotCell {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value
+  return displayValue(value)
+}
+
+function formatCell(value: SnapshotCell | undefined) {
+  if (value === null || value === undefined || value === '') return '-'
+  return String(value)
+}
+
+function firstArray(record: JsonRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = asArray(record[key])
+    if (value.length) return value
+  }
+  return []
+}
+
+function readNestedRecord(record: JsonRecord, path: string[]) {
+  const value = readNestedValue(record, path)
+  return asRecord(value)
+}
+
+function readNestedValue(record: JsonRecord, path: string[]): unknown {
+  return path.reduce<unknown>((current, key) => (isRecord(current) ? current[key] : undefined), record)
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): JsonRecord | null {
+  return isRecord(value) ? value : null
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function stringValue(value: unknown) {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+function objectSummary(value: unknown) {
+  if (!isRecord(value)) return undefined
+  const keys = Object.keys(value)
+  return keys.length ? `${keys.length} 项：${keys.slice(0, 8).join('、')}${keys.length > 8 ? '...' : ''}` : '空'
+}
+
+function arraySummary(value: unknown) {
+  const list = asArray(value)
+  return list.length ? `${list.length} 项` : undefined
+}
+
+function displayValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return `${value.length} 项`
+  if (isRecord(value)) {
+    const keys = Object.keys(value)
+    return keys.length ? keys.slice(0, 10).join('、') : '空对象'
+  }
+  return String(value)
 }
 
 watch(
@@ -429,36 +751,83 @@ onMounted(loadDetail)
   font-weight: 700;
 }
 
-.form-export-list {
+.section-title--compact {
+  margin: 0 0 4px;
+}
+
+.section-subtitle {
+  color: var(--yy-text-muted);
+  font-size: 12px;
+}
+
+.section-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 14px;
+}
+
+.summary-panel {
   display: grid;
-  gap: 8px;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--yy-border);
+  border-radius: 8px;
+  background: var(--yy-surface-soft);
+}
+
+.summary-panel__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-panel__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.summary-panel__meta {
+  margin-top: 4px;
+  color: var(--yy-text-muted);
+  font-size: 12px;
+}
+
+.form-snapshot {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--yy-border);
+}
+
+.form-snapshot:last-child {
+  border-bottom: 0;
+}
+
+.block-alert {
   margin-bottom: 12px;
 }
 
-.form-export-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--yy-border-color);
-}
-
-.form-export-name {
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  word-break: break-word;
+.raw-collapse {
+  margin-top: 14px;
 }
 
 .json-preview {
   margin: 0;
-  max-height: 520px;
+  max-height: 420px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .section-toolbar,
+  .summary-panel__main {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>
