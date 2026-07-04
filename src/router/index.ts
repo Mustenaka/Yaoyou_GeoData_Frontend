@@ -74,7 +74,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'mobile/global-config',
         name: 'mobile-global-config',
-        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        component: () => import('@/pages/global-config/index.vue'),
         meta: { title: '全局配置记录', group: '移动端项目与数据', roles: adminRoles },
       },
       {
