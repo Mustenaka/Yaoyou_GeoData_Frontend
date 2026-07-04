@@ -83,6 +83,10 @@ export const configTypeOptions = [
   { label: '器材配置', value: 'equipment' },
 ]
 
+export const formTypeOptions = [
+  { label: '开土记录', value: 'excavation-record' },
+]
+
 export const riskLevelOptions = [
   { label: '低', value: 'low' },
   { label: '中', value: 'medium' },
@@ -135,6 +139,10 @@ export function configScopeLabel(scope?: string) {
 
 export function configTypeLabel(type?: string) {
   return configTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function formTypeLabel(type?: string) {
+  return formTypeOptions.find((item) => item.value === type)?.label || type || '-'
 }
 
 export function riskLevelLabel(level?: string) {

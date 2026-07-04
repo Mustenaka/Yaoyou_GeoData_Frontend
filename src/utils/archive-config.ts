@@ -10,6 +10,18 @@ export interface ConfigMappingColumn {
   width: string
   kind: string
   ruleCount: number
+  rules: ConfigMappingRule[]
+}
+
+export interface ConfigMappingRule {
+  id: string
+  columnKey: string
+  columnLabel: string
+  type: string
+  typeLabel: string
+  active: boolean
+  summary: string
+  detail: string
 }
 
 export interface ConfigKeyValueItem {
@@ -22,6 +34,7 @@ export interface StructuredConfig {
   rawText: string
   error: string
   mappingColumns: ConfigMappingColumn[]
+  mappingRules: ConfigMappingRule[]
   configItems: ConfigKeyValueItem[]
 }
 
@@ -52,15 +65,18 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
       rawText: parsed.rawText,
       error: parsed.error || '配置 JSON 为空或格式不正确',
       mappingColumns: [],
+      mappingRules: [],
       configItems: [],
     }
   }
 
   const mappingSource = findMappingSource(parsed.record)
+  const mappingColumns = mappingSource ? extractMappingColumns(mappingSource) : []
   return {
     rawText: parsed.rawText,
     error: parsed.error,
-    mappingColumns: mappingSource ? extractMappingColumns(mappingSource) : [],
+    mappingColumns,
+    mappingRules: mappingColumns.flatMap((column) => column.rules),
     configItems: extractConfigItems(parsed.record),
   }
 }
@@ -147,28 +163,126 @@ function extractMappingColumns(source: JsonRecord): ConfigMappingColumn[] {
       const key = stringValue(column.key) || `column_${index + 1}`
       const bucket = columnBuckets ? asRecord(columnBuckets[key]) : null
       const rules = bucket ? asArray(bucket.rules) : []
+      const label = stringValue(column.label) || key
       return {
         key,
-        label: stringValue(column.label) || key,
+        label,
         width: stringValue(column.width) || '-',
         kind: stringValue(column.kind) || stringValue(column.type) || '-',
         ruleCount: rules.length,
+        rules: normalizeMappingRules(rules, key, label),
       }
     })
   }
   if (columnBuckets) {
     return Object.entries(columnBuckets).map(([key, value]) => {
       const bucket = isRecord(value) ? value : {}
+      const label = stringValue(bucket.label) || key
+      const rules = asArray(bucket.rules)
       return {
         key,
-        label: stringValue(bucket.label) || key,
+        label,
         width: stringValue(bucket.width) || '-',
         kind: stringValue(bucket.kind) || stringValue(bucket.type) || '-',
-        ruleCount: asArray(bucket.rules).length,
+        ruleCount: rules.length,
+        rules: normalizeMappingRules(rules, key, label),
       }
     })
   }
   return []
+}
+
+function normalizeMappingRules(rawRules: unknown[], columnKey: string, columnLabel: string): ConfigMappingRule[] {
+  return rawRules
+    .map((item, index) => {
+      if (!isRecord(item)) return null
+      const type = stringValue(item.type) || 'other'
+      const summary = firstNonEmptyString(item.ruleDescription, item.label, item.note, item.rule, item.specialRule)
+      return {
+        id: stringValue(item.id) || `${columnKey}-rule-${index + 1}`,
+        columnKey,
+        columnLabel,
+        type,
+        typeLabel: mappingRuleTypeLabel(type),
+        active: item.active !== false,
+        summary: summary || '-',
+        detail: mappingRuleDetail(item),
+      }
+    })
+    .filter((item): item is ConfigMappingRule => !!item)
+}
+
+function mappingRuleTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    disabled: '禁用',
+    sequence: '序号自动生成',
+    'manual-text': '自主录入（自由输入）',
+    'manual-select': '自主录入（下拉菜单）',
+    'device-scanner': '硬件接入（扫码枪）',
+    'device-balance': '硬件接入（电子天平）',
+    'equipment-table': '器材管理',
+    'config-file': '配置文件',
+    formula: '公式计算',
+    other: '其他',
+  }
+  return labels[type] || type || '-'
+}
+
+function mappingRuleDetail(rule: JsonRecord) {
+  const parts: string[] = []
+  addDetail(parts, '键值', rule.keyValue)
+  addDetail(parts, '规则', rule.rule)
+  addDetail(parts, '特殊规则', rule.specialRule)
+  addDetail(parts, '配置来源', rule.configSource)
+  addDetail(parts, '配置路径', rule.configPath)
+  addDetail(parts, '配置键', rule.configKey)
+  addDetail(parts, '公式', rule.formula)
+  addDetail(parts, '设备号', rule.deviceNo)
+  addDetail(parts, '分段', rule.segmentIndex)
+  addDetail(parts, '器材类型', rule.equipmentTypeKey)
+  addDetail(parts, '器材列', rule.equipmentColumnKey)
+  addDetail(parts, '器材分组', rule.equipmentGroupId)
+  addDetail(parts, '硬件分组', rule.hardwareGroupId)
+  addDetail(parts, '跳转方向', rule.autoRightShiftDirection)
+  addDetail(parts, '跳转条件', summarizeList(rule.autoRightShiftConditions))
+  addDetail(parts, '填充条件', summarizeList(rule.autoFillConditions))
+  addDetail(parts, '小数位', rule.decimalPlaces)
+  addDetail(parts, '公式小数位', rule.formulaDecimalEnabled === true ? rule.formulaDecimalPlaces : undefined)
+  addDetail(parts, '单数据生成', rule.singleDataGenerate === true ? '是' : undefined)
+  addDetail(parts, '保护已有值', rule.preserveManualInput === true ? '是' : undefined)
+  addDetail(parts, '乱序', rule.shuffle === true ? '是' : undefined)
+  addDetail(parts, '下拉选项', summarizeOptions(rule.dropdownOptionsText))
+  addDetail(parts, '备注', rule.note)
+  return parts.length ? parts.join('；') : '-'
+}
+
+function addDetail(parts: string[], label: string, value: unknown) {
+  const text = detailValue(value)
+  if (text) parts.push(`${label}：${text}`)
+}
+
+function detailValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return summarizeList(value)
+  if (isRecord(value)) return objectSummary(value) || ''
+  return String(value)
+}
+
+function summarizeList(value: unknown) {
+  const list = asArray(value)
+  if (!list.length) return ''
+  return `${list.length} 项`
+}
+
+function summarizeOptions(value: unknown) {
+  const lines = String(value == null ? '' : value)
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  if (!lines.length) return ''
+  return `${lines.length} 项：${lines.slice(0, 6).join('、')}${lines.length > 6 ? '...' : ''}`
 }
 
 function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
@@ -312,6 +426,14 @@ function stringValue(value: unknown) {
   if (value === null || value === undefined) return ''
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    const text = stringValue(value)
+    if (text) return text
+  }
   return ''
 }
 

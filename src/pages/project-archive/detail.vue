@@ -16,17 +16,21 @@
       <div v-if="detail" class="page-card">
         <n-tabs v-model:value="activeTab" type="line" animated>
           <n-tab-pane name="base" tab="① 项目基本信息">
-            <n-descriptions label-placement="left" bordered :column="2">
-              <n-descriptions-item label="project_uuid">
-                <span class="mono">{{ detail.project_uuid }}</span>
+            <n-descriptions label-placement="left" bordered :column="2" class="mobile-project-fields">
+              <n-descriptions-item v-for="field in projectBaseFields" :key="field.key" :label="field.label">
+                <span :class="{ mono: field.mono }">{{ field.value || '-' }}</span>
               </n-descriptions-item>
-              <n-descriptions-item label="工程编号">{{ detail.project_code || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="工程名称">{{ detail.project_name || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="委托单位">{{ detail.client_name || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="最近上传">{{ formatDateTime(detail.last_uploaded_at) }}</n-descriptions-item>
-              <n-descriptions-item label="最近解析">{{ formatDateTime(detail.last_parsed_at) }}</n-descriptions-item>
-              <n-descriptions-item label="解析消息" :span="2">{{ detail.parse_message || '-' }}</n-descriptions-item>
             </n-descriptions>
+
+            <n-collapse class="debug-collapse">
+              <n-collapse-item title="调试信息" name="debug">
+                <n-descriptions label-placement="left" bordered :column="2" size="small">
+                  <n-descriptions-item v-for="field in projectDebugFields" :key="field.key" :label="field.label" :span="field.span || 1">
+                    <span :class="{ mono: field.mono }">{{ field.value || '-' }}</span>
+                  </n-descriptions-item>
+                </n-descriptions>
+              </n-collapse-item>
+            </n-collapse>
 
             <div class="section-title">最新项目配置</div>
             <div v-if="latestConfig" class="summary-panel">
@@ -88,6 +92,19 @@
                   </template>
                 </n-data-table>
 
+                <div class="section-title">规则明细</div>
+                <n-data-table
+                  :columns="mappingRuleColumns"
+                  :data="structuredConfig.mappingRules"
+                  :pagination="{ pageSize: 20 }"
+                  :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
+                  :scroll-x="1180"
+                >
+                  <template #empty>
+                    <n-empty description="配置中未找到具体规则" />
+                  </template>
+                </n-data-table>
+
                 <div class="section-title">关键配置项</div>
                 <n-data-table
                   :columns="configItemColumns"
@@ -115,55 +132,89 @@
               <n-alert v-if="formSnapshotError" type="warning" class="block-alert">
                 {{ formSnapshotError }}
               </n-alert>
-              <n-empty v-if="!formSnapshotViews.length" description="暂无数据填充快照" />
-              <div v-for="view in formSnapshotViews" :key="view.item.id" class="form-snapshot">
-                <div class="section-toolbar">
-                  <div>
-                    <div class="section-title section-title--compact">{{ view.item.form_type || '未命名表单' }}</div>
-                    <div class="section-subtitle">
-                      {{ formatDateTime(view.item.created_at) }} · {{ view.item.row_count }} 行 · {{ view.item.sample_count }} 条录入日期/试验员
-                    </div>
-                  </div>
-                  <n-space>
-                    <n-button :loading="isTableExporting(view.item.form_type, 'data')" @click="downloadProjectTable(view.item.form_type, 'data')">
-                      下载 xlsx
-                    </n-button>
-                    <n-button :loading="isTableExporting(view.item.form_type, 'sample')" @click="downloadProjectTable(view.item.form_type, 'sample')">
-                      下载录入日期/试验员
-                    </n-button>
-                  </n-space>
-                </div>
-
-                <n-alert v-if="view.parsed.error" type="warning" class="block-alert">
-                  {{ view.parsed.error }}
-                </n-alert>
-
-                <n-data-table
-                  :columns="view.parsed.tableColumns"
-                  :data="view.parsed.rows"
-                  :pagination="{ pageSize: 50 }"
-                  :row-key="(row: SnapshotTableRow) => row.__rowKey"
-                  :scroll-x="view.parsed.scrollX"
-                  :max-height="520"
+              <n-empty v-if="!visibleFormSnapshotViews.length" description="暂无开土记录数据填充快照" />
+              <n-tabs v-else v-model:value="activeFormTab" type="card" size="small" animated>
+                <n-tab-pane
+                  v-for="view in visibleFormSnapshotViews"
+                  :key="view.item.id"
+                  :name="view.item.form_type || 'unknown'"
+                  :tab="formTypeLabel(view.item.form_type)"
                 >
-                  <template #empty>
-                    <n-empty description="快照中暂无行数据" />
-                  </template>
-                </n-data-table>
+                  <div class="form-snapshot">
+                    <div class="section-toolbar">
+                      <div>
+                        <div class="section-title section-title--compact">{{ formTypeLabel(view.item.form_type) }}</div>
+                        <div class="section-subtitle">
+                          {{ formTypeLabel(view.item.form_type) }} -&gt; {{ view.item.form_type || '-' }} ·
+                          {{ formatDateTime(view.item.created_at) }}
+                        </div>
+                      </div>
+                      <n-space>
+                        <n-button :loading="isTableExporting(view.item.form_type, 'data')" @click="downloadProjectTable(view.item.form_type, 'data')">
+                          下载 xlsx
+                        </n-button>
+                        <n-button :loading="isTableExporting(view.item.form_type, 'sample')" @click="downloadProjectTable(view.item.form_type, 'sample')">
+                          下载录入日期/试验员
+                        </n-button>
+                      </n-space>
+                    </div>
 
-                <n-collapse v-if="view.parsed.sampleRows.length" class="raw-collapse">
-                  <n-collapse-item title="录入日期/试验员预览" :name="`sample-${view.item.id}`">
-                    <n-data-table
-                      :columns="view.parsed.sampleTableColumns"
-                      :data="view.parsed.sampleRows"
-                      :pagination="{ pageSize: 50 }"
-                      :row-key="(row: SnapshotTableRow) => row.__rowKey"
-                      :scroll-x="view.parsed.sampleScrollX"
-                      :max-height="360"
-                    />
-                  </n-collapse-item>
-                </n-collapse>
-              </div>
+                    <n-alert v-if="view.parsed.error" type="warning" class="block-alert">
+                      {{ view.parsed.error }}
+                    </n-alert>
+
+                    <div class="data-section">
+                      <div class="data-section__header">
+                        <div>
+                          <div class="data-section__title">{{ formTypeLabel(view.item.form_type) }}</div>
+                          <div class="section-subtitle">数据填充结果 · {{ view.item.row_count }} 行</div>
+                        </div>
+                      </div>
+                      <n-data-table
+                        :columns="view.parsed.tableColumns"
+                        :data="view.parsed.rows"
+                        :pagination="{ pageSize: 50 }"
+                        :row-key="(row: SnapshotTableRow) => row.__rowKey"
+                        :scroll-x="view.parsed.scrollX"
+                        :max-height="520"
+                      >
+                        <template #empty>
+                          <n-empty description="快照中暂无行数据" />
+                        </template>
+                      </n-data-table>
+                    </div>
+
+                    <div class="data-section">
+                      <div class="data-section__header">
+                        <div>
+                          <div class="data-section__title">录入日期/试验员</div>
+                          <div class="section-subtitle">样品元数据 · {{ view.item.sample_count }} 条</div>
+                        </div>
+                      </div>
+                      <n-data-table
+                        v-if="view.parsed.sampleTableColumns.length"
+                        :columns="view.parsed.sampleTableColumns"
+                        :data="view.parsed.sampleRows"
+                        :pagination="{ pageSize: 50 }"
+                        :row-key="(row: SnapshotTableRow) => row.__rowKey"
+                        :scroll-x="view.parsed.sampleScrollX"
+                        :max-height="360"
+                      >
+                        <template #empty>
+                          <n-empty description="快照中暂无录入日期/试验员数据" />
+                        </template>
+                      </n-data-table>
+                      <n-empty v-else description="快照中暂无录入日期/试验员字段" />
+                    </div>
+
+                    <n-collapse class="raw-collapse">
+                      <n-collapse-item title="原始快照 JSON" :name="`form-json-${view.item.id}`">
+                        <pre class="json-preview">{{ view.parsed.rawText }}</pre>
+                      </n-collapse-item>
+                    </n-collapse>
+                  </div>
+                </n-tab-pane>
+              </n-tabs>
             </n-spin>
           </n-tab-pane>
         </n-tabs>
@@ -183,13 +234,14 @@ import type { ConfigSnapshotItem, FormDataSnapshot, ProjectArchiveItem } from '@
 import { formatDateTime } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { pageList } from '@/utils/query'
-import { configTypeLabel } from '@/utils/labels'
+import { configTypeLabel, formTypeLabel } from '@/utils/labels'
 import {
   emptyParsedFormSnapshot,
   parseFormSnapshot,
   parseStructuredConfig,
   type ConfigKeyValueItem,
   type ConfigMappingColumn,
+  type ConfigMappingRule,
   type ParsedFormSnapshot,
   type SnapshotTableRow,
   type StructuredConfig,
@@ -213,6 +265,7 @@ const errorText = ref('')
 const configError = ref('')
 const formSnapshotError = ref('')
 const activeTab = ref('base')
+const activeFormTab = ref('excavation-record')
 const detail = ref<ProjectArchiveItem | null>(null)
 const mobileData = ref<FormDataSnapshot[]>([])
 const configs = ref<ConfigSnapshotItem[]>([])
@@ -227,6 +280,37 @@ const latestConfig = computed(() => {
   return [...configs.value].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''))[0] || null
 })
 const structuredConfig = computed<StructuredConfig | null>(() => (latestConfigDetail.value ? parseStructuredConfig(latestConfigDetail.value.snapshot_json) : null))
+const visibleFormSnapshotViews = computed(() => formSnapshotViews.value.filter((view) => view.item.form_type === 'excavation-record'))
+const projectBaseFields = computed(() => {
+  const project = detail.value
+  if (!project) return []
+  return [
+    { key: 'project_name', label: '项目名称', value: project.project_name },
+    { key: 'project_code', label: '项目编号', value: project.project_code },
+    { key: 'client_name', label: '委托单位', value: project.client_name },
+    { key: 'project_lead', label: '项目负责人', value: project.project_lead },
+    { key: 'test_lead', label: '试验负责人', value: project.test_lead },
+    { key: 'start_date', label: '开工日期', value: project.start_date },
+    { key: 'report_date', label: '报告日期', value: project.report_date },
+    { key: 'project_uuid', label: 'project_uuid', value: project.project_uuid, mono: true },
+  ]
+})
+const projectDebugFields = computed(() => {
+  const project = detail.value
+  if (!project) return []
+  return [
+    { key: 'last_uploaded_at', label: '最近上传', value: formatDateTime(project.last_uploaded_at) },
+    { key: 'last_parsed_at', label: '最近解析', value: formatDateTime(project.last_parsed_at) },
+    { key: 'parse_message', label: '解析消息', value: project.parse_message, span: 2 },
+    { key: 'source_mobile_file_id', label: '项目包文件', value: project.source_mobile_file_id, mono: true },
+    { key: 'latest_config_file_id', label: '最新配置文件', value: project.latest_config_file_id, mono: true },
+    { key: 'latest_entry_data_file_id', label: '最新录入文件', value: project.latest_entry_data_file_id, mono: true },
+    { key: 'latest_win_result_file_id', label: 'Win 结果文件', value: project.latest_win_result_file_id, mono: true },
+    { key: 'uuid_fallback', label: 'UUID 回退', value: project.uuid_fallback ? '是' : '否' },
+    { key: 'created_at', label: '档案创建', value: formatDateTime(project.created_at) },
+    { key: 'updated_at', label: '档案更新', value: formatDateTime(project.updated_at) },
+  ]
+})
 
 const mappingPreviewColumns: DataTableColumns<ConfigMappingColumn> = [
   { title: '字段 key', key: 'key', width: 180, render: (row) => h('span', { class: 'mono' }, row.key) },
@@ -234,6 +318,19 @@ const mappingPreviewColumns: DataTableColumns<ConfigMappingColumn> = [
   { title: '宽度', key: 'width', width: 100 },
   { title: '类型', key: 'kind', width: 120 },
   { title: '规则数', key: 'ruleCount', width: 90 },
+]
+
+const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [
+  { title: '字段', key: 'columnLabel', width: 180, render: (row) => `${row.columnLabel} (${row.columnKey})` },
+  { title: '规则类型', key: 'typeLabel', width: 170 },
+  {
+    title: '启用',
+    key: 'active',
+    width: 80,
+    render: (row) => h(NTag, { type: row.active ? 'success' : 'default', round: true }, { default: () => (row.active ? '是' : '否') }),
+  },
+  { title: '说明', key: 'summary', minWidth: 240, ellipsis: { tooltip: true } },
+  { title: '规则内容', key: 'detail', minWidth: 420, ellipsis: { tooltip: true } },
 ]
 
 const configItemColumns: DataTableColumns<ConfigKeyValueItem> = [
@@ -287,6 +384,9 @@ async function loadFormSnapshotDetails(items: FormDataSnapshot[]) {
       }
     })
     formSnapshotViews.value = views
+    activeFormTab.value = views.some((view) => view.item.form_type === 'excavation-record')
+      ? 'excavation-record'
+      : (views[0]?.item.form_type || 'excavation-record')
     formSnapshotError.value = errors.join('；')
   } finally {
     formSnapshotLoading.value = false
@@ -440,6 +540,10 @@ onMounted(loadDetail)
   margin: 8px 0 14px;
 }
 
+.debug-collapse {
+  margin-top: 14px;
+}
+
 .summary-panel {
   display: grid;
   gap: 12px;
@@ -474,6 +578,28 @@ onMounted(loadDetail)
 
 .form-snapshot:last-child {
   border-bottom: 0;
+}
+
+.data-section {
+  margin-top: 14px;
+  border: 1px solid var(--yy-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.data-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--yy-surface-soft);
+  border-bottom: 1px solid var(--yy-border);
+}
+
+.data-section__title {
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .block-alert {

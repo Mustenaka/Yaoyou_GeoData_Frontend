@@ -475,6 +475,10 @@ export interface ProjectArchiveItem {
   project_code: string
   project_name: string
   client_name: string
+  project_lead?: string
+  test_lead?: string
+  start_date?: string
+  report_date?: string
   uuid_fallback: boolean
   source_mobile_file_id: string
   latest_win_result_file_id: string
