@@ -78,6 +78,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '全局配置记录', group: '移动端项目与数据', roles: adminRoles },
       },
       {
+        path: 'mobile/feature-settings',
+        name: 'mobile-feature-settings',
+        component: () => import('@/pages/mobile-feature/index.vue'),
+        meta: { title: '移动端功能设置', group: '移动端项目与数据', roles: ['superadmin', 'admin'] },
+      },
+      {
         path: 'mobile/global-config/:id',
         name: 'global-config-detail',
         component: () => import('@/pages/global-config/detail.vue'),
