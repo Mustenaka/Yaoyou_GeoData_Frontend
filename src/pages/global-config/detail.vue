@@ -69,18 +69,23 @@
           </n-tab-pane>
 
           <n-tab-pane name="mapping" tab="工作表单">
-            <div class="section-title">映射列</div>
-            <n-data-table
-              :columns="mappingPreviewColumns"
-              :data="structuredConfig.mappingColumns"
-              :pagination="{ pageSize: 20 }"
-              :row-key="(row: ConfigMappingColumn) => row.key"
-              :scroll-x="760"
-            >
-              <template #empty>
-                <n-empty description="配置中未找到映射列" />
-              </template>
-            </n-data-table>
+            <template v-if="structuredConfig.workForms.length">
+              <div v-for="form in structuredConfig.workForms" :key="form.id" class="config-table-block">
+                <div class="section-title">{{ form.formTitle }}</div>
+                <div class="section-meta">
+                  {{ form.formType }} · {{ form.columns.length }} 列 / {{ form.rules.length }} 条规则
+                </div>
+                <n-data-table
+                  :columns="form.tableColumns"
+                  :data="form.rows"
+                  :pagination="false"
+                  :row-key="(row: SnapshotTableRow) => row.__rowKey"
+                  :scroll-x="form.scrollX"
+                  :max-height="420"
+                />
+              </div>
+            </template>
+            <n-empty v-else description="配置中未找到工作表单配置" />
 
             <div class="section-title">映射规则明细</div>
             <n-data-table
@@ -214,9 +219,9 @@ import { pageList } from '@/utils/query'
 import {
   parseStructuredConfig,
   type ConfigKeyValueItem,
-  type ConfigMappingColumn,
   type ConfigMappingRule,
   type ConfigSectionItem,
+  type SnapshotTableRow,
   type StructuredConfig,
 } from '@/utils/archive-config'
 
@@ -286,14 +291,6 @@ const operationColumns: DataTableColumns<ConfigSectionItem> = [
   { title: '键', key: 'key', width: 220, render: (row) => h('span', { class: 'mono' }, row.key) },
   { title: '中文标签', key: 'label', width: 220 },
   { title: '值', key: 'value', minWidth: 260, render: (row) => h('div', { class: 'cell-wrap' }, row.value || '-') },
-]
-
-const mappingPreviewColumns: DataTableColumns<ConfigMappingColumn> = [
-  { title: '字段 key', key: 'key', width: 180, render: (row) => h('span', { class: 'mono' }, row.key) },
-  { title: '显示名', key: 'label', minWidth: 180 },
-  { title: '宽度', key: 'width', width: 100 },
-  { title: '类型', key: 'kind', width: 120 },
-  { title: '规则数', key: 'ruleCount', width: 90 },
 ]
 
 const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [
@@ -553,6 +550,21 @@ onMounted(loadAll)
 .rule-detail-segment__index {
   color: var(--yy-text-secondary);
   font-family: var(--font-mono);
+}
+
+:deep(.fill-condition-column) {
+  background: rgba(24, 119, 242, 0.04);
+}
+
+:deep(.fill-equals-column) {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--yy-text-primary);
+  font-weight: 700;
+  text-align: center;
+}
+
+:deep(.fill-generate-column) {
+  background: rgba(16, 185, 129, 0.06);
 }
 
 @media (max-width: 900px) {

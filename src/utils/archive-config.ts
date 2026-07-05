@@ -50,6 +50,17 @@ export interface ConfigFillConfigItem extends ConfigSnapshotTable {
   generateColumnCount: number
 }
 
+export interface ConfigWorkForm {
+  id: string
+  formType: string
+  formTitle: string
+  columns: ConfigMappingColumn[]
+  rules: ConfigMappingRule[]
+  tableColumns: DataTableColumns<SnapshotTableRow>
+  rows: SnapshotTableRow[]
+  scrollX: number
+}
+
 export interface ConfigEquipmentTypeItem {
   key: string
   name: string
@@ -67,6 +78,7 @@ export interface StructuredConfig {
   error: string
   basicInfoItems: ConfigKeyValueItem[]
   operationSettings: ConfigSectionItem[]
+  workForms: ConfigWorkForm[]
   mappingColumns: ConfigMappingColumn[]
   mappingRules: ConfigMappingRule[]
   fillConfigs: ConfigFillConfigItem[]
@@ -106,25 +118,27 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
       error: parsed.error || '配置 JSON 为空或格式不正确',
       basicInfoItems: [],
       operationSettings: [],
+      workForms: [],
       mappingColumns: [],
-    mappingRules: [],
-    fillConfigs: [],
-    equipmentTypes: [],
-    equipmentConfigs: [],
-    configItems: [],
-  }
+      mappingRules: [],
+      fillConfigs: [],
+      equipmentTypes: [],
+      equipmentConfigs: [],
+      configItems: [],
+    }
   }
 
-  const mappingSource = findMappingSource(parsed.record)
-  const mappingColumns = mappingSource ? extractMappingColumns(mappingSource) : []
+  const workForms = extractWorkForms(parsed.record)
+  const mappingColumns = workForms.flatMap((form) => form.columns)
   const equipmentTypes = extractEquipmentTypes(parsed.record)
   return {
     rawText: parsed.rawText,
     error: parsed.error,
     basicInfoItems: extractGlobalConfigBasicInfo(parsed.record),
     operationSettings: extractOperationSettings(parsed.record),
+    workForms,
     mappingColumns,
-    mappingRules: mappingColumns.flatMap((column) => column.rules),
+    mappingRules: workForms.flatMap((form) => form.rules),
     fillConfigs: extractFillConfigs(parsed.record),
     equipmentTypes,
     equipmentConfigs: extractEquipmentConfigs(parsed.record, equipmentTypes),
@@ -215,32 +229,94 @@ export function parseJSON(raw?: string | null): { record: JsonRecord | null; raw
   }
 }
 
-function findMappingSource(record: JsonRecord): JsonRecord | null {
+function extractWorkForms(record: JsonRecord): ConfigWorkForm[] {
+  return collectMappingSources(record).map((source, index) => {
+    const columns = extractMappingColumns(source)
+    const rules = columns.flatMap((column) => column.rules)
+    const formType = firstNonEmptyString(source.formType, source.form_type, source.type) || `form-${index + 1}`
+    const formTitle = firstNonEmptyString(source.formTitle, source.title, source.name, formTypeLabel(formType), `工作表单${index + 1}`)
+    const previewColumns = mappingPreviewSnapshotColumns(columns)
+    return {
+      id: firstNonEmptyString(source.configId, source.id, formType) || `work-form-${index + 1}`,
+      formType,
+      formTitle,
+      columns,
+      rules,
+      tableColumns: buildDataTableColumns(previewColumns),
+      rows: buildWorkFormPreviewRows(columns),
+      scrollX: tableScrollX(previewColumns),
+    }
+  })
+}
+
+function collectMappingSources(record: JsonRecord): JsonRecord[] {
   const candidates = [
-    readNestedRecord(record, ['configs', 'dataEntryMapping', 'config']),
-    readNestedRecord(record, ['configs', 'dataEntryMapping']),
-    readNestedRecord(record, ['configs', 'globalMapping', 'config']),
-    readNestedRecord(record, ['configs', 'globalMapping']),
-    readNestedRecord(record, ['usageConfig', 'dataEntryMapping', 'config']),
-    readNestedRecord(record, ['usageConfig', 'dataEntryMapping']),
-    readNestedRecord(record, ['usageConfig', 'globalMapping', 'config']),
-    readNestedRecord(record, ['usageConfig', 'globalMapping']),
-    readNestedRecord(record, ['modules', 'dataEntryMapping', 'config']),
-    readNestedRecord(record, ['modules', 'dataEntryMapping']),
-    readNestedRecord(record, ['globalMapping']),
-    readNestedRecord(record, ['dataEntryMapping']),
+    readNestedValue(record, ['configs', 'dataEntryMapping', 'config']),
+    readNestedValue(record, ['configs', 'dataEntryMapping']),
+    readNestedValue(record, ['configs', 'globalMapping', 'config']),
+    readNestedValue(record, ['configs', 'globalMapping']),
+    readNestedValue(record, ['usageConfig', 'dataEntryMapping', 'config']),
+    readNestedValue(record, ['usageConfig', 'dataEntryMapping']),
+    readNestedValue(record, ['usageConfig', 'globalMapping', 'config']),
+    readNestedValue(record, ['usageConfig', 'globalMapping']),
+    readNestedValue(record, ['modules', 'dataEntryMapping', 'config']),
+    readNestedValue(record, ['modules', 'dataEntryMapping', 'generatedJson']),
+    readNestedValue(record, ['modules', 'dataEntryMapping']),
+    record.globalMapping,
+    record.dataEntryMapping,
     record,
   ]
-  return candidates.find((item) => item && hasMappingColumns(item)) || null
+  const sources: ConfigWorkFormCandidate[] = []
+  candidates.forEach((candidate) => {
+    normalizeMappingSourceCandidates(candidate).forEach((source) => {
+      if (!hasMappingColumns(source)) return
+      const signature = [
+        firstNonEmptyString(source.configId, source.id),
+        firstNonEmptyString(source.formType, source.form_type),
+        extractMappingColumnCount(source),
+      ].join(':')
+      if (sources.some((item) => item.signature === signature)) return
+      sources.push({ signature, source })
+    })
+  })
+  return sources.map((item) => item.source)
+}
+
+interface ConfigWorkFormCandidate {
+  signature: string
+  source: JsonRecord
+}
+
+function normalizeMappingSourceCandidates(value: unknown): JsonRecord[] {
+  const parsed = parseEmbeddedJSON(value)
+  if (Array.isArray(parsed)) {
+    return parsed.map((item) => asRecord(item)).filter((item): item is JsonRecord => !!item)
+  }
+  const record = asRecord(parsed)
+  if (!record) return []
+  const generated = asArray(parseEmbeddedJSON(record.generatedJson))
+  if (!hasMappingColumns(record) && generated.length) {
+    return generated.map((item) => asRecord(item)).filter((item): item is JsonRecord => !!item)
+  }
+  return [record]
 }
 
 function hasMappingColumns(record: JsonRecord) {
-  return asArray(record.columnsList).length > 0 || asArray(record.columns).length > 0 || Object.keys(asRecord(record.columns) || {}).length > 0
+  return extractMappingColumnCount(record) > 0
+}
+
+function extractMappingColumnCount(record: JsonRecord) {
+  const columnsList = asArray(parseEmbeddedJSON(record.columnsList))
+  if (columnsList.length) return columnsList.length
+  const columns = parseEmbeddedJSON(record.columns)
+  if (Array.isArray(columns)) return columns.length
+  return Object.keys(asRecord(columns) || {}).length
 }
 
 function extractMappingColumns(source: JsonRecord): ConfigMappingColumn[] {
-  const columnsList = asArray(source.columnsList).length ? asArray(source.columnsList) : asArray(source.columns)
-  const columnBuckets = asRecord(source.columns)
+  const rawColumns = parseEmbeddedJSON(source.columns)
+  const columnsList = asArray(parseEmbeddedJSON(source.columnsList)).length ? asArray(parseEmbeddedJSON(source.columnsList)) : asArray(rawColumns)
+  const columnBuckets = asRecord(rawColumns)
   if (columnsList.length) {
     return columnsList.map((item, index) => {
       const column = isRecord(item) ? item : { key: String(item), label: String(item) }
@@ -275,6 +351,50 @@ function extractMappingColumns(source: JsonRecord): ConfigMappingColumn[] {
     })
   }
   return []
+}
+
+function mappingPreviewSnapshotColumns(columns: ConfigMappingColumn[]): SnapshotColumnDef[] {
+  return [
+    { key: '__label', label: '配置项', width: 120, kind: 'readonly' },
+    ...columns.map((column) => ({
+      key: column.key,
+      label: column.label || column.key,
+      width: normalizeColumnWidth(column.width || 160),
+      kind: column.kind || 'text',
+    })),
+  ]
+}
+
+function buildWorkFormPreviewRows(columns: ConfigMappingColumn[]): SnapshotTableRow[] {
+  const rows: Array<{ key: string; label: string; value: (column: ConfigMappingColumn) => string }> = [
+    { key: 'field-key', label: '字段 key', value: (column) => column.key },
+    { key: 'rule-type', label: '规则类型', value: (column) => summarizeColumnRuleTypes(column.rules) },
+    { key: 'rule-summary', label: '规则说明', value: (column) => summarizeColumnRuleSummaries(column.rules) },
+    { key: 'rule-count', label: '规则数', value: (column) => String(column.ruleCount || 0) },
+  ]
+  return rows.map((row) => {
+    const result: SnapshotTableRow = { __rowKey: row.key, __label: row.label }
+    columns.forEach((column) => {
+      result[column.key] = row.value(column)
+    })
+    return result
+  })
+}
+
+function summarizeColumnRuleTypes(rules: ConfigMappingRule[]) {
+  if (!rules.length) return '-'
+  const activeRules = rules.filter((rule) => rule.active)
+  const source = activeRules.length ? activeRules : rules
+  return uniqueStrings(source.map((rule) => rule.typeLabel || rule.type)).join(' / ') || '-'
+}
+
+function summarizeColumnRuleSummaries(rules: ConfigMappingRule[]) {
+  const summaries = uniqueStrings(rules.map((rule) => rule.summary).filter((item) => item && item !== '-'))
+  return summaries.length ? summaries.join(' / ') : '-'
+}
+
+function uniqueStrings(values: string[]) {
+  return values.filter((value, index, array) => !!value && array.indexOf(value) === index)
 }
 
 function normalizeMappingRules(rawRules: unknown[], columnKey: string, columnLabel: string): ConfigMappingRule[] {
@@ -465,7 +585,7 @@ function formatAppSettingValue(key: string, value: unknown) {
 }
 
 function extractFillConfigs(record: JsonRecord): ConfigFillConfigItem[] {
-  const configs = asArray(record.fillConfigs).length ? asArray(record.fillConfigs) : asArray(readNestedValue(record, ['modules', 'multiRuleMapping', 'fillConfigs']))
+  const configs = collectFillConfigs(record)
   return configs
     .map((item, index) => {
     const config = asRecord(item)
@@ -485,6 +605,34 @@ function extractFillConfigs(record: JsonRecord): ConfigFillConfigItem[] {
     }
   })
     .filter((item): item is ConfigFillConfigItem => !!item)
+}
+
+function collectFillConfigs(record: JsonRecord): unknown[] {
+  const multiRuleMapping = readNestedRecord(record, ['modules', 'multiRuleMapping']) || {}
+  const store = asRecord(parseEmbeddedJSON(multiRuleMapping.store))
+  const userConfigs = uniqueConfigRecords([
+    ...asArray(parseEmbeddedJSON(record.fillConfigs)),
+    ...asArray(parseEmbeddedJSON(store?.configs)),
+    ...asArray(parseEmbeddedJSON(multiRuleMapping.configs)),
+    ...asArray(parseEmbeddedJSON(multiRuleMapping.fillConfigs)),
+  ])
+  const generatedConfigs = uniqueConfigRecords(asArray(parseEmbeddedJSON(multiRuleMapping.generatedJson)))
+  const includeGenerated = userConfigs.length === 0 || store?.builtinsSeeded !== true
+  return includeGenerated ? uniqueConfigRecords([...userConfigs, ...generatedConfigs]) : userConfigs
+}
+
+function uniqueConfigRecords(values: unknown[]) {
+  const seen = new Set<string>()
+  const rows: JsonRecord[] = []
+  values.forEach((value, index) => {
+    const record = asRecord(parseEmbeddedJSON(value))
+    if (!record) return
+    const signature = firstNonEmptyString(record.id, record.key, record.name, record.label) || `config-${index}`
+    if (seen.has(signature)) return
+    seen.add(signature)
+    rows.push(record)
+  })
+  return rows
 }
 
 function buildFillConfigTableColumns(config: JsonRecord): SnapshotColumnDef[] {
@@ -645,12 +793,13 @@ function deriveEquipmentColumnsFromRows(rows: unknown[]): SnapshotColumnDef[] {
 }
 
 function normalizeRuleList(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value
-  if (!isRecord(value)) return value === undefined || value === null ? [] : [value]
-  if (looksLikeRule(value)) return [value]
-  return Object.keys(value)
+  const parsed = parseEmbeddedJSON(value)
+  if (Array.isArray(parsed)) return parsed
+  if (!isRecord(parsed)) return parsed === undefined || parsed === null ? [] : [parsed]
+  if (looksLikeRule(parsed)) return [parsed]
+  return Object.keys(parsed)
     .sort()
-    .flatMap((key) => normalizeRuleList(value[key]))
+    .flatMap((key) => normalizeRuleList(parsed[key]))
 }
 
 function looksLikeRule(value: JsonRecord) {
@@ -733,17 +882,26 @@ function normalizeRows(rawRows: unknown[], columns: SnapshotColumnDef[]): Snapsh
 
 function buildDataTableColumns(columns: SnapshotColumnDef[]): DataTableColumns<SnapshotTableRow> {
   return columns.map((column) => ({
-    title: column.label || column.key,
+    title: column.kind === 'equals' ? '=' : column.label || column.key,
     key: column.key,
     width: column.width,
     minWidth: Math.min(Math.max(column.width, 100), 220),
+    align: column.kind === 'equals' ? 'center' : undefined,
+    className: tableColumnClassName(column),
     ellipsis: { tooltip: true },
-    render: (row) => formatCell(row[column.key]),
+    render: (row) => (column.kind === 'equals' ? '=' : formatCell(row[column.key])),
   }))
 }
 
 function tableScrollX(columns: SnapshotColumnDef[]) {
   return Math.max(columns.reduce((sum, column) => sum + column.width, 0), 720)
+}
+
+function tableColumnClassName(column: SnapshotColumnDef) {
+  if (column.kind === 'equals') return 'fill-equals-column'
+  if (column.kind === 'condition') return 'fill-condition-column'
+  if (column.kind === 'generate') return 'fill-generate-column'
+  return ''
 }
 
 function normalizeColumnWidth(value: unknown) {
@@ -790,6 +948,17 @@ function asRecord(value: unknown): JsonRecord | null {
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
+}
+
+function parseEmbeddedJSON(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  const text = value.trim()
+  if (!text || !/^[\[{]/.test(text)) return value
+  try {
+    return JSON.parse(text)
+  } catch {
+    return value
+  }
 }
 
 function stringValue(value: unknown) {
