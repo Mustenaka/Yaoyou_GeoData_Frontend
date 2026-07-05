@@ -178,10 +178,14 @@ const form = reactive<UserForm>({
 const passwordForm = reactive({ password: '' })
 const resetPasswordPolicyError = computed(() => validateOptionalPasswordInput(passwordForm.password))
 
+const superadminUserPageRoles: RoleCode[] = ['admin', 'enterprise_admin', 'normal_user', 'temporary_user']
+const adminUserPageRoles: RoleCode[] = ['enterprise_admin', 'normal_user', 'temporary_user']
+const enterpriseUserPageRoles: RoleCode[] = ['normal_user', 'temporary_user']
+
 const assignableRoleValues = computed<RoleCode[]>(() => {
-  if (authStore.isSuperAdmin) return roleOptions.map((item) => item.value)
-  if (authStore.isAdmin) return ['enterprise_admin', 'normal_user', 'temporary_user']
-  return ['normal_user', 'temporary_user']
+  if (authStore.isSuperAdmin) return superadminUserPageRoles
+  if (authStore.isAdmin) return adminUserPageRoles
+  return enterpriseUserPageRoles
 })
 
 const availableRoleOptions = computed(() => roleOptions.filter((item) => assignableRoleValues.value.includes(item.value)))
@@ -229,23 +233,25 @@ const columns: DataTableColumns<UserItem> = [
     width: 300,
     fixed: 'right',
     render: (row) =>
-      h('div', { class: 'table-actions' }, [
-        h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '编辑' }),
-        h(NButton, { size: 'small', onClick: () => openResetPassword(row) }, { default: () => '重置密码' }),
-        h(
-          NPopconfirm,
-          { onPositiveClick: () => toggleStatus(row) },
-          {
-            trigger: () =>
-              h(
-                NButton,
-                { size: 'small', type: row.status === 'active' ? 'warning' : 'success', ghost: true },
-                { default: () => (row.status === 'active' ? '禁用' : '启用') },
-              ),
-            default: () => `确认${row.status === 'active' ? '禁用' : '启用'}用户 ${row.username}？`,
-          },
-        ),
-      ]),
+      canManageRow(row)
+        ? h('div', { class: 'table-actions' }, [
+            h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '编辑' }),
+            h(NButton, { size: 'small', onClick: () => openResetPassword(row) }, { default: () => '重置密码' }),
+            h(
+              NPopconfirm,
+              { onPositiveClick: () => toggleStatus(row) },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    { size: 'small', type: row.status === 'active' ? 'warning' : 'success', ghost: true },
+                    { default: () => (row.status === 'active' ? '禁用' : '启用') },
+                  ),
+                default: () => `确认${row.status === 'active' ? '禁用' : '启用'}用户 ${row.username}？`,
+              },
+            ),
+          ])
+        : '-',
   },
 ]
 
@@ -366,6 +372,10 @@ function openCreate() {
 }
 
 async function openEdit(row: UserItem) {
+  if (!canManageRow(row)) {
+    message.warning('当前角色不可编辑该账号')
+    return
+  }
   const detail = await userApi.detail(row.id)
   editingId.value = row.id
   originalRole.value = detail.role_code
@@ -459,6 +469,10 @@ function confirmRoleChange(fromRole: string, toRole: string) {
 }
 
 function openResetPassword(row: UserItem) {
+  if (!canManageRow(row)) {
+    message.warning('当前角色不可重置该账号密码')
+    return
+  }
   resettingUserId.value = row.id
   passwordForm.password = ''
   passwordModalVisible.value = true
@@ -480,9 +494,17 @@ async function submitResetPassword() {
 }
 
 async function toggleStatus(row: UserItem) {
+  if (!canManageRow(row)) {
+    message.warning('当前角色不可修改该账号状态')
+    return
+  }
   await userApi.updateStatus(row.id, row.status === 'active' ? 'disabled' : 'active')
   message.success('用户状态已更新')
   await fetchList()
+}
+
+function canManageRow(row: UserItem) {
+  return assignableRoleValues.value.includes(row.role_code)
 }
 
 onMounted(async () => {
