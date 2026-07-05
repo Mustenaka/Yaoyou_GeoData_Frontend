@@ -242,6 +242,7 @@ type PanelDefinition = {
   title: string
   description: string
   superOnly?: boolean
+  backOfficeOnly?: boolean
   defaultItem: DashboardLayoutItem
 }
 
@@ -267,7 +268,7 @@ type EventRow = {
 
 const panelDefinitions: Record<PanelId, PanelDefinition> = {
   summary: { id: 'summary', title: '概览统计', description: '服务、用户、上传和风险摘要', defaultItem: { i: 'summary', x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 } },
-  server: { id: 'server', title: '服务器性能', description: '真实 CPU、内存、磁盘与运行趋势', superOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 4, minW: 5, minH: 4 } },
+  server: { id: 'server', title: '服务器性能', description: '真实 CPU、内存、磁盘与运行趋势', backOfficeOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 4, minW: 5, minH: 4 } },
   storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', superOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
   message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
   expiry: { id: 'expiry', title: '到期提醒', description: '企业、授权和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
@@ -278,7 +279,7 @@ const panelDefinitions: Record<PanelId, PanelDefinition> = {
   business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
 }
 
-const dashboardLayoutVersion = 'v3'
+const dashboardLayoutVersion = 'v4'
 const gridBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 520, xxs: 0 }
 const gridCols = { lg: 12, md: 12, sm: 6, xs: 2, xxs: 1 }
 
@@ -310,7 +311,12 @@ let serverMetricsTimer = 0
 const layoutKey = computed(() => `yaoyou_dashboard_layout_${dashboardLayoutVersion}_${authStore.userId || authStore.username || 'anonymous'}`)
 
 const availablePanelIds = computed<PanelId[]>(() => {
-  return (Object.keys(panelDefinitions) as PanelId[]).filter((id) => !panelDefinitions[id].superOnly || authStore.isSuperAdmin)
+  return (Object.keys(panelDefinitions) as PanelId[]).filter((id) => {
+    const definition = panelDefinitions[id]
+    if (definition.superOnly && !authStore.isSuperAdmin) return false
+    if (definition.backOfficeOnly && !authStore.isBackOfficeScopeAll) return false
+    return true
+  })
 })
 
 const visibleLayout = computed(() => layout.value.filter((item) => availablePanelIds.value.includes(item.i)))
@@ -558,7 +564,7 @@ const todayFailureRate = computed(() => {
   return formatPercent((summary.value.today_failed_count / summary.value.today_upload_count) * 100)
 })
 
-const serverPanelVisible = computed(() => authStore.isSuperAdmin && visibleLayout.value.some((item) => item.i === 'server'))
+const serverPanelVisible = computed(() => authStore.isBackOfficeScopeAll && visibleLayout.value.some((item) => item.i === 'server'))
 
 watch(
   () => [layoutKey.value, authStore.roleCode],
@@ -732,9 +738,9 @@ async function loadStorage() {
 }
 
 async function loadServerMetrics(silent = false) {
-  if (!authStore.isSuperAdmin) {
+  if (!authStore.isBackOfficeScopeAll) {
     serverMetrics.value = null
-    serverMetricsError.value = '服务器指标仅 superadmin 可见'
+    serverMetricsError.value = '服务器指标仅平台管理员可见'
     return
   }
   try {
@@ -795,7 +801,7 @@ async function loadAll() {
   loading.value = true
   errorText.value = ''
   try {
-    await Promise.all([loadSummary(), loadRecentEvents(), loadAuditEvents(), loadStorage(), authStore.isSuperAdmin ? loadServerMetrics(true) : Promise.resolve()])
+    await Promise.all([loadSummary(), loadRecentEvents(), loadAuditEvents(), loadStorage(), authStore.isBackOfficeScopeAll ? loadServerMetrics(true) : Promise.resolve()])
   } finally {
     loading.value = false
   }
