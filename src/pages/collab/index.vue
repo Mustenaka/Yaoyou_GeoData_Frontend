@@ -4,9 +4,9 @@
 
     <div class="page-grid-4">
       <StatCard label="项目总数" :value="projects.length" unit="个" />
-      <StatCard label="成员总量" :value="memberCount" unit="人" accent="linear-gradient(90deg, #11b4d8, #0dd39e)" />
-      <StatCard label="活跃项目估算" :value="activeProjectCount" unit="个" accent="linear-gradient(90deg, #4568ff, #7a8cff)" />
-      <StatCard label="接口状态" value="兼容模式" accent="linear-gradient(90deg, #f59f00, #ffcf55)">
+      <StatCard label="成员总量" :value="memberCount" unit="人" accent="linear-gradient(90deg, var(--yy-tone-blue), var(--yy-tone-green))" />
+      <StatCard label="活跃项目估算" :value="activeProjectCount" unit="个" accent="linear-gradient(90deg, var(--yy-primary), var(--yy-tone-blue))" />
+      <StatCard label="接口状态" value="兼容模式" accent="linear-gradient(90deg, var(--yy-tone-amber), var(--yy-tone-blue))">
         待后端补充管理员协作流
       </StatCard>
     </div>

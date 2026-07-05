@@ -509,19 +509,19 @@ onMounted(loadAll)
 }
 
 .summary-item.success strong {
-  color: #15803d;
+  color: var(--yy-green);
 }
 
 .summary-item.danger strong {
-  color: #b91c1c;
+  color: var(--yy-red);
 }
 
 .summary-item.neutral strong {
-  color: #6b7280;
+  color: var(--yy-tone-neutral);
 }
 
 .summary-item.pending strong {
-  color: #2563eb;
+  color: var(--yy-tone-blue);
 }
 
 .mail-toolbar {

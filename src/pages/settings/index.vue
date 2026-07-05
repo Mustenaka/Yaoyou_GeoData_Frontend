@@ -300,7 +300,7 @@ onMounted(loadSettings)
   padding: 10px 12px;
   border: 1px solid var(--yy-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--yy-fill);
 }
 
 .section-head {

@@ -308,6 +308,13 @@ const sessionRedirecting = ref(false)
 let refreshTimer = 0
 let serverMetricsTimer = 0
 
+function themeColor(name: string) {
+  const themeIsDark = themeStore.isDark
+  void themeIsDark
+  if (typeof window === 'undefined') return 'currentColor'
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'currentColor'
+}
+
 const layoutKey = computed(() => `yaoyou_dashboard_layout_${dashboardLayoutVersion}_${authStore.userId || authStore.username || 'anonymous'}`)
 
 const availablePanelIds = computed<PanelId[]>(() => {
@@ -354,7 +361,7 @@ const storagePercent = computed(() => {
   if (!storage.value) return 0
   return clampPercent((storage.value.used_gb / Math.max(storageWarnLimitGb.value, 1)) * 100)
 })
-const progressRailColor = computed(() => (themeStore.isDark ? '#263241' : '#e7edf3'))
+const progressRailColor = computed(() => themeColor('--yy-fill-active'))
 
 const metricCards = computed<MetricCard[]>(() => {
   if (!summary.value) return []
@@ -411,11 +418,11 @@ const hasServerHistory = computed(() => Boolean(serverMetrics.value?.runtime_his
 
 const serverTrendOption = computed(() => {
   const history = serverMetrics.value?.runtime_history || []
-  const labelColor = themeStore.isDark ? '#9aa8b9' : '#6f7f90'
-  const axisColor = themeStore.isDark ? '#2d3846' : '#dbe3eb'
+  const labelColor = themeColor('--yy-text-muted')
+  const axisColor = themeColor('--yy-border')
   return {
     backgroundColor: 'transparent',
-    color: ['#2f7af0', '#27a76a', '#d8912f'],
+    color: [themeColor('--yy-tone-blue'), themeColor('--yy-tone-green'), themeColor('--yy-tone-amber')],
     tooltip: { trigger: 'axis' },
     legend: {
       top: 0,
@@ -447,9 +454,9 @@ const serverTrendOption = computed(() => {
 })
 
 const storageGaugeOption = computed(() => {
-  const valueColor = storageLevel.value === 'warn' ? '#de5f59' : storageLevel.value === 'soft' ? '#d8912f' : '#27a76a'
-  const trackColor = themeStore.isDark ? '#263241' : '#e7edf3'
-  const textColor = themeStore.isDark ? '#e8edf4' : '#17212f'
+  const valueColor = storageLevel.value === 'warn' ? themeColor('--yy-tone-red') : storageLevel.value === 'soft' ? themeColor('--yy-tone-amber') : themeColor('--yy-tone-green')
+  const trackColor = themeColor('--yy-fill-active')
+  const textColor = themeColor('--yy-text-primary')
   return {
     backgroundColor: 'transparent',
     tooltip: { formatter: `容量占用 ${storagePercent.value}%` },
@@ -468,7 +475,7 @@ const storageGaugeOption = computed(() => {
         axisLabel: { show: false },
         pointer: { show: false },
         anchor: { show: false },
-        title: { show: true, offsetCenter: [0, '34%'], color: themeStore.isDark ? '#8d9bae' : '#7b8a9a', fontSize: 12 },
+        title: { show: true, offsetCenter: [0, '34%'], color: themeColor('--yy-text-muted'), fontSize: 12 },
         detail: { valueAnimation: true, formatter: '{value}%', offsetCenter: [0, '-4%'], color: textColor, fontSize: 28, fontWeight: 700 },
         data: [{ value: storagePercent.value, name: storageLevelText.value }],
       },
@@ -863,9 +870,9 @@ function clampPercent(value: number) {
 }
 
 function metricColor(value: number) {
-  if (value >= 85) return '#de5f59'
-  if (value >= 70) return '#d8912f'
-  return '#27a76a'
+  if (value >= 85) return themeColor('--yy-tone-red')
+  if (value >= 70) return themeColor('--yy-tone-amber')
+  return themeColor('--yy-tone-green')
 }
 
 function formatMetricPercent(value: number) {
@@ -995,8 +1002,8 @@ onBeforeUnmount(() => {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(47, 122, 240, 0.12);
-  color: #2f7af0;
+  background: var(--yy-tone-blue-bg);
+  color: var(--yy-tone-blue);
   font-size: 21px;
 }
 
@@ -1027,18 +1034,18 @@ onBeforeUnmount(() => {
 }
 
 .metric-card--green .metric-card__icon {
-  background: rgba(39, 167, 106, 0.14);
-  color: #27a76a;
+  background: var(--yy-tone-green-bg);
+  color: var(--yy-tone-green);
 }
 
 .metric-card--amber .metric-card__icon {
-  background: rgba(216, 145, 47, 0.16);
-  color: #d8912f;
+  background: var(--yy-tone-amber-bg);
+  color: var(--yy-tone-amber);
 }
 
 .metric-card--red .metric-card__icon {
-  background: rgba(222, 95, 89, 0.14);
-  color: #de5f59;
+  background: var(--yy-tone-red-bg);
+  color: var(--yy-tone-red);
 }
 
 .server-metrics {

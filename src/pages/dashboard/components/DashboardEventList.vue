@@ -51,16 +51,16 @@ defineEmits<{
   width: 100%;
   min-height: 48px;
   padding: 9px 10px;
-  border: 1px solid transparent;
+  border: 1px solid var(--yy-border);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--yy-muted, #f3f6fa) 82%, transparent);
-  color: var(--yy-text);
+  background: var(--yy-surface-muted);
+  color: var(--yy-text-primary);
   text-align: left;
 }
 
 .event-row:hover {
-  border-color: var(--yy-border-strong, var(--yy-border));
-  background: var(--yy-muted, #f3f6fa);
+  border-color: var(--yy-border-strong);
+  background: var(--yy-fill-hover);
 }
 
 .event-row__dot {
@@ -97,19 +97,19 @@ defineEmits<{
 }
 
 .event-row--green .event-row__dot {
-  background: #27a76a;
+  background: var(--yy-tone-green);
 }
 
 .event-row--blue .event-row__dot {
-  background: #2f7af0;
+  background: var(--yy-tone-blue);
 }
 
 .event-row--amber .event-row__dot {
-  background: #d8912f;
+  background: var(--yy-tone-amber);
 }
 
 .event-row--red .event-row__dot {
-  background: #de5f59;
+  background: var(--yy-tone-red);
 }
 
 @media (max-width: 760px) {

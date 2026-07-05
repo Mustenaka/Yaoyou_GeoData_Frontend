@@ -54,7 +54,7 @@ defineEmits<{
 }
 
 .dashboard-panel--editing {
-  outline: 1px dashed color-mix(in srgb, var(--yy-primary, #2f7af0) 55%, transparent);
+  outline: 1px dashed var(--yy-tone-blue);
   outline-offset: -4px;
 }
 

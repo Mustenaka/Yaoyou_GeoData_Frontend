@@ -449,7 +449,7 @@ watch(
   width: 38px;
   height: 38px;
   border-radius: 8px;
-  background: #1f4e79;
+  background: var(--yy-primary);
   color: white;
   font-weight: 700;
   letter-spacing: 0;
@@ -526,7 +526,7 @@ watch(
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #2f855a;
+  background: var(--yy-green);
   color: white;
   font-weight: 700;
 }

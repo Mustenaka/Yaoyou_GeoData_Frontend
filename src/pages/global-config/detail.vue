@@ -553,18 +553,18 @@ onMounted(loadAll)
 }
 
 :deep(.fill-condition-column) {
-  background: rgba(24, 119, 242, 0.04);
+  background: var(--yy-column-blue-bg);
 }
 
 :deep(.fill-equals-column) {
-  background: rgba(15, 23, 42, 0.06);
+  background: var(--yy-column-neutral-bg);
   color: var(--yy-text-primary);
   font-weight: 700;
   text-align: center;
 }
 
 :deep(.fill-generate-column) {
-  background: rgba(16, 185, 129, 0.06);
+  background: var(--yy-column-green-bg);
 }
 
 @media (max-width: 900px) {

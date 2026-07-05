@@ -22,7 +22,7 @@ withDefaults(
   }>(),
   {
     unit: '',
-    accent: '#1f4e79',
+    accent: 'var(--yy-primary)',
   },
 )
 </script>
