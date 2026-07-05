@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="移动端功能设置" subtitle="控制移动端功能入口的可见性，不影响底层数据和执行能力。">
+    <PageHeader title="移动端功能设置" subtitle="配置移动端“智能填充”数据查看入口是否隐藏；只影响入口可见性，不影响整表填充和底层配置数据。">
       <n-space>
         <n-button :loading="loading" @click="loadPolicy">
           <template #icon>
@@ -23,18 +23,18 @@
         <section class="page-card">
           <div class="section-head">
             <div>
-              <h2>全局开关</h2>
-              <p>开启后：所有企业移动端用户都隐藏智能填充数据入口（功能仍可用）</p>
+              <h2>隐藏智能填充全局开关</h2>
+              <p>开启后，所有企业的移动端都会隐藏“智能填充”数据查看/预览入口；智能填充执行功能仍可用。</p>
             </div>
             <n-switch v-model:value="globalHidden" size="large" />
           </div>
           <div class="card-actions">
-            <n-text depth="3">全局开启时，企业单独开关只保留配置值，实际效果会被全局策略覆盖。</n-text>
+            <n-text depth="3">隐藏智能填充全局开关开启时，下方企业开关仅保留配置值，实际下发效果统一为隐藏。</n-text>
             <n-button type="primary" :loading="globalSaving" @click="saveGlobalHidden">
               <template #icon>
                 <n-icon :component="SaveOutline" />
               </template>
-              保存全局开关
+              保存隐藏智能填充全局开关
             </n-button>
           </div>
         </section>
@@ -42,8 +42,8 @@
         <section class="page-card table-card">
           <div class="table-head">
             <div>
-              <h2>企业设置</h2>
-              <p>企业级开关按后端返回范围直接展示。</p>
+              <h2>按企业隐藏智能填充入口</h2>
+              <p>未开启隐藏智能填充全局开关时，可为单个企业隐藏移动端“智能填充”数据查看/预览入口；列表已按当前账号权限过滤。</p>
             </div>
             <n-input v-model:value="keyword" clearable placeholder="搜索企业名称" class="company-search" />
           </div>
@@ -90,9 +90,9 @@ const filteredCompanies = computed(() => {
 })
 
 const emptyDescription = computed(() => {
-  if (loading.value) return '正在加载企业设置'
+  if (loading.value) return '正在加载企业智能填充隐藏设置'
   if (keyword.value.trim()) return '没有匹配企业'
-  return '暂无企业设置'
+  return '暂无企业智能填充隐藏设置'
 })
 
 const columns = computed<DataTableColumns<MobileSmartFillCompany>>(() => [
@@ -103,7 +103,7 @@ const columns = computed<DataTableColumns<MobileSmartFillCompany>>(() => [
     render: (row) => h('span', row.company_name || '-'),
   },
   {
-    title: '隐藏',
+    title: '隐藏智能填充入口',
     key: 'hidden',
     width: 260,
     render: (row) =>
@@ -118,8 +118,8 @@ const columns = computed<DataTableColumns<MobileSmartFillCompany>>(() => [
             onUpdateValue: (value: boolean) => updateCompanyHidden(row, value),
           }),
           globalHidden.value
-            ? h(NTag, { size: 'small', type: 'warning', bordered: false }, { default: () => '已被全局开关覆盖' })
-            : h(NText, { depth: 3 }, { default: () => (row.hidden ? '入口隐藏' : '入口可见') }),
+            ? h(NTag, { size: 'small', type: 'warning', bordered: false }, { default: () => '已被全局隐藏覆盖' })
+            : h(NText, { depth: 3 }, { default: () => (row.hidden ? '该企业隐藏入口' : '该企业入口可见') }),
         ],
       ),
   },
@@ -162,10 +162,10 @@ async function saveGlobalHidden() {
     const data = await mobileFeatureApi.updateSmartFillGlobal(globalHidden.value)
     globalHidden.value = data.global_hidden
     savedGlobalHidden.value = data.global_hidden
-    message.success('全局开关已保存')
+    message.success('隐藏智能填充全局开关已保存')
   } catch (error) {
     globalHidden.value = previous
-    errorText.value = error instanceof Error ? error.message : '全局开关保存失败'
+    errorText.value = error instanceof Error ? error.message : '隐藏智能填充全局开关保存失败'
   } finally {
     globalSaving.value = false
   }
@@ -182,7 +182,7 @@ async function updateCompanyHidden(row: MobileSmartFillCompany, hidden: boolean)
     message.success(`${row.company_name} 已更新`)
   } catch (error) {
     row.hidden = previous
-    message.error(error instanceof Error ? error.message : '企业设置保存失败')
+    message.error(error instanceof Error ? error.message : '企业智能填充隐藏设置保存失败')
   } finally {
     setCompanySaving(row.company_id, false)
   }
