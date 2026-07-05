@@ -60,8 +60,8 @@ export const archiveApi = {
   downloadConfig(id: number) {
     return downloadBlob(`/admin/config-snapshots/${id}/download`)
   },
-  downloadConfigTable(id: number) {
-    return downloadBlob(`/admin/config-snapshots/${id}/export/table`)
+  downloadConfigTable(id: number, kind: 'fill' | 'equipment') {
+    return downloadBlob(`/admin/config-snapshots/${id}/export/table`, { kind })
   },
   downloadProjectPackage(id: number) {
     return downloadBlob(`/admin/archive/projects/${id}/export/package`)

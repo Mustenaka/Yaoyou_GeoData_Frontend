@@ -3,7 +3,6 @@
     <PageHeader :title="detailTitle" subtitle="查看该设备最新或历史全局配置的完整结构化内容">
       <n-space>
         <n-button @click="router.push({ name: 'mobile-global-config' })">返回列表</n-button>
-        <n-button v-if="detail" type="primary" :loading="tableDownloading" @click="downloadTable">导出 xlsx</n-button>
         <n-button v-if="detail" :loading="rawDownloading" @click="downloadRaw">下载原始 JSON</n-button>
         <n-popconfirm v-if="detail && !detail.is_latest" @positive-click="markLatest">
           <template #trigger>
@@ -59,7 +58,7 @@
         </n-alert>
 
         <n-tabs v-model:value="activeTab" type="line" animated>
-          <n-tab-pane name="basic" tab="S1 基本信息">
+          <n-tab-pane name="basic" tab="基本信息">
             <n-data-table
               :columns="keyValueColumns"
               :data="basicRows"
@@ -69,22 +68,8 @@
             />
           </n-tab-pane>
 
-          <n-tab-pane name="operation" tab="S2 操作设置">
-            <n-data-table
-              :columns="operationColumns"
-              :data="structuredConfig.operationSettings"
-              :pagination="{ pageSize: 30 }"
-              :row-key="(row: ConfigSectionItem) => `${row.source}:${row.key}`"
-              :scroll-x="860"
-            >
-              <template #empty>
-                <n-empty description="暂无操作设置" />
-              </template>
-            </n-data-table>
-          </n-tab-pane>
-
-          <n-tab-pane name="mapping" tab="S3-S4 映射规则">
-            <div class="section-title">全局映射-列</div>
+          <n-tab-pane name="mapping" tab="工作表单">
+            <div class="section-title">映射列</div>
             <n-data-table
               :columns="mappingPreviewColumns"
               :data="structuredConfig.mappingColumns"
@@ -103,7 +88,7 @@
               :data="structuredConfig.mappingRules"
               :pagination="{ pageSize: 20 }"
               :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
-              :scroll-x="1500"
+              :scroll-x="1180"
             >
               <template #empty>
                 <n-empty description="配置中未找到映射规则" />
@@ -111,58 +96,62 @@
             </n-data-table>
           </n-tab-pane>
 
-          <n-tab-pane name="fill" tab="S5 智能填充配置">
-            <n-data-table
-              :columns="fillColumns"
-              :data="structuredConfig.fillConfigs"
-              :pagination="{ pageSize: 20 }"
-              :row-key="(row: ConfigFillConfigItem) => `${row.type}:${row.id}:${row.name}:${row.summary}`"
-              :scroll-x="980"
-            >
-              <template #empty>
-                <n-empty description="暂无智能填充配置" />
-              </template>
-            </n-data-table>
+          <n-tab-pane name="fill" tab="智能填充">
+            <div class="tab-actions">
+              <n-button type="primary" :loading="fillDownloading" @click="downloadConfigTable('fill')">导出智能填充</n-button>
+            </div>
+            <template v-if="structuredConfig.fillConfigs.length">
+              <div v-for="config in structuredConfig.fillConfigs" :key="config.id" class="config-table-block">
+                <div class="section-title">{{ config.name }}</div>
+                <div class="section-meta">
+                  {{ config.conditionColumnCount }} 个条件列 / {{ config.generateColumnCount }} 个生成列 / {{ config.rows.length }} 行
+                  <span v-if="config.description"> · {{ config.description }}</span>
+                </div>
+                <n-data-table
+                  :columns="config.tableColumns"
+                  :data="config.rows"
+                  :pagination="{ pageSize: 20 }"
+                  :row-key="(row: Record<string, unknown>) => String(row.__rowKey)"
+                  :scroll-x="config.scrollX"
+                />
+              </div>
+            </template>
+            <n-empty v-else description="暂无智能填充配置" />
           </n-tab-pane>
 
-          <n-tab-pane name="equipment" tab="S6-S7 器材">
-            <div class="section-title">器材类型</div>
-            <n-data-table
-              :columns="equipmentTypeColumns"
-              :data="structuredConfig.equipmentTypes"
-              :pagination="{ pageSize: 20 }"
-              :row-key="(row: ConfigEquipmentTypeItem) => row.key"
-              :scroll-x="760"
-            >
-              <template #empty>
-                <n-empty description="暂无器材类型" />
-              </template>
-            </n-data-table>
-
-            <div class="section-title">器材配置</div>
-            <n-data-table
-              :columns="equipmentConfigColumns"
-              :data="structuredConfig.equipmentConfigs"
-              :pagination="{ pageSize: 50 }"
-              :row-key="(row: ConfigEquipmentConfigItem) => `${row.typeKey}:${row.rowIndex}:${row.columnKey}:${row.value}`"
-              :scroll-x="1120"
-            >
-              <template #empty>
-                <n-empty description="暂无器材配置" />
-              </template>
-            </n-data-table>
+          <n-tab-pane name="equipment" tab="器材管理">
+            <div class="tab-actions">
+              <n-button type="primary" :loading="equipmentDownloading" @click="downloadConfigTable('equipment')">导出器材管理</n-button>
+            </div>
+            <template v-if="structuredConfig.equipmentConfigs.length">
+              <div v-for="config in structuredConfig.equipmentConfigs" :key="config.typeKey" class="config-table-block">
+                <div class="section-title">{{ config.typeName }}</div>
+                <div class="section-meta">
+                  {{ config.columns.length }} 列 / {{ config.rows.length }} 行
+                  <span class="mono"> · {{ config.typeKey }}</span>
+                </div>
+                <n-data-table
+                  :columns="config.tableColumns"
+                  :data="config.rows"
+                  :pagination="{ pageSize: 20 }"
+                  :row-key="(row: Record<string, unknown>) => String(row.__rowKey)"
+                  :scroll-x="config.scrollX"
+                />
+              </div>
+            </template>
+            <n-empty v-else description="暂无器材配置" />
           </n-tab-pane>
 
-          <n-tab-pane name="project" tab="S8 全局项目配置">
+          <n-tab-pane name="operation" tab="操作设置">
             <n-data-table
-              :columns="keyValueColumns"
-              :data="structuredConfig.globalProjectConfigItems"
+              :columns="operationColumns"
+              :data="structuredConfig.operationSettings"
               :pagination="{ pageSize: 30 }"
-              :row-key="(row: ConfigKeyValueItem) => row.key"
-              :scroll-x="720"
+              :row-key="(row: ConfigSectionItem) => `${row.source}:${row.key}`"
+              :scroll-x="860"
             >
               <template #empty>
-                <n-empty description="暂无全局项目配置" />
+                <n-empty description="暂无操作设置" />
               </template>
             </n-data-table>
           </n-tab-pane>
@@ -224,9 +213,6 @@ import { configTypeLabel } from '@/utils/labels'
 import { pageList } from '@/utils/query'
 import {
   parseStructuredConfig,
-  type ConfigEquipmentConfigItem,
-  type ConfigEquipmentTypeItem,
-  type ConfigFillConfigItem,
   type ConfigKeyValueItem,
   type ConfigMappingColumn,
   type ConfigMappingRule,
@@ -239,7 +225,8 @@ const router = useRouter()
 const message = useMessage()
 const loading = ref(false)
 const versionsLoading = ref(false)
-const tableDownloading = ref(false)
+const fillDownloading = ref(false)
+const equipmentDownloading = ref(false)
 const rawDownloading = ref(false)
 const markingLatest = ref(false)
 const errorText = ref('')
@@ -319,7 +306,7 @@ const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [
     render: (row) => h(NTag, { type: row.active ? 'success' : 'default', round: true }, { default: () => (row.active ? '是' : '否') }),
   },
   { title: '说明', key: 'summary', minWidth: 240, render: (row) => h('div', { class: 'cell-wrap' }, row.summary || '-') },
-  { title: '规则内容', key: 'detail', minWidth: 560, render: (row) => h('div', { class: 'cell-wrap' }, row.detail || '-') },
+  { title: '关键参数', key: 'detail', minWidth: 520, render: (row) => h('div', { class: 'cell-wrap' }, row.detail || '-') },
   {
     title: '操作',
     key: 'actions',
@@ -327,31 +314,6 @@ const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [
     fixed: 'right',
     render: (row) => h(NButton, { text: true, type: 'primary', size: 'small', onClick: () => openRuleDetail(row) }, { default: () => '查看详情' }),
   },
-]
-
-const fillColumns: DataTableColumns<ConfigFillConfigItem> = [
-  { title: '类型', key: 'type', width: 120 },
-  { title: 'ID', key: 'id', width: 180, render: (row) => h('span', { class: 'mono' }, row.id || '-') },
-  { title: '名称', key: 'name', minWidth: 180, render: (row) => row.name || '-' },
-  { title: '列数', key: 'columnCount', width: 90 },
-  { title: '行数', key: 'rowCount', width: 90 },
-  { title: '摘要', key: 'summary', minWidth: 320, render: (row) => h('div', { class: 'cell-wrap' }, row.summary || '-') },
-]
-
-const equipmentTypeColumns: DataTableColumns<ConfigEquipmentTypeItem> = [
-  { title: 'key', key: 'key', width: 180, render: (row) => h('span', { class: 'mono' }, row.key) },
-  { title: '名称', key: 'name', minWidth: 180 },
-  { title: '来源', key: 'source', width: 120 },
-  { title: '说明', key: 'description', minWidth: 240, render: (row) => row.description || '-' },
-]
-
-const equipmentConfigColumns: DataTableColumns<ConfigEquipmentConfigItem> = [
-  { title: '类型 key', key: 'typeKey', width: 170, render: (row) => h('span', { class: 'mono' }, row.typeKey) },
-  { title: '类型名称', key: 'typeName', width: 180 },
-  { title: '行号', key: 'rowIndex', width: 90 },
-  { title: '列 key', key: 'columnKey', width: 170, render: (row) => h('span', { class: 'mono' }, row.columnKey || '-') },
-  { title: '列名', key: 'columnLabel', width: 170, render: (row) => row.columnLabel || '-' },
-  { title: '值', key: 'value', minWidth: 320, render: (row) => h('div', { class: 'cell-wrap' }, row.value || '-') },
 ]
 
 async function loadVersions() {
@@ -397,18 +359,21 @@ async function handleVersionChange(value: number | null) {
   await router.push({ name: 'global-config-detail', params: { id: value }, query: route.query })
 }
 
-async function downloadTable() {
+async function downloadConfigTable(kind: 'fill' | 'equipment') {
   if (!detail.value) return
-  tableDownloading.value = true
+  if (kind === 'fill') fillDownloading.value = true
+  if (kind === 'equipment') equipmentDownloading.value = true
   try {
-    const blob = await archiveApi.downloadConfigTable(detail.value.id)
+    const blob = await archiveApi.downloadConfigTable(detail.value.id, kind)
     await ensureDownloadBlob(blob)
-    saveBlob(blob, `global-config-${detail.value.id}-${detail.value.config_version || 'snapshot'}.xlsx`)
-    message.success('结构化 xlsx 下载已开始')
+    const prefix = kind === 'fill' ? '智能填充' : '器材管理'
+    saveBlob(blob, `${prefix}-${detail.value.config_version || detail.value.id}.xlsx`)
+    message.success(`${prefix} xlsx 下载已开始`)
   } catch (error) {
     message.error(error instanceof Error ? error.message : '导出 xlsx 失败')
   } finally {
-    tableDownloading.value = false
+    if (kind === 'fill') fillDownloading.value = false
+    if (kind === 'equipment') equipmentDownloading.value = false
   }
 }
 
@@ -520,6 +485,26 @@ onMounted(loadAll)
   margin: 18px 0 12px;
   font-size: 14px;
   font-weight: 700;
+}
+
+.tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.config-table-block {
+  margin-top: 16px;
+}
+
+.config-table-block:first-of-type {
+  margin-top: 0;
+}
+
+.section-meta {
+  margin: -6px 0 10px;
+  color: var(--yy-text-secondary);
+  font-size: 12px;
 }
 
 .cell-wrap {

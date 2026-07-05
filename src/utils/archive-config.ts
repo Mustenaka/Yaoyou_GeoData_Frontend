@@ -35,13 +35,19 @@ export interface ConfigSectionItem extends ConfigKeyValueItem {
   source: string
 }
 
-export interface ConfigFillConfigItem {
-  type: string
+export interface ConfigSnapshotTable {
   id: string
   name: string
-  columnCount: number
-  rowCount: number
-  summary: string
+  description: string
+  columns: SnapshotColumnDef[]
+  rows: SnapshotTableRow[]
+  tableColumns: DataTableColumns<SnapshotTableRow>
+  scrollX: number
+}
+
+export interface ConfigFillConfigItem extends ConfigSnapshotTable {
+  conditionColumnCount: number
+  generateColumnCount: number
 }
 
 export interface ConfigEquipmentTypeItem {
@@ -51,13 +57,9 @@ export interface ConfigEquipmentTypeItem {
   description: string
 }
 
-export interface ConfigEquipmentConfigItem {
+export interface ConfigEquipmentConfigItem extends ConfigSnapshotTable {
   typeKey: string
   typeName: string
-  rowIndex: string
-  columnKey: string
-  columnLabel: string
-  value: string
 }
 
 export interface StructuredConfig {
@@ -70,7 +72,6 @@ export interface StructuredConfig {
   fillConfigs: ConfigFillConfigItem[]
   equipmentTypes: ConfigEquipmentTypeItem[]
   equipmentConfigs: ConfigEquipmentConfigItem[]
-  globalProjectConfigItems: ConfigKeyValueItem[]
   configItems: ConfigKeyValueItem[]
 }
 
@@ -106,13 +107,12 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
       basicInfoItems: [],
       operationSettings: [],
       mappingColumns: [],
-      mappingRules: [],
-      fillConfigs: [],
-      equipmentTypes: [],
-      equipmentConfigs: [],
-      globalProjectConfigItems: [],
-      configItems: [],
-    }
+    mappingRules: [],
+    fillConfigs: [],
+    equipmentTypes: [],
+    equipmentConfigs: [],
+    configItems: [],
+  }
   }
 
   const mappingSource = findMappingSource(parsed.record)
@@ -128,7 +128,6 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
     fillConfigs: extractFillConfigs(parsed.record),
     equipmentTypes,
     equipmentConfigs: extractEquipmentConfigs(parsed.record, equipmentTypes),
-    globalProjectConfigItems: extractGlobalProjectConfigItems(parsed.record),
     configItems: extractConfigItems(parsed.record),
   }
 }
@@ -316,31 +315,49 @@ function mappingRuleTypeLabel(type: string) {
 
 function mappingRuleDetail(rule: JsonRecord) {
   const parts: string[] = []
-  addDetail(parts, '键值', rule.keyValue)
+  addDetail(parts, '规则说明', firstNonEmptyString(rule.label, rule.ruleDescription, rule.description))
+  addDetail(parts, '键值对', rule.keyValue)
   addDetail(parts, '规则', rule.rule)
-  addDetail(parts, '特殊规则', rule.specialRule)
+  addDetail(parts, '特殊处理规则', rule.specialRule)
   addDetail(parts, '配置来源', rule.configSource)
-  addDetail(parts, '配置路径', rule.configPath)
-  addDetail(parts, '配置键', rule.configKey)
   addDetail(parts, '公式', rule.formula)
   addDetail(parts, '设备号', rule.deviceNo)
-  addDetail(parts, '分段', rule.segmentIndex)
+  addDetail(parts, '数据段', rule.segmentIndex)
   addDetail(parts, '器材类型', rule.equipmentTypeKey)
   addDetail(parts, '器材列', rule.equipmentColumnKey)
-  addDetail(parts, '器材分组', rule.equipmentGroupId)
-  addDetail(parts, '硬件分组', rule.hardwareGroupId)
-  addDetail(parts, '跳转方向', rule.autoRightShiftDirection)
-  addDetail(parts, '跳转条件', summarizeList(rule.autoRightShiftConditions))
-  addDetail(parts, '填充条件', summarizeList(rule.autoFillConditions))
-  addDetail(parts, '小数位', rule.decimalPlaces)
-  addDetail(parts, '公式小数位', rule.formulaDecimalEnabled === true ? rule.formulaDecimalPlaces : undefined)
+  addDetail(parts, '器材填充分组', rule.equipmentGroupId)
+  addDetail(parts, '硬件填充分组', rule.hardwareGroupId)
+  addDetail(parts, '跳转方向', autoRightShiftDirectionLabel(rule.autoRightShiftDirection))
+  addDetail(parts, '跳转接收条件', summarizeConditionList(rule.autoRightShiftConditions))
+  addDetail(parts, '条件生成规则', summarizeConditionList(rule.autoFillConditions))
+  addDetail(parts, '输入数值小数位', rule.decimalPlaces)
+  addDetail(parts, '公式结果小数位', rule.formulaDecimalEnabled === true ? rule.formulaDecimalPlaces : undefined)
   addDetail(parts, '单数据生成', rule.singleDataGenerate === true ? '是' : undefined)
   addDetail(parts, '保护已有值', rule.preserveManualInput === true ? '是' : undefined)
-  addDetail(parts, '乱序', rule.shuffle === true ? '是' : undefined)
   addDetail(parts, '下拉选项', summarizeOptions(rule.dropdownOptionsText))
-  addDetail(parts, '备注', rule.note)
-  addDetail(parts, '原始规则', JSON.stringify(rule, null, 2))
   return parts.length ? parts.join('；') : '-'
+}
+
+function autoRightShiftDirectionLabel(value: unknown) {
+  const text = stringValue(value)
+  const labels: Record<string, string> = {
+    none: '不跳转',
+    right: '同行向右',
+    down: '同列向下',
+  }
+  return labels[text] || text
+}
+
+function summarizeConditionList(value: unknown) {
+  const list = asArray(value)
+  if (!list.length) return ''
+  const labels = list.map((item) => {
+    if (!isRecord(item)) return displayValue(item)
+    const column = firstNonEmptyString(item.columnLabel, item.columnKey, item.key)
+    const text = firstNonEmptyString(item.valuesText, item.value, item.values)
+    return [column, text].filter(Boolean).join('=')
+  }).filter(Boolean)
+  return labels.length ? labels.join('；') : `${list.length} 项`
 }
 
 function addDetail(parts: string[], label: string, value: unknown) {
@@ -401,29 +418,14 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
   return items
 }
 
-const appSettingLabels: Record<string, string> = {
-  bluetoothReconnect: '蓝牙自动重连',
-  bluetoothReconnectIntervalSec: '蓝牙重连间隔(秒)',
-  longPressDeleteMs: '长按删除(ms)',
-  longPressCopyMs: '长按复制(ms)',
-  excavationFormPageSize: '开土表分页大小',
-  cursorColorRules: '光标颜色规则',
-  autoSave: '自动保存',
-  autoSaveIntervalSec: '自动保存间隔(秒)',
-}
-
-const projectConfigLabels: Record<string, string> = {
-  projectName: '项目名称',
-  projectCode: '项目编号',
-  client: '委托单位',
-  projectLead: '项目负责人',
-  testLead: '试验负责人',
-  startDate: '开工日期',
-  reportDate: '报告日期',
-  weather: '天气',
-  temperature: '温度',
-  samplePrefix: '样号前缀',
-}
+const visibleAppSettingFields: Array<{ key: string; label: string; source: string }> = [
+  { key: 'bluetoothReconnect', label: '蓝牙自动重连', source: '软件设置' },
+  { key: 'bluetoothReconnectIntervalSec', label: '蓝牙重连间隔（秒）', source: '软件设置' },
+  { key: 'cursorColorRules', label: '光标色卡', source: '光标色卡' },
+  { key: 'longPressDeleteMs', label: '长按删除时长（毫秒）', source: '交互配置' },
+  { key: 'longPressCopyMs', label: '长按复制时长（毫秒）', source: '交互配置' },
+  { key: 'excavationFormPageSize', label: '开土记录每页行数', source: '交互配置' },
+]
 
 function extractGlobalConfigBasicInfo(record: JsonRecord): ConfigKeyValueItem[] {
   return [
@@ -433,53 +435,74 @@ function extractGlobalConfigBasicInfo(record: JsonRecord): ConfigKeyValueItem[] 
 }
 
 function extractOperationSettings(record: JsonRecord): ConfigSectionItem[] {
-  const rows: ConfigSectionItem[] = []
-  const append = (source: string, value: unknown, labels: Record<string, string>) => {
-    const config = asRecord(value)
-    if (!config) return
-    Object.keys(config)
-      .sort()
-      .forEach((key) => {
-        rows.push({ source, key, label: labels[key] || key, value: displayValue(config[key]) })
-      })
-  }
-  append('appSettings', record.appSettings, appSettingLabels)
-  append('modules.operationSettings.config', readNestedValue(record, ['modules', 'operationSettings', 'config']), appSettingLabels)
-  append('globalProjectConfig', record.globalProjectConfig, projectConfigLabels)
-  return rows
+  const config = asRecord(record.appSettings)
+  if (!config) return []
+  return visibleAppSettingFields
+    .filter((item) => Object.prototype.hasOwnProperty.call(config, item.key))
+    .map((item) => ({
+      source: item.source,
+      key: item.key,
+      label: item.label,
+      value: formatAppSettingValue(item.key, config[item.key]),
+    }))
 }
 
-function extractGlobalProjectConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
-  const config = asRecord(record.globalProjectConfig)
-  if (!config) return []
-  return Object.keys(config)
-    .sort()
-    .map((key) => ({ key, label: projectConfigLabels[key] || key, value: displayValue(config[key]) }))
+function formatAppSettingValue(key: string, value: unknown) {
+  if (key === 'bluetoothReconnect') return value === true ? '开启' : '关闭'
+  if (key === 'cursorColorRules') {
+    const rules = asArray(value)
+    if (!rules.length) return '-'
+    return rules
+      .map((item) => {
+        const rule = asRecord(item)
+        if (!rule) return ''
+        return firstNonEmptyString(rule.name, rule.id)
+      })
+      .filter(Boolean)
+      .join('、') || `${rules.length} 条`
+  }
+  return displayValue(value)
 }
 
 function extractFillConfigs(record: JsonRecord): ConfigFillConfigItem[] {
-  const rows: ConfigFillConfigItem[] = []
   const configs = asArray(record.fillConfigs).length ? asArray(record.fillConfigs) : asArray(readNestedValue(record, ['modules', 'multiRuleMapping', 'fillConfigs']))
-  configs.forEach((item) => {
+  return configs
+    .map((item, index) => {
     const config = asRecord(item)
-    if (!config) {
-      rows.push({ type: '配置', id: '', name: '', columnCount: 0, rowCount: 0, summary: displayValue(item) })
-      return
+    if (!config) return null
+    const columns = buildFillConfigTableColumns(config)
+    const rows = normalizeRows(asArray(config.rows), columns)
+    return {
+      id: firstNonEmptyString(config.id, config.key) || `fill-${index + 1}`,
+      name: firstNonEmptyString(config.name, config.label, config.title) || `智能填充${index + 1}`,
+      description: firstNonEmptyString(config.description, config.remark),
+      columns,
+      rows,
+      tableColumns: buildDataTableColumns(columns),
+      scrollX: tableScrollX(columns),
+      conditionColumnCount: asArray(config.conditionColumns).length,
+      generateColumnCount: asArray(config.generateColumns).length,
     }
-    rows.push({
-      type: '配置',
-      id: firstNonEmptyString(config.id, config.key),
-      name: firstNonEmptyString(config.name, config.label, config.title),
-      columnCount: countConfigColumns(config),
-      rowCount: asArray(config.rows).length,
-      summary: objectSummary(config) || displayValue(config),
-    })
   })
-  const globalRule = firstExistingValue(record.globalFillRule, readNestedValue(record, ['modules', 'multiRuleMapping', 'globalRule']))
-  if (globalRule !== undefined) {
-    rows.push({ type: '全局规则', id: '', name: '', columnCount: 0, rowCount: 0, summary: displayValue(globalRule) })
-  }
-  return rows
+    .filter((item): item is ConfigFillConfigItem => !!item)
+}
+
+function buildFillConfigTableColumns(config: JsonRecord): SnapshotColumnDef[] {
+  const widths = asRecord(config.columnWidths)
+  const columns: SnapshotColumnDef[] = []
+  asArray(config.conditionColumns).forEach((item) => {
+    const label = stringValue(item)
+    if (!label) return
+    columns.push({ key: label, label, width: normalizeColumnWidth(widths?.[label] || 160), kind: 'condition' })
+  })
+  const equalsColumn = firstNonEmptyString(config.equalsColumn, '等于')
+  columns.push({ key: equalsColumn, label: equalsColumn, width: normalizeColumnWidth(widths?.[equalsColumn] || 70), kind: 'equals' })
+  asArray(config.generateColumns).forEach((item) => {
+    const label = stringValue(item)
+    if (!label) return
+    columns.push({ key: label, label, width: normalizeColumnWidth(widths?.[label] || 160), kind: 'generate' })
+  })
+  return columns
 }
 
 function extractEquipmentTypes(record: JsonRecord): ConfigEquipmentTypeItem[] {
@@ -554,45 +577,31 @@ function extractEquipmentConfigs(record: JsonRecord, types: ConfigEquipmentTypeI
   const typeNames = new Map(types.map((item) => [item.key, item.name || item.key]))
   const configs = asRecord(record.equipmentConfigs) || readNestedRecord(record, ['modules', 'equipmentManagement', 'equipmentConfigs'])
   if (!configs) return []
-  const rows: ConfigEquipmentConfigItem[] = []
-  Object.keys(configs)
+  return Object.keys(configs)
     .sort()
-    .forEach((typeKey) => {
+    .map((typeKey) => {
       const typeName = typeNames.get(typeKey) || typeKey
       const config = asRecord(configs[typeKey])
-      if (!config) {
-        rows.push({ typeKey, typeName, rowIndex: '配置', columnKey: '', columnLabel: '', value: displayValue(configs[typeKey]) })
-        return
-      }
+      if (!config) return null
       const columns = extractEquipmentColumns(config)
-      const dataRows = asArray(config.rows)
-      if (!dataRows.length) {
-        rows.push({ typeKey, typeName, rowIndex: '配置', columnKey: '', columnLabel: '', value: displayValue(config) })
-        return
+      const tableColumns = columns.length ? columns : deriveEquipmentColumnsFromRows(asArray(config.rows))
+      const rows = normalizeRows(asArray(config.rows), tableColumns)
+      return {
+        id: typeKey,
+        name: typeName,
+        description: '',
+        typeKey,
+        typeName,
+        columns: tableColumns,
+        rows,
+        tableColumns: buildDataTableColumns(tableColumns),
+        scrollX: tableScrollX(tableColumns),
       }
-      dataRows.forEach((rawRow, index) => {
-        const row = asRecord(rawRow)
-        if (!row) {
-          rows.push({ typeKey, typeName, rowIndex: String(index + 1), columnKey: '', columnLabel: '', value: displayValue(rawRow) })
-          return
-        }
-        const rowColumns = columns.length ? columns : Object.keys(row).sort().map((key) => ({ key, label: key }))
-        rowColumns.forEach((column) => {
-          rows.push({
-            typeKey,
-            typeName,
-            rowIndex: String(index + 1),
-            columnKey: column.key,
-            columnLabel: column.label,
-            value: displayValue(row[column.key]),
-          })
-        })
-      })
     })
-  return rows
+    .filter((item): item is ConfigEquipmentConfigItem => !!item)
 }
 
-function extractEquipmentColumns(config: JsonRecord): Array<{ key: string; label: string }> {
+function extractEquipmentColumns(config: JsonRecord): SnapshotColumnDef[] {
   const rawColumns = asArray(config.columns).length ? asArray(config.columns) : asArray(config.columnsList)
   const columns = rawColumns
     .map((item) => {
@@ -600,9 +609,14 @@ function extractEquipmentColumns(config: JsonRecord): Array<{ key: string; label
       if (!column) return null
       const key = firstNonEmptyString(column.key, column.field, column.id)
       if (!key) return null
-      return { key, label: firstNonEmptyString(column.label, column.title, column.name, key) }
+      return {
+        key,
+        label: firstNonEmptyString(column.label, column.title, column.name, key),
+        width: normalizeColumnWidth(column.width || 160),
+        kind: stringValue(column.kind) || stringValue(column.type) || 'text',
+      }
     })
-    .filter((item): item is { key: string; label: string } => !!item)
+    .filter((item): item is SnapshotColumnDef => !!item)
   if (columns.length) return columns
   const columnMap = asRecord(config.columns)
   if (!columnMap) return []
@@ -610,15 +624,24 @@ function extractEquipmentColumns(config: JsonRecord): Array<{ key: string; label
     .sort()
     .map((key) => {
       const column = asRecord(columnMap[key])
-      return { key, label: firstNonEmptyString(column?.label, column?.title, column?.name, key) }
+      return {
+        key,
+        label: firstNonEmptyString(column?.label, column?.title, column?.name, key),
+        width: normalizeColumnWidth(column?.width || 160),
+        kind: stringValue(column?.kind) || stringValue(column?.type) || 'text',
+      }
     })
 }
 
-function countConfigColumns(config: JsonRecord) {
-  if (asArray(config.columnsList).length) return asArray(config.columnsList).length
-  if (asArray(config.columns).length) return asArray(config.columns).length
-  const columnMap = asRecord(config.columns)
-  return columnMap ? Object.keys(columnMap).length : 0
+function deriveEquipmentColumnsFromRows(rows: unknown[]): SnapshotColumnDef[] {
+  const keys: string[] = []
+  rows.slice(0, 20).forEach((row) => {
+    if (!isRecord(row)) return
+    Object.keys(row).forEach((key) => {
+      if (!keys.includes(key)) keys.push(key)
+    })
+  })
+  return keys.map((key) => ({ key, label: key, width: 160, kind: 'text' }))
 }
 
 function normalizeRuleList(value: unknown): unknown[] {
@@ -632,10 +655,6 @@ function normalizeRuleList(value: unknown): unknown[] {
 
 function looksLikeRule(value: JsonRecord) {
   return ['type', 'ruleType', 'kind', 'enabled', 'active', 'description', 'formula', 'source', 'hardware', 'equipment'].some((key) => key in value)
-}
-
-function firstExistingValue(...values: unknown[]) {
-  return values.find((value) => value !== undefined && value !== null && !(typeof value === 'string' && !value.trim()))
 }
 
 function formatExportedAt(value: unknown) {
