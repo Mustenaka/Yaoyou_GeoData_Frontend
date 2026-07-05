@@ -24,6 +24,12 @@ export const archiveApi = {
       { params },
     )
   },
+  listDeviceGlobalConfigs(deviceFingerprintId: number, params: { page?: number; page_size?: number }) {
+    return request.get<PageResult<ConfigSnapshotItem>, PageResult<ConfigSnapshotItem>>(
+      `/admin/archive/devices/${deviceFingerprintId}/global-configs`,
+      { params },
+    )
+  },
   listProjects(params: { page?: number; page_size?: number; company_id?: number | null; keyword?: string }) {
     return request.get<PageResult<ProjectArchiveItem>, PageResult<ProjectArchiveItem>>('/admin/projects', { params })
   },
@@ -53,6 +59,9 @@ export const archiveApi = {
   },
   downloadConfig(id: number) {
     return downloadBlob(`/admin/config-snapshots/${id}/download`)
+  },
+  downloadConfigTable(id: number) {
+    return downloadBlob(`/admin/config-snapshots/${id}/export/table`)
   },
   downloadProjectPackage(id: number) {
     return downloadBlob(`/admin/archive/projects/${id}/export/package`)

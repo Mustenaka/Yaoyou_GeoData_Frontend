@@ -78,6 +78,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '全局配置记录', group: '移动端项目与数据', roles: adminRoles },
       },
       {
+        path: 'mobile/global-config/:id',
+        name: 'global-config-detail',
+        component: () => import('@/pages/global-config/detail.vue'),
+        meta: { title: '全局配置详情', group: '移动端项目与数据', hideInMenu: true, roles: adminRoles },
+      },
+      {
         path: 'win/sky-projects',
         name: 'win-sky',
         component: () => import('@/pages/placeholder/ComingSoon.vue'),

@@ -501,6 +501,7 @@ export interface ArchiveCompanyItem {
 
 export interface ArchiveDeviceItem {
   device_fingerprint_id: number
+  company_id?: number | null
   device_name: string
   client_type: ClientType | string
   fingerprint_hash_masked: string
