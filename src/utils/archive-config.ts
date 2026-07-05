@@ -106,6 +106,20 @@ export function parseFormSnapshot(raw?: string | null): ParsedFormSnapshot {
     kind: 'sampleMeta',
     labelMap: asRecord(labels?.sampleMetaColumns),
   })
+  if (!sampleColumns.some((column) => column.key === 'sampleCode') && sampleRowsRaw.some((row) => isRecord(row) && stringValue(row.sampleCode))) {
+    const sampleCodeColumn: SnapshotColumnDef = {
+      key: 'sampleCode',
+      label: resolveSnapshotColumnLabel('sampleCode', '', {
+        formType,
+        kind: 'sampleMeta',
+        labelMap: asRecord(labels?.sampleMetaColumns),
+      }),
+      width: 180,
+      kind: 'text',
+    }
+    const seqIndex = sampleColumns.findIndex((column) => column.key === 'seq')
+    sampleColumns.splice(seqIndex >= 0 ? seqIndex + 1 : 0, 0, sampleCodeColumn)
+  }
   const sampleRows = normalizeRows(sampleRowsRaw, sampleColumns)
 
   return {
