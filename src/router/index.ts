@@ -84,6 +84,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '移动端功能设置', group: '移动端项目与数据', roles: ['superadmin', 'admin'] },
       },
       {
+        path: 'mobile/logs',
+        name: 'mobile-logs',
+        component: () => import('@/pages/mobile-logs/index.vue'),
+        meta: { title: '日志', group: '移动端项目与数据', roles: adminRoles },
+      },
+      {
         path: 'mobile/global-config/:id',
         name: 'global-config-detail',
         component: () => import('@/pages/global-config/detail.vue'),
@@ -106,6 +112,12 @@ const routes: RouteRecordRaw[] = [
         name: 'win-global-config',
         component: () => import('@/pages/placeholder/ComingSoon.vue'),
         meta: { title: '全局配置记录', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
+      },
+      {
+        path: 'win/logs',
+        name: 'win-logs',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: { title: '日志', group: 'Win端项目与数据', roles: adminRoles, disabled: true },
       },
       {
         path: 'win/other',

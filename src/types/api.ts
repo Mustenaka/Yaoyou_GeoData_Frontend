@@ -34,6 +34,7 @@ export type FileObjectType =
   | 'win_result'
   | 'client_log'
   | 'operation_record'
+export type ClientLogObjectType = 'client_log' | 'operation_record'
 export type FileUploadStatus = 'initialized' | 'uploaded' | 'failed'
 export type FileParseStatus = 'pending' | 'parsed' | 'failed' | 'skipped'
 export type ConfigScope = 'global' | 'project'
@@ -522,6 +523,63 @@ export interface ClientFileItem {
   server_received_at: string
   created_at: string
   updated_at: string
+}
+
+export interface ClientLogCompany {
+  id: number
+  company_name: string
+}
+
+export interface ClientLogUser {
+  id: number
+  username: string
+  real_name?: string
+  company_id?: number | null
+}
+
+export interface ClientLogDevice {
+  id: number
+  client_type: ClientType | string
+  device_name: string
+  fingerprint_hash: string
+}
+
+export interface ClientLogItem {
+  id: number
+  file_id: string
+  object_type: ClientLogObjectType | string
+  client_type: ClientType | string
+  company_id?: number | null
+  company_name?: string
+  company?: ClientLogCompany
+  user_id: number
+  username?: string
+  user?: ClientLogUser
+  device_fingerprint_id?: number | null
+  device?: ClientLogDevice
+  app_version?: string
+  original_filename?: string
+  safe_filename?: string
+  file_name?: string
+  mime_type?: string
+  size_bytes: number
+  upload_status: FileUploadStatus | string
+  parse_status: FileParseStatus | string
+  parse_message?: string
+  server_received_at: string
+  created_at: string
+}
+
+export interface ClientLogListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  user_id?: number | null
+  device_fingerprint_id?: number | null
+  object_type?: ClientLogObjectType | string | null
+  client_type?: ClientType | string | null
+  start_at?: string | null
+  end_at?: string | null
 }
 
 export interface SyncFileListParams {

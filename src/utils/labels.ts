@@ -1,6 +1,7 @@
 import type {
   AuthorizationStatus,
   ChangeRequestStatus,
+  ClientLogObjectType,
   ClientType,
   DeviceAuthorizationRequestType,
   DeviceRiskCategory,
@@ -69,6 +70,11 @@ export const objectTypeOptions: Array<{ label: string; value: FileObjectType }> 
   { label: '项目配置', value: 'project_config' },
   { label: 'Win 结果', value: 'win_result' },
   { label: '客户端日志', value: 'client_log' },
+  { label: '操作记录', value: 'operation_record' },
+]
+
+export const clientLogTypeOptions: Array<{ label: string; value: ClientLogObjectType }> = [
+  { label: '运行日志', value: 'client_log' },
   { label: '操作记录', value: 'operation_record' },
 ]
 
@@ -253,6 +259,10 @@ export function deviceAuthorizationRequestTypeLabel(type?: string) {
 
 export function objectTypeLabel(type?: string) {
   return objectTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function clientLogTypeLabel(type?: string) {
+  return clientLogTypeOptions.find((item) => item.value === type)?.label || objectTypeLabel(type)
 }
 
 export function uploadStatusLabel(status?: string) {
