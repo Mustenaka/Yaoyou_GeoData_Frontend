@@ -22,6 +22,7 @@ export type UserStatus = 'active' | 'disabled' | 'expired' | 'locked'
 export type ClientType = 'admin' | 'mobile' | 'win'
 export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
+export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected'
 export type FileObjectType =
   | 'project_package'
@@ -394,6 +395,7 @@ export interface DeviceDetail {
 
 export interface DeviceChangeRequest {
   id: number
+  request_type: DeviceAuthorizationRequestType | string
   company_id?: number | null
   user_id: number
   old_device_id?: number | null
@@ -408,6 +410,30 @@ export interface DeviceChangeRequest {
   note?: string
   created_at: string
   updated_at: string
+}
+
+export interface DeviceChangeRequestListParams {
+  page?: number
+  page_size?: number
+  status?: ChangeRequestStatus | string | null
+  request_type?: DeviceAuthorizationRequestType | string | null
+}
+
+export interface DeviceExportAuthorizePayload {
+  blob: string
+  target_user_id: number
+}
+
+export interface DeviceExportAuthorizeResponse {
+  device_fingerprint_id: number
+  device_authorization_id: number
+  target_user_id: number
+  company_id?: number | null
+  client_type: 'mobile' | 'win' | string
+  product_scope: string
+  valid_until?: string | null
+  status: AuthorizationStatus | string
+  activation_source: string
 }
 
 export interface ListParams {

@@ -132,10 +132,16 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '设备管理', group: '授权与设备', roles: adminRoles },
       },
       {
+        path: 'devices/authorization-requests',
+        name: 'device-authorization-requests',
+        component: () => import('@/pages/device/authorization-requests.vue'),
+        meta: { title: '授权审批', group: '授权与设备', roles: adminRoles },
+      },
+      {
         path: 'devices/change-requests',
         name: 'device-change-requests',
-        component: () => import('@/pages/device/index.vue'),
-        meta: { title: '换机申请', group: '授权与设备', roles: adminRoles },
+        redirect: { name: 'device-authorization-requests' },
+        meta: { title: '授权审批', group: '授权与设备', roles: adminRoles, hideInMenu: true },
       },
       {
         path: 'audit',

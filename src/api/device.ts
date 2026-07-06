@@ -1,5 +1,15 @@
 import request from './request'
-import type { DeviceChangeRequest, DeviceDetail, DeviceItem, DeviceStatus, ListParams, PageResult } from '@/types/api'
+import type {
+  DeviceChangeRequest,
+  DeviceChangeRequestListParams,
+  DeviceDetail,
+  DeviceExportAuthorizePayload,
+  DeviceExportAuthorizeResponse,
+  DeviceItem,
+  DeviceStatus,
+  ListParams,
+  PageResult,
+} from '@/types/api'
 
 export const deviceApi = {
   list(params: ListParams) {
@@ -14,10 +24,13 @@ export const deviceApi = {
   revoke(id: number, reason?: string) {
     return request.post(`/admin/devices/${id}/revoke`, { reason: reason || 'admin_revoke' })
   },
-  changeRequests(params: Pick<ListParams, 'page' | 'page_size' | 'status'>) {
+  changeRequests(params: DeviceChangeRequestListParams) {
     return request.get<PageResult<DeviceChangeRequest>, PageResult<DeviceChangeRequest>>('/admin/devices/change-requests', {
       params,
     })
+  },
+  authorizeByExport(payload: DeviceExportAuthorizePayload) {
+    return request.post<DeviceExportAuthorizeResponse, DeviceExportAuthorizeResponse>('/admin/devices/authorize-by-export', payload)
   },
   approveChangeRequest(id: number, note?: string) {
     return request.post<DeviceChangeRequest, DeviceChangeRequest>(`/admin/devices/change-requests/${id}/approve`, {

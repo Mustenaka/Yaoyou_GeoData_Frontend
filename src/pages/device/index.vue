@@ -1,17 +1,16 @@
 <template>
   <div class="page-shell">
-    <PageHeader :title="pageTitle" :subtitle="pageSubtitle" />
+    <PageHeader title="设备管理" subtitle="查看 Mobile/Win 设备、授权状态、风险等级与最近在线记录。" />
 
     <div class="page-card">
       <n-tabs v-model:value="activeTab" type="segment" @update:value="handleTabChange">
         <n-tab name="mobile">Mobile 设备</n-tab>
         <n-tab name="win">Win 设备</n-tab>
-        <n-tab name="change">换机申请</n-tab>
         <n-tab name="risk">风险设备</n-tab>
       </n-tabs>
     </div>
 
-    <div v-if="activeTab !== 'change'" class="page-card toolbar">
+    <div class="page-card toolbar">
       <n-input-number v-model:value="filters.company_id" clearable placeholder="企业 ID" style="width: 140px" />
       <n-input-number v-model:value="filters.user_id" clearable placeholder="用户 ID" style="width: 140px" />
       <n-select v-model:value="filters.status" clearable :options="deviceStatusOptions" placeholder="设备状态" style="width: 140px" />
@@ -21,32 +20,14 @@
       <n-button quaternary @click="resetDeviceFilters">重置</n-button>
     </div>
 
-    <div v-else class="page-card toolbar">
-      <n-select v-model:value="changeStatus" clearable :options="changeStatusOptions" placeholder="申请状态" style="width: 150px" />
-      <div class="toolbar__spacer" />
-      <n-button @click="fetchChangeRequests">查询</n-button>
-    </div>
-
     <div class="page-card">
       <n-data-table
-        v-if="activeTab !== 'change'"
         remote
         :columns="deviceColumns"
         :data="devices"
         :loading="loading"
         :pagination="pagination"
         :row-key="(row: DeviceItem) => row.id"
-        @update:page="handlePage"
-        @update:page-size="handlePageSize"
-      />
-      <n-data-table
-        v-else
-        remote
-        :columns="changeColumns"
-        :data="changeRequests"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: DeviceChangeRequest) => row.id"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
       />
@@ -77,13 +58,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
+import { NButton, NPopconfirm, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { deviceApi } from '@/api/device'
-import type { AuthorizationStatus, DeviceChangeRequest, DeviceDetail, DeviceItem, DeviceStatus } from '@/types/api'
+import type { AuthorizationStatus, DeviceDetail, DeviceItem, DeviceStatus } from '@/types/api'
 import {
   authStatusLabel,
   authStatusOptions,
@@ -94,19 +75,16 @@ import {
 import { formatDateTime } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
 
-type DeviceTab = 'mobile' | 'win' | 'change' | 'risk'
+type DeviceTab = 'mobile' | 'win' | 'risk'
 
 const message = useMessage()
-const dialog = useDialog()
 const route = useRoute()
 const router = useRouter()
 const activeTab = ref<DeviceTab>('mobile')
 const loading = ref(false)
 const devices = ref<DeviceItem[]>([])
-const changeRequests = ref<DeviceChangeRequest[]>([])
 const detail = ref<DeviceDetail | null>(null)
 const detailVisible = ref(false)
-const changeStatus = ref<string | null>('pending')
 
 const filters = reactive({
   company_id: null as number | null,
@@ -122,17 +100,6 @@ const pagination = reactive<PaginationProps>({
   showSizePicker: true,
   pageSizes: [10, 20, 50],
 })
-
-const pageTitle = computed(() => (activeTab.value === 'change' ? '换机申请' : '设备管理'))
-const pageSubtitle = computed(() =>
-  activeTab.value === 'change' ? '审批用户换绑 Mobile/Win 设备申请。' : '查看 Mobile/Win 设备、授权状态、风险等级与换机审批。',
-)
-
-const changeStatusOptions = [
-  { label: '待处理', value: 'pending' },
-  { label: '已同意', value: 'approved' },
-  { label: '已拒绝', value: 'rejected' },
-]
 
 const deviceColumns: DataTableColumns<DeviceItem> = [
   { title: 'ID', key: 'id', width: 70 },
@@ -202,45 +169,9 @@ const deviceColumns: DataTableColumns<DeviceItem> = [
   },
 ]
 
-const changeColumns: DataTableColumns<DeviceChangeRequest> = [
-  { title: '申请 ID', key: 'id', width: 90 },
-  { title: '企业 ID', key: 'company_id', width: 100, render: (row) => row.company_id ?? '-' },
-  { title: '用户 ID', key: 'user_id', width: 100 },
-  { title: '客户端', key: 'new_client_type', width: 100, render: (row) => clientTypeLabel(row.new_client_type) },
-  { title: '新设备指纹', key: 'new_fingerprint_hash', minWidth: 220, render: (row) => h('span', { class: 'mono' }, row.new_fingerprint_hash) },
-  { title: '原因', key: 'reason', minWidth: 160, render: (row) => row.reason || '-' },
-  {
-    title: '状态',
-    key: 'status',
-    width: 110,
-    render: (row) =>
-      h(NTag, { type: row.status === 'pending' ? 'warning' : row.status === 'approved' ? 'success' : 'error', round: true }, { default: () => changeStatusText(row.status) }),
-  },
-  { title: '申请时间', key: 'created_at', width: 170, render: (row) => formatDateTime(row.created_at) },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 180,
-    fixed: 'right',
-    render: (row) =>
-      row.status === 'pending'
-        ? h('div', { class: 'table-actions' }, [
-            h(NButton, { size: 'small', type: 'success', onClick: () => decideChange(row, true) }, { default: () => '同意' }),
-            h(NButton, { size: 'small', type: 'error', ghost: true, onClick: () => decideChange(row, false) }, { default: () => '拒绝' }),
-          ])
-        : '-',
-  },
-]
-
 function riskTag(level: string) {
   const type = level === 'high' ? 'error' : level === 'medium' ? 'warning' : 'success'
   return h(NTag, { type, round: true }, { default: () => level || 'normal' })
-}
-
-function changeStatusText(status: string) {
-  if (status === 'approved') return '已同意'
-  if (status === 'rejected') return '已拒绝'
-  return '待处理'
 }
 
 async function fetchDevices() {
@@ -263,40 +194,13 @@ async function fetchDevices() {
   }
 }
 
-async function fetchChangeRequests() {
-  loading.value = true
-  try {
-    const result = await deviceApi.changeRequests({
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      status: queryValue(changeStatus.value),
-    })
-    changeRequests.value = pageList(result.list)
-    pagination.itemCount = result.total
-  } finally {
-    loading.value = false
-  }
-}
-
-function reloadCurrent() {
-  return activeTab.value === 'change' ? fetchChangeRequests() : fetchDevices()
-}
-
 function tabFromRoute(): DeviceTab {
-  if (route.name === 'device-change-requests') return 'change'
   const tab = route.query.tab
   if (tab === 'win' || tab === 'risk') return tab
   return 'mobile'
 }
 
 function navigateForTab(tab: DeviceTab) {
-  if (tab === 'change') {
-    if (route.name !== 'device-change-requests') {
-      router.push({ name: 'device-change-requests' })
-    }
-    return
-  }
-
   const targetTab = tab === 'mobile' ? undefined : tab
   if (route.name !== 'devices' || route.query.tab !== targetTab) {
     router.push({ name: 'devices', query: targetTab ? { tab: targetTab } : {} })
@@ -307,18 +211,18 @@ function handleTabChange(value: string | number) {
   activeTab.value = value as DeviceTab
   pagination.page = 1
   navigateForTab(activeTab.value)
-  reloadCurrent()
+  fetchDevices()
 }
 
 function handlePage(page: number) {
   pagination.page = page
-  reloadCurrent()
+  fetchDevices()
 }
 
 function handlePageSize(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
-  reloadCurrent()
+  fetchDevices()
 }
 
 function resetDeviceFilters() {
@@ -347,37 +251,19 @@ async function revokeDevice(row: DeviceItem) {
   await fetchDevices()
 }
 
-function decideChange(row: DeviceChangeRequest, approve: boolean) {
-  dialog.warning({
-    title: approve ? '确认同意换机' : '确认拒绝换机',
-    content: approve ? '同意后将撤销旧授权并绑定新设备。' : '拒绝后旧设备授权保持不变。',
-    positiveText: approve ? '同意' : '拒绝',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      if (approve) {
-        await deviceApi.approveChangeRequest(row.id, 'admin approve')
-      } else {
-        await deviceApi.rejectChangeRequest(row.id, 'admin reject')
-      }
-      message.success('换机申请已处理')
-      await fetchChangeRequests()
-    },
-  })
-}
-
 watch(
-  () => [route.name, route.query.tab],
+  () => route.query.tab,
   () => {
     const nextTab = tabFromRoute()
     if (nextTab === activeTab.value) return
     activeTab.value = nextTab
     pagination.page = 1
-    reloadCurrent()
+    fetchDevices()
   },
 )
 
 onMounted(() => {
   activeTab.value = tabFromRoute()
-  reloadCurrent()
+  fetchDevices()
 })
 </script>

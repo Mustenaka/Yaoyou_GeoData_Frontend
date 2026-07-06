@@ -1,6 +1,8 @@
 import type {
   AuthorizationStatus,
+  ChangeRequestStatus,
   ClientType,
+  DeviceAuthorizationRequestType,
   DeviceStatus,
   FileObjectType,
   FileParseStatus,
@@ -45,6 +47,17 @@ export const deviceStatusOptions: Array<{ label: string; value: DeviceStatus }> 
   { label: '正常', value: 'active' },
   { label: '停用', value: 'disabled' },
   { label: '阻断', value: 'blocked' },
+]
+
+export const changeRequestStatusOptions: Array<{ label: string; value: ChangeRequestStatus }> = [
+  { label: '待处理', value: 'pending' },
+  { label: '已同意', value: 'approved' },
+  { label: '已拒绝', value: 'rejected' },
+]
+
+export const deviceAuthorizationRequestTypeOptions: Array<{ label: string; value: DeviceAuthorizationRequestType }> = [
+  { label: '换机', value: 'device_change' },
+  { label: '新增设备', value: 'device_add' },
 ]
 
 export const objectTypeOptions: Array<{ label: string; value: FileObjectType }> = [
@@ -214,6 +227,14 @@ export function authStatusLabel(status?: string) {
 
 export function deviceStatusLabel(status?: string) {
   return deviceStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function changeRequestStatusLabel(status?: string) {
+  return changeRequestStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function deviceAuthorizationRequestTypeLabel(type?: string) {
+  return deviceAuthorizationRequestTypeOptions.find((item) => item.value === type)?.label || type || '-'
 }
 
 export function objectTypeLabel(type?: string) {
