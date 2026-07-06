@@ -30,6 +30,7 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'users',
       'licenses',
       'devices',
+      'device-risks',
       'device-authorization-requests',
       'registration-applications',
       'projects',
@@ -44,10 +45,10 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
     ]
   }
   if (normalizedRoleCode === 'admin') {
-    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-authorization-requests', 'projects', 'audit', 'about']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'audit', 'about']
   }
   if (normalizedRoleCode === 'enterprise_admin') {
-    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-authorization-requests', 'projects', 'audit', 'about']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'audit', 'about']
   }
   return []
 }

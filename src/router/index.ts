@@ -132,6 +132,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '设备管理', group: '授权与设备', roles: adminRoles },
       },
       {
+        path: 'devices/risks',
+        name: 'device-risks',
+        component: () => import('@/pages/device/risks.vue'),
+        meta: { title: '风险设备', group: '授权与设备', roles: adminRoles },
+      },
+      {
         path: 'devices/authorization-requests',
         name: 'device-authorization-requests',
         component: () => import('@/pages/device/authorization-requests.vue'),

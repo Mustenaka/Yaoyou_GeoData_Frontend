@@ -219,6 +219,7 @@ const routeIcons: Record<string, unknown> = {
   'registration-applications': DocumentTextOutline,
   licenses: KeyOutline,
   devices: DesktopOutline,
+  'device-risks': AlertCircleOutline,
   'device-authorization-requests': TimeOutline,
   'device-change-requests': TimeOutline,
   projects: FolderOpenOutline,

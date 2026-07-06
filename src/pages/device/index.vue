@@ -6,7 +6,6 @@
       <n-tabs v-model:value="activeTab" type="segment" @update:value="handleTabChange">
         <n-tab name="mobile">Mobile 设备</n-tab>
         <n-tab name="win">Win 设备</n-tab>
-        <n-tab name="risk">风险设备</n-tab>
       </n-tabs>
     </div>
 
@@ -75,7 +74,7 @@ import {
 import { formatDateTime } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
 
-type DeviceTab = 'mobile' | 'win' | 'risk'
+type DeviceTab = 'mobile' | 'win'
 
 const message = useMessage()
 const route = useRoute()
@@ -182,10 +181,9 @@ async function fetchDevices() {
       page_size: pagination.pageSize,
       company_id: queryValue(filters.company_id),
       user_id: queryValue(filters.user_id),
-      client_type: activeTab.value === 'risk' ? undefined : activeTab.value,
+      client_type: activeTab.value,
       status: queryValue(filters.status),
       authorization_status: queryValue(filters.authorization_status),
-      risk_level: activeTab.value === 'risk' ? 'high' : undefined,
     })
     devices.value = pageList(result.list)
     pagination.itemCount = result.total
@@ -196,7 +194,11 @@ async function fetchDevices() {
 
 function tabFromRoute(): DeviceTab {
   const tab = route.query.tab
-  if (tab === 'win' || tab === 'risk') return tab
+  if (tab === 'risk') {
+    router.replace({ name: 'device-risks' })
+    return 'mobile'
+  }
+  if (tab === 'win') return tab
   return 'mobile'
 }
 

@@ -6,6 +6,8 @@ import type {
   DeviceExportAuthorizePayload,
   DeviceExportAuthorizeResponse,
   DeviceItem,
+  DeviceRiskItem,
+  DeviceRiskListParams,
   DeviceStatus,
   ListParams,
   PageResult,
@@ -17,6 +19,9 @@ export const deviceApi = {
   },
   detail(id: number) {
     return request.get<DeviceDetail, DeviceDetail>(`/admin/devices/${id}`)
+  },
+  risks(params: DeviceRiskListParams) {
+    return request.get<PageResult<DeviceRiskItem>, PageResult<DeviceRiskItem>>('/admin/devices/risks', { params })
   },
   updateStatus(id: number, status: DeviceStatus, reason?: string) {
     return request.put(`/admin/devices/${id}/status`, { status, reason: reason || '' })

@@ -3,6 +3,8 @@ import type {
   ChangeRequestStatus,
   ClientType,
   DeviceAuthorizationRequestType,
+  DeviceRiskCategory,
+  DeviceRiskLevel,
   DeviceStatus,
   FileObjectType,
   FileParseStatus,
@@ -202,6 +204,18 @@ export const riskLevelOptions = [
   { label: '严重', value: 'critical' },
 ]
 
+export const deviceRiskLevelOptions: Array<{ label: string; value: DeviceRiskLevel }> = [
+  { label: '低', value: 'low' },
+  { label: '中', value: 'medium' },
+  { label: '高', value: 'high' },
+]
+
+export const deviceRiskCategoryOptions: Array<{ label: string; value: DeviceRiskCategory }> = [
+  { label: '尝试破解', value: 'crack' },
+  { label: '频繁切换账号', value: 'account_churn' },
+  { label: '频繁切换 IP', value: 'ip_churn' },
+]
+
 export const auditResultOptions = [
   { label: '成功', value: 'success' },
   { label: '失败', value: 'failed' },
@@ -274,6 +288,14 @@ export function formSnapshotColumnLabel(formType?: string, key?: string, kind: '
 
 export function riskLevelLabel(level?: string) {
   return riskLevelOptions.find((item) => item.value === level)?.label || level || '-'
+}
+
+export function deviceRiskLevelLabel(level?: string) {
+  return deviceRiskLevelOptions.find((item) => item.value === level)?.label || riskLevelLabel(level)
+}
+
+export function deviceRiskCategoryLabel(category?: string) {
+  return deviceRiskCategoryOptions.find((item) => item.value === category)?.label || category || '-'
 }
 
 export function auditResultLabel(result?: string) {

@@ -23,6 +23,8 @@ export type ClientType = 'admin' | 'mobile' | 'win'
 export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
 export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
+export type DeviceRiskCategory = 'crack' | 'ip_churn' | 'account_churn'
+export type DeviceRiskLevel = 'low' | 'medium' | 'high'
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected'
 export type FileObjectType =
   | 'project_package'
@@ -434,6 +436,49 @@ export interface DeviceExportAuthorizeResponse {
   valid_until?: string | null
   status: AuthorizationStatus | string
   activation_source: string
+}
+
+export interface DeviceRiskCategoryItem {
+  category: DeviceRiskCategory | string
+  level: DeviceRiskLevel | string
+  count: number
+  last_at: string
+}
+
+export interface DeviceRiskCompany {
+  id: number
+  company_name: string
+}
+
+export interface DeviceRiskUser {
+  id: number
+  username: string
+  real_name?: string
+  company_id?: number | null
+}
+
+export interface DeviceRiskItem {
+  device_fingerprint_id: number
+  company_id?: number | null
+  company_name?: string
+  company?: DeviceRiskCompany | null
+  user_id?: number | null
+  username?: string
+  user?: DeviceRiskUser | null
+  client_type: 'mobile' | 'win' | string
+  device_name?: string
+  categories: DeviceRiskCategoryItem[]
+  max_level: DeviceRiskLevel | string
+  last_at: string
+}
+
+export interface DeviceRiskListParams {
+  page?: number
+  page_size?: number
+  company_id?: number | null
+  client_type?: string | null
+  category?: DeviceRiskCategory | string | null
+  level?: DeviceRiskLevel | string | null
 }
 
 export interface ListParams {
