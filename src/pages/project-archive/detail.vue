@@ -14,6 +14,24 @@
 
     <n-spin :show="loading">
       <div v-if="detail" class="page-card">
+        <div class="project-status-bar">
+          <div class="project-status-bar__main">
+            <span class="project-status-bar__label">项目状态</span>
+            <n-tag :type="projectLifecycleTag" round>{{ projectLifecycleText }}</n-tag>
+            <span v-if="isProjectPurged" class="project-status-bar__meta">
+              清理时间 {{ formatDateTime(detail.purge_after) }}
+            </span>
+          </div>
+          <n-button
+            v-if="canCancelProjectPurge"
+            type="warning"
+            ghost
+            :loading="cancelPurgeSubmitting"
+            @click="cancelProjectPurge"
+          >
+            撤销彻底删除
+          </n-button>
+        </div>
         <n-tabs v-model:value="activeTab" type="line" animated>
           <n-tab-pane name="base" tab="① 项目基本信息">
             <n-descriptions label-placement="left" bordered :column="2" class="mobile-project-fields">
@@ -259,14 +277,15 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NTag, useMessage } from 'naive-ui'
+import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
+import { useAuthStore } from '@/stores/auth'
 import type { ConfigSnapshotItem, FormDataSnapshot, ProjectArchiveItem } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { pageList } from '@/utils/query'
-import { configTypeLabel, formTypeLabel } from '@/utils/labels'
+import { configTypeLabel, formTypeLabel, projectLifecycleDisplayText, projectLifecycleTagType } from '@/utils/labels'
 import {
   emptyParsedFormSnapshot,
   parseFormSnapshot,
@@ -286,11 +305,14 @@ interface FormSnapshotView {
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const configDetailLoading = ref(false)
 const formSnapshotLoading = ref(false)
 const packageExporting = ref(false)
+const cancelPurgeSubmitting = ref(false)
 const configDownloading = ref<number | null>(null)
 const tableExporting = ref<Record<string, boolean>>({})
 const errorText = ref('')
@@ -308,6 +330,15 @@ const selectedRule = ref<ConfigMappingRule | null>(null)
 
 const projectId = computed(() => Number(route.params.id))
 const detailTitle = computed(() => detail.value?.project_name || detail.value?.project_uuid || '项目详情')
+const projectLifecycleText = computed(() => projectLifecycleDisplayText(detail.value?.lifecycle_status, detail.value?.purge_after))
+const projectLifecycleTag = computed(() => projectLifecycleTagType(detail.value?.lifecycle_status))
+const isProjectPurged = computed(() => detail.value?.lifecycle_status === 'purged')
+const canCancelProjectPurge = computed(() => {
+  const project = detail.value
+  if (!project || project.lifecycle_status !== 'purged') return false
+  if (authStore.isBackOfficeScopeAll) return true
+  return authStore.isEnterpriseAdmin && project.company_id != null && authStore.companyId === project.company_id
+})
 const latestConfig = computed(() => {
   const latest = configs.value.find((item) => item.is_latest)
   if (latest) return latest
@@ -410,6 +441,30 @@ function splitRuleDetail(detail?: string) {
     .split('；')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function cancelProjectPurge() {
+  const project = detail.value
+  if (!project || !canCancelProjectPurge.value) return
+
+  dialog.warning({
+    title: '撤销彻底删除',
+    content: `确认撤销项目 ${project.project_code || project.project_name || project.project_uuid} 的彻底删除计划？撤销后云端档案将保留，状态回退为归档(保留)。`,
+    positiveText: '撤销',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      cancelPurgeSubmitting.value = true
+      try {
+        await archiveApi.cancelProjectPurge(projectId.value)
+        message.success('已撤销彻底删除，项目状态已回退为归档(保留)')
+        await loadDetail()
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '撤销彻底删除失败')
+      } finally {
+        cancelPurgeSubmitting.value = false
+      }
+    },
+  })
 }
 
 async function loadLatestConfigDetail() {
@@ -645,6 +700,32 @@ onMounted(loadDetail)
   font-family: var(--font-mono);
 }
 
+.project-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--yy-border);
+  border-radius: 8px;
+  background: var(--yy-surface-soft);
+}
+
+.project-status-bar__main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-status-bar__label,
+.project-status-bar__meta {
+  color: var(--yy-text-muted);
+  font-size: 13px;
+}
+
 .summary-panel {
   display: grid;
   gap: 12px;
@@ -723,6 +804,7 @@ onMounted(loadDetail)
 }
 
 @media (max-width: 720px) {
+  .project-status-bar,
   .section-toolbar,
   .summary-panel__main {
     align-items: stretch;

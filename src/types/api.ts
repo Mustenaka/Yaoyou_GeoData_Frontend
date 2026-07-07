@@ -38,6 +38,7 @@ export type ClientLogObjectType = 'client_log' | 'operation_record'
 export type FileUploadStatus = 'initialized' | 'uploaded' | 'failed'
 export type FileParseStatus = 'pending' | 'parsed' | 'failed' | 'skipped'
 export type ConfigScope = 'global' | 'project'
+export type ProjectLifecycleStatus = 'active' | 'archived' | 'deleted' | 'purged'
 
 export interface TokenUser {
   id: number
@@ -619,6 +620,9 @@ export interface ProjectArchiveItem {
   last_uploaded_at?: string | null
   last_parsed_at?: string | null
   parse_message: string
+  lifecycle_status: ProjectLifecycleStatus | string
+  lifecycle_reported_at?: string | null
+  purge_after?: string | null
   created_at: string
   updated_at: string
 }

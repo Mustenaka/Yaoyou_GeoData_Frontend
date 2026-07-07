@@ -139,7 +139,13 @@ import { archiveApi } from '@/api/archive'
 import type { ArchiveCompanyItem, ArchiveDeviceItem, ArchiveDeviceProjectItem, ProjectArchiveItem } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
-import { authStatusLabel, clientTypeLabel, deviceStatusLabel } from '@/utils/labels'
+import {
+  authStatusLabel,
+  clientTypeLabel,
+  deviceStatusLabel,
+  projectLifecycleDisplayText,
+  projectLifecycleTagType,
+} from '@/utils/labels'
 
 type ArchiveLevel = 'companies' | 'devices' | 'projects'
 type TagType = 'default' | 'success' | 'warning' | 'error' | 'info'
@@ -229,6 +235,7 @@ const projectColumns: DataTableColumns<ArchiveDeviceProjectItem> = [
   { title: '编号', key: 'project_code', minWidth: 130, render: (row) => row.project_code || '-' },
   { title: '名称', key: 'project_name', minWidth: 180, render: (row) => row.project_name || '-' },
   { title: '委托单位', key: 'client_name', minWidth: 160, render: (row) => row.client_name || '-' },
+  { title: '状态', key: 'lifecycle_status', width: 170, render: renderProjectLifecycleTag },
   { title: '表单类型', key: 'form_types', minWidth: 180, render: (row) => formTypesText(row.form_types) },
   { title: '行数', key: 'row_count_total', width: 90 },
   { title: '样本数', key: 'sample_count_total', width: 90 },
@@ -247,6 +254,7 @@ const searchColumns: DataTableColumns<ProjectArchiveItem> = [
   { title: '编号', key: 'project_code', width: 130, render: (row) => row.project_code || '-' },
   { title: '名称', key: 'project_name', minWidth: 180, render: (row) => row.project_name || '-' },
   { title: '委托单位', key: 'client_name', minWidth: 160, render: (row) => row.client_name || '-' },
+  { title: '状态', key: 'lifecycle_status', width: 170, render: renderProjectLifecycleTag },
   { title: '企业', key: 'company_id', width: 90, render: (row) => row.company_id ?? '-' },
   { title: '最近同步', key: 'last_uploaded_at', width: 170, render: (row) => formatDateTime(row.last_uploaded_at || row.updated_at) },
   {
@@ -457,6 +465,14 @@ function companyRowKey(row: ArchiveCompanyItem) {
 
 function formTypesText(formTypes: string[]) {
   return formTypes.length ? formTypes.join(', ') : '-'
+}
+
+function renderProjectLifecycleTag(row: ProjectArchiveItem) {
+  return h(
+    NTag,
+    { type: projectLifecycleTagType(row.lifecycle_status), round: true },
+    { default: () => projectLifecycleDisplayText(row.lifecycle_status, row.purge_after) },
+  )
 }
 
 function deviceTagType(status?: string): TagType {

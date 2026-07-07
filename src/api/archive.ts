@@ -36,6 +36,9 @@ export const archiveApi = {
   projectDetail(id: number) {
     return request.get<ProjectArchiveItem, ProjectArchiveItem>(`/admin/projects/${id}`)
   },
+  cancelProjectPurge(id: number) {
+    return request.post<ProjectArchiveItem, ProjectArchiveItem>(`/admin/archive/projects/${id}/cancel-purge`)
+  },
   projectFiles(id: number, params: { page?: number; page_size?: number }) {
     return request.get<PageResult<ClientFileItem>, PageResult<ClientFileItem>>(`/admin/projects/${id}/files`, { params })
   },

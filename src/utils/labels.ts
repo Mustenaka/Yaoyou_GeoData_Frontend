@@ -10,6 +10,7 @@ import type {
   FileObjectType,
   FileParseStatus,
   FileUploadStatus,
+  ProjectLifecycleStatus,
   RoleCode,
   UserStatus,
 } from '@/types/api'
@@ -106,6 +107,13 @@ export const configTypeOptions = [
 
 export const formTypeOptions = [
   { label: '开土记录', value: 'excavation-record' },
+]
+
+export const projectLifecycleOptions: Array<{ label: string; value: ProjectLifecycleStatus }> = [
+  { label: '进行中', value: 'active' },
+  { label: '归档', value: 'archived' },
+  { label: '回收站', value: 'deleted' },
+  { label: '待彻底删除', value: 'purged' },
 ]
 
 export const formSnapshotTableLabels: Record<string, string> = {
@@ -283,6 +291,37 @@ export function configTypeLabel(type?: string) {
 
 export function formTypeLabel(type?: string) {
   return formTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function projectLifecycleLabel(status?: string) {
+  return projectLifecycleOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export type ProjectLifecycleTagType = 'default' | 'success' | 'warning' | 'error' | 'info'
+
+export function projectLifecycleTagType(status?: string): ProjectLifecycleTagType {
+  if (status === 'active') return 'success'
+  if (status === 'archived') return 'info'
+  if (status === 'deleted') return 'warning'
+  if (status === 'purged') return 'error'
+  return 'default'
+}
+
+export function projectPurgeRemainingText(purgeAfter?: string | null, now = Date.now()) {
+  if (!purgeAfter) return ''
+  const deadline = new Date(purgeAfter).getTime()
+  if (!Number.isFinite(deadline)) return ''
+  const diff = deadline - now
+  if (diff <= 0) return '即将清理'
+  const days = Math.max(1, Math.ceil(diff / (24 * 60 * 60 * 1000)))
+  return `剩 ${days} 天`
+}
+
+export function projectLifecycleDisplayText(status?: string, purgeAfter?: string | null, now = Date.now()) {
+  const label = projectLifecycleLabel(status)
+  if (status !== 'purged') return label
+  const remaining = projectPurgeRemainingText(purgeAfter, now)
+  return remaining ? `${label} · ${remaining}` : label
 }
 
 export function formSnapshotTableLabel(kind?: string) {
