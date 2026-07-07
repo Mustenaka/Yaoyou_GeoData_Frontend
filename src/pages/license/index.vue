@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="授权管理" subtitle="后台发放、调整和撤销 Mobile/Win 设备授权。">
+    <PageHeader title="授权管理" subtitle="管理授权凭证：产品范围、期限，发放/调整/撤销单条授权。">
       <n-button v-if="authStore.isBackOfficeScopeAll" type="primary" @click="openIssue">发放授权</n-button>
     </PageHeader>
 
@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, FormInst, FormRules, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -93,6 +94,8 @@ import { pageList, queryValue } from '@/utils/query'
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const rows = ref<LicenseItem[]>([])
@@ -151,24 +154,53 @@ const columns: DataTableColumns<LicenseItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 210,
+    width: 260,
     fixed: 'right',
     render: (row) => {
-      if (!authStore.isBackOfficeScopeAll) return '只读'
-      return h('div', { class: 'table-actions' }, [
+      const actions = [
+        h(NButton, { size: 'small', secondary: true, onClick: () => goDevices(row) }, { default: () => '设备' }),
+      ]
+      if (!authStore.isBackOfficeScopeAll) {
+        return h('div', { class: 'table-actions' }, actions)
+      }
+      actions.push(
         h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => '调整' }),
         h(
           NPopconfirm,
           { onPositiveClick: () => revokeLicense(row) },
           {
             trigger: () => h(NButton, { size: 'small', type: 'error', ghost: true }, { default: () => '撤销' }),
-            default: () => `确认撤销 ${row.username || row.user_id} 的 ${clientTypeLabel(row.client_type)} 授权？`,
+            default: () => `确认撤销此条授权？该操作只撤销 ${row.username || row.user_id} 的这条 ${clientTypeLabel(row.client_type)} 授权凭证。`,
           },
         ),
-      ])
+      )
+      return h('div', { class: 'table-actions' }, actions)
     },
   },
 ]
+
+function firstQueryString(value: unknown) {
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
+function queryNumber(value: unknown) {
+  const parsed = Number(firstQueryString(value))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function applyRouteFilters() {
+  filters.company_id = queryNumber(route.query.company_id)
+  filters.user_id = queryNumber(route.query.user_id)
+}
+
+function goDevices(row: LicenseItem) {
+  const query: Record<string, string> = {}
+  if (row.company_id != null) query.company_id = String(row.company_id)
+  if (row.user_id != null) query.user_id = String(row.user_id)
+  if (row.client_type === 'win') query.tab = 'win'
+  router.push({ name: 'devices', query })
+}
 
 async function loadOptions() {
   const [companies, users, devices] = await Promise.all([
@@ -306,6 +338,7 @@ function confirmHighRisk(content: string) {
 }
 
 onMounted(async () => {
+  applyRouteFilters()
   await loadOptions()
   await fetchList()
 })

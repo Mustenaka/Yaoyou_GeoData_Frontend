@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="设备管理" subtitle="查看 Mobile/Win 设备、授权状态、风险等级与最近在线记录。" />
+    <PageHeader title="设备管理" subtitle="物理设备台账与风控：停用/恢复/阻断、撤销本机全部授权。" />
 
     <div class="page-card">
       <n-tabs v-model:value="activeTab" type="segment" @update:value="handleTabChange">
@@ -130,11 +130,12 @@ const deviceColumns: DataTableColumns<DeviceItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 310,
+    width: 370,
     fixed: 'right',
     render: (row) =>
       h('div', { class: 'table-actions' }, [
         h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
+        h(NButton, { size: 'small', secondary: true, onClick: () => goLicenses(row) }, { default: () => '授权' }),
         h(
           NPopconfirm,
           { onPositiveClick: () => updateDeviceStatus(row, row.status === 'active' ? 'disabled' : 'active') },
@@ -160,8 +161,8 @@ const deviceColumns: DataTableColumns<DeviceItem> = [
           NPopconfirm,
           { onPositiveClick: () => revokeDevice(row) },
           {
-            trigger: () => h(NButton, { size: 'small', type: 'error', ghost: true }, { default: () => '撤销授权' }),
-            default: () => `确认撤销设备 #${row.id} 的授权？`,
+            trigger: () => h(NButton, { size: 'small', type: 'error', ghost: true }, { default: () => '撤销本机授权' }),
+            default: () => `确认撤销设备 #${row.id} 上的全部授权？该操作会撤销该指纹下所有授权凭证。`,
           },
         ),
       ]),
@@ -207,6 +208,28 @@ function navigateForTab(tab: DeviceTab) {
   if (route.name !== 'devices' || route.query.tab !== targetTab) {
     router.push({ name: 'devices', query: targetTab ? { tab: targetTab } : {} })
   }
+}
+
+function firstQueryString(value: unknown) {
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : ''
+  return typeof value === 'string' ? value : ''
+}
+
+function queryNumber(value: unknown) {
+  const parsed = Number(firstQueryString(value))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function applyRouteFilters() {
+  filters.company_id = queryNumber(route.query.company_id)
+  filters.user_id = queryNumber(route.query.user_id)
+}
+
+function goLicenses(row: DeviceItem) {
+  const query: Record<string, string> = {}
+  if (row.company_id != null) query.company_id = String(row.company_id)
+  if (row.user_id != null) query.user_id = String(row.user_id)
+  router.push({ name: 'licenses', query })
 }
 
 function handleTabChange(value: string | number) {
@@ -265,6 +288,7 @@ watch(
 )
 
 onMounted(() => {
+  applyRouteFilters()
   activeTab.value = tabFromRoute()
   fetchDevices()
 })
