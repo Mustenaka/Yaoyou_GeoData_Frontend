@@ -126,6 +126,20 @@ const pagination = reactive<PaginationProps>({
   pageSizes: [10, 20, 50],
 })
 
+function changeRequestCompanyLabel(row: DeviceChangeRequest) {
+  if (row.company_name) {
+    return row.company_name
+  }
+  return row.company_id != null ? `#${row.company_id}` : '-'
+}
+
+function changeRequestUserLabel(row: DeviceChangeRequest) {
+  if (row.username) {
+    return row.real_name ? `${row.username}（${row.real_name}）` : row.username
+  }
+  return row.user_id != null ? `#${row.user_id}` : '-'
+}
+
 const columns: DataTableColumns<DeviceChangeRequest> = [
   { title: '申请 ID', key: 'id', width: 90 },
   {
@@ -139,8 +153,8 @@ const columns: DataTableColumns<DeviceChangeRequest> = [
         { default: () => deviceAuthorizationRequestTypeLabel(row.request_type || 'device_change') },
       ),
   },
-  { title: '企业 ID', key: 'company_id', width: 100, render: (row) => row.company_id ?? '-' },
-  { title: '用户 ID', key: 'user_id', width: 100 },
+  { title: '企业', key: 'company_id', width: 140, render: changeRequestCompanyLabel },
+  { title: '用户', key: 'user_id', width: 160, render: changeRequestUserLabel },
   { title: '客户端', key: 'new_client_type', width: 100, render: (row) => clientTypeLabel(row.new_client_type) },
   {
     title: '原设备',

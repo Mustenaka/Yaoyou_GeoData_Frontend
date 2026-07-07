@@ -400,7 +400,10 @@ export interface DeviceChangeRequest {
   id: number
   request_type: DeviceAuthorizationRequestType | string
   company_id?: number | null
+  company_name?: string
   user_id: number
+  username?: string
+  real_name?: string
   old_device_id?: number | null
   new_device_id?: number | null
   old_device_authorization_id?: number | null
