@@ -8,6 +8,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     roles?: RoleCode[]
     group?: string
+    subGroup?: string
     hideInMenu?: boolean
     disabled?: boolean
   }
@@ -15,6 +16,7 @@ declare module 'vue-router' {
 
 const adminRoles: RoleCode[] = ['superadmin', 'admin', 'enterprise_admin']
 const superRoles: RoleCode[] = ['superadmin']
+const contentRoles: RoleCode[] = ['superadmin', 'admin']
 
 const routes: RouteRecordRaw[] = [
   {
@@ -60,6 +62,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '注册申请', roles: adminRoles },
       },
       {
+        path: 'content/site-home',
+        name: 'content-site-home',
+        component: () => import('@/pages/content/site-home.vue'),
+        meta: { title: '官网首页文案', group: '内容管理', roles: contentRoles },
+      },
+      {
+        path: 'content/mobile-support',
+        name: 'content-mobile-support',
+        component: () => import('@/pages/content/mobile-support.vue'),
+        meta: { title: '技术支持页文案', group: '内容管理', roles: contentRoles },
+      },
+      {
         path: 'projects',
         name: 'projects',
         component: () => import('@/pages/project-archive/index.vue'),
@@ -82,6 +96,28 @@ const routes: RouteRecordRaw[] = [
         name: 'mobile-feature-settings',
         component: () => import('@/pages/mobile-feature/index.vue'),
         meta: { title: '移动端功能设置', group: '移动端项目与数据', roles: ['superadmin', 'admin'] },
+      },
+      {
+        path: 'mobile/collab/settings',
+        name: 'mobile-collab-settings',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: {
+          title: '协作设置',
+          group: '移动端项目与数据',
+          subGroup: '协作设置与授权',
+          roles: contentRoles,
+        },
+      },
+      {
+        path: 'mobile/collab/sdk',
+        name: 'mobile-collab-sdk',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: {
+          title: '授权协作 SDK',
+          group: '移动端项目与数据',
+          subGroup: '协作设置与授权',
+          roles: contentRoles,
+        },
       },
       {
         path: 'mobile/logs',

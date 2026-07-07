@@ -194,6 +194,8 @@ const currentTitle = computed(() => String(route.meta.title || '系统控制台'
 const themeIcon = computed(() => (themeStore.isDark ? MoonOutline : SunnyOutline))
 const breadcrumbs = computed(() => {
   const group = typeof route.meta.group === 'string' ? route.meta.group : ''
+  const subGroup = typeof route.meta.subGroup === 'string' ? route.meta.subGroup : ''
+  if (group && subGroup) return [group, subGroup, currentTitle.value]
   return group ? [group, currentTitle.value] : [currentTitle.value]
 })
 
@@ -217,6 +219,8 @@ const routeIcons: Record<string, unknown> = {
   companies: BusinessOutline,
   users: PeopleOutline,
   'registration-applications': DocumentTextOutline,
+  'content-site-home': DocumentTextOutline,
+  'content-mobile-support': PhonePortraitOutline,
   licenses: KeyOutline,
   devices: DesktopOutline,
   'device-risks': AlertCircleOutline,
@@ -225,6 +229,8 @@ const routeIcons: Record<string, unknown> = {
   projects: FolderOpenOutline,
   'mobile-global-config': SettingsOutline,
   'mobile-feature-settings': OptionsOutline,
+  'mobile-collab-settings': OptionsOutline,
+  'mobile-collab-sdk': KeyOutline,
   'mobile-logs': FileTrayFullOutline,
   'win-sky': DocumentTextOutline,
   'win-huaning': DocumentTextOutline,
@@ -245,11 +251,16 @@ const groupIcons: Record<string, unknown> = {
   授权与设备: KeyOutline,
   移动端项目与数据: PhonePortraitOutline,
   Win端项目与数据: DesktopOutline,
+  内容管理: DocumentTextOutline,
   系统设置: SettingsOutline,
 }
 
 function groupKey(group: string) {
   return `group:${group}`
+}
+
+function subGroupKey(group: string, subGroup: string) {
+  return `subgroup:${group}:${subGroup}`
 }
 
 const adminChildren = computed<RouteRecordRaw[]>(() => {
@@ -274,15 +285,20 @@ const activeMenuKey = computed(() => {
   return String(fallback?.name || 'dashboard')
 })
 
-const activeGroupKey = computed(() => {
-  if (route.meta.disabled === true) return ''
+const activeExpandedKeys = computed(() => {
+  if (route.meta.disabled === true) return []
   const group = typeof route.meta.group === 'string' ? route.meta.group : ''
-  return group ? groupKey(group) : ''
+  const subGroup = typeof route.meta.subGroup === 'string' ? route.meta.subGroup : ''
+  const keys: string[] = []
+  if (group) keys.push(groupKey(group))
+  if (group && subGroup) keys.push(subGroupKey(group, subGroup))
+  return keys
 })
 
 const visibleMenuOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = []
   const groups = new Map<string, MenuOption & { children: MenuOption[] }>()
+  const subGroups = new Map<string, MenuOption & { children: MenuOption[] }>()
 
   for (const record of adminChildren.value) {
     if (!canShowRoute(record)) continue
@@ -312,7 +328,25 @@ const visibleMenuOptions = computed<MenuOption[]>(() => {
       options.push(groupOption)
     }
 
-    groups.get(group)?.children.push(item)
+    const subGroup = typeof record.meta?.subGroup === 'string' ? record.meta.subGroup : ''
+    if (!subGroup) {
+      groups.get(group)?.children.push(item)
+      continue
+    }
+
+    const nestedKey = subGroupKey(group, subGroup)
+    if (!subGroups.has(nestedKey)) {
+      const subGroupOption: MenuOption & { children: MenuOption[] } = {
+        label: subGroup,
+        key: nestedKey,
+        icon: renderIcon(FolderOpenOutline),
+        children: [],
+      }
+      subGroups.set(nestedKey, subGroupOption)
+      groups.get(group)?.children.push(subGroupOption)
+    }
+
+    subGroups.get(nestedKey)?.children.push(item)
   }
 
   return options
@@ -350,7 +384,7 @@ const themeOptions: MenuOption[] = [
 ]
 
 function onNavigate(key: string) {
-  if (key.startsWith('group:')) return
+  if (key.startsWith('group:') || key.startsWith('subgroup:')) return
   const target = adminChildren.value.find((record) => String(record.name) === key)
   if (target?.meta?.disabled === true) return
   router.push({ name: key })
@@ -411,10 +445,11 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  activeGroupKey,
-  (key) => {
-    if (key && !expandedKeys.value.includes(key)) {
-      expandedKeys.value = [...expandedKeys.value, key]
+  activeExpandedKeys,
+  (keys) => {
+    const missingKeys = keys.filter((key) => !expandedKeys.value.includes(key))
+    if (missingKeys.length) {
+      expandedKeys.value = [...expandedKeys.value, ...missingKeys]
     }
   },
   { immediate: true },

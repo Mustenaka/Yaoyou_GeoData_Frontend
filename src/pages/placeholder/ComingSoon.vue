@@ -24,7 +24,9 @@ const route = useRoute()
 const pageTitle = computed(() => String(route.meta.title || '建设中'))
 const pageDescription = computed(() => {
   const group = typeof route.meta.group === 'string' ? route.meta.group : ''
-  return group ? `${group} / ${pageTitle.value} 功能正在建设中。` : `${pageTitle.value} 功能正在建设中。`
+  const subGroup = typeof route.meta.subGroup === 'string' ? route.meta.subGroup : ''
+  const parts = [group, subGroup, pageTitle.value].filter(Boolean)
+  return `${parts.join(' / ')} 功能正在建设中。`
 })
 </script>
 

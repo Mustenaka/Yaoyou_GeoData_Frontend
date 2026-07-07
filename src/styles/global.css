@@ -39,7 +39,8 @@ a {
   padding: var(--layout-padding);
 }
 
-.page-card {
+.page-card,
+.glass-panel {
   padding: 16px;
   background: var(--yy-surface);
   border: 1px solid var(--yy-border);
