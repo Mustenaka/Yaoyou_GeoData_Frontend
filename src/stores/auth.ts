@@ -69,10 +69,11 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'mobile-logs',
       'audit',
       'about',
+      'risks',
     ]
   }
   if (normalizedRoleCode === 'enterprise_admin') {
-    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'mobile-logs', 'audit', 'about']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'licenses', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'mobile-logs', 'audit', 'about', 'risks']
   }
   return []
 }

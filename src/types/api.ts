@@ -729,7 +729,10 @@ export interface SecurityRiskEvent {
   risk_level: string
   block_action: string
   company_id?: number | null
+  company_name?: string
   user_id?: number | null
+  username?: string
+  real_name?: string
   device_fingerprint_id?: number | null
   detail_json?: string | null
   handled_by?: number | null
@@ -921,7 +924,10 @@ export interface DashboardRiskEvent {
   risk_level: string
   block_action: string
   company_id?: number | null
+  company_name?: string
   user_id?: number | null
+  username?: string
+  real_name?: string
   device_fingerprint_id?: number | null
   handled_at?: string | null
   created_at: string

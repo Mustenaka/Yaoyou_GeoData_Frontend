@@ -231,7 +231,7 @@ const routes: RouteRecordRaw[] = [
         path: 'settings/risks',
         name: 'risks',
         component: () => import('@/pages/settings/risks.vue'),
-        meta: { title: '安全风险', group: '系统设置', roles: superRoles },
+        meta: { title: '安全风险', group: '系统设置', roles: adminRoles },
       },
       {
         path: 'settings/server-time',

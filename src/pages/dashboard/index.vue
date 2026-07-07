@@ -223,7 +223,7 @@ import { opsApi } from '@/api/ops'
 import { ApiError } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import type { DashboardRecentEvents, DashboardServerMetrics, DashboardStorage, DashboardSummary, OperationAuditEvent } from '@/types/api'
+import type { DashboardRecentEvents, DashboardRiskEvent, DashboardServerMetrics, DashboardStorage, DashboardSummary, OperationAuditEvent } from '@/types/api'
 import { formatBytes, formatDateTime, formatPercent } from '@/utils/format'
 import { auditResultLabel, clientTypeLabel, objectTypeLabel, riskLevelLabel, roleLabel } from '@/utils/labels'
 import DashboardEventList from './components/DashboardEventList.vue'
@@ -273,7 +273,7 @@ const panelDefinitions: Record<PanelId, PanelDefinition> = {
   message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
   expiry: { id: 'expiry', title: '到期提醒', description: '企业、授权和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
   failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
-  risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', superOnly: true, defaultItem: { i: 'risks', x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
+  risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', defaultItem: { i: 'risks', x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
   sync: { id: 'sync', title: '最近同步', description: '最近完成的上传同步', superOnly: true, defaultItem: { i: 'sync', x: 8, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
   audit: { id: 'audit', title: '操作记录', description: '最近后台操作', defaultItem: { i: 'audit', x: 0, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
   business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
@@ -327,6 +327,7 @@ const availablePanelIds = computed<PanelId[]>(() => {
 })
 
 const visibleLayout = computed(() => layout.value.filter((item) => availablePanelIds.value.includes(item.i)))
+const canUseRiskEvents = computed(() => authStore.isBackOfficeScopeAll || authStore.isEnterpriseAdmin)
 
 const addPanelOptions = computed<DropdownOption[]>(() => {
   const used = new Set(visibleLayout.value.map((item) => item.i))
@@ -400,7 +401,7 @@ const metricCards = computed<MetricCard[]>(() => {
       detail: item.high_risk_count ? '需要尽快处理' : '暂无高风险待处理',
       icon: item.high_risk_count ? AlertCircleOutline : ShieldCheckmarkOutline,
       tone: item.high_risk_count ? 'red' : 'green',
-      route: authStore.isSuperAdmin ? goRisks : undefined,
+      route: canUseRiskEvents.value ? goRisks : undefined,
     },
   ]
 })
@@ -516,15 +517,30 @@ const failedRows = computed<EventRow[]>(() =>
   })),
 )
 
+function dashboardRiskCompanyLabel(item: DashboardRiskEvent) {
+  if (item.company_name) {
+    return item.company_id != null ? `${item.company_name}(#${item.company_id})` : item.company_name
+  }
+  return item.company_id != null ? `#${item.company_id}` : '-'
+}
+
+function dashboardRiskUserLabel(item: DashboardRiskEvent) {
+  if (item.username) {
+    const label = item.real_name ? `${item.username}（${item.real_name}）` : item.username
+    return item.user_id != null ? `${label}(#${item.user_id})` : label
+  }
+  return item.user_id != null ? `#${item.user_id}` : '-'
+}
+
 const riskRows = computed<EventRow[]>(() =>
   (recent.value?.high_risks || []).slice(0, 8).map((item) => ({
     key: `risk-${item.id}`,
     title: item.risk_type,
-    desc: `${riskLevelLabel(item.risk_level)} / 企业 ${item.company_id ?? '-'} / 用户 ${item.user_id ?? '-'}`,
+    desc: `${riskLevelLabel(item.risk_level)} / ${dashboardRiskCompanyLabel(item)} / ${dashboardRiskUserLabel(item)}`,
     time: formatDateTime(item.created_at),
     sortAt: item.created_at,
     tone: 'red',
-    route: authStore.isSuperAdmin ? goRisks : undefined,
+    route: canUseRiskEvents.value ? () => goRiskDetail(item.id) : undefined,
   })),
 )
 
@@ -556,8 +572,10 @@ const messageRows = computed<EventRow[]>(() => {
   const rows: Array<EventRow & { sortAt: string }> = []
   if (authStore.isSuperAdmin) {
     failedRows.value.forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
-    riskRows.value.forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
     syncRows.value.slice(0, 4).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
+  }
+  if (canUseRiskEvents.value) {
+    riskRows.value.forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
   }
   expiryRows.value.slice(0, 4).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
   auditRows.value.slice(0, 6).forEach((item) => rows.push({ ...item, key: `msg-${item.key}`, sortAt: item.sortAt || item.time }))
@@ -712,7 +730,7 @@ function panelSubtitle(id: PanelId) {
 function panelActionLabel(id: PanelId) {
   if (id === 'expiry' && authStore.isBackOfficeScopeAll) return '授权'
   if (id === 'failed' || id === 'sync') return authStore.isSuperAdmin ? '文件同步' : ''
-  if (id === 'risks') return authStore.isSuperAdmin ? '安全风险' : ''
+  if (id === 'risks') return canUseRiskEvents.value ? '安全风险' : ''
   if (id === 'audit') return '操作记录'
   return ''
 }
@@ -824,8 +842,13 @@ function goFailedUploads() {
 }
 
 function goRisks() {
-  if (!authStore.isSuperAdmin) return
-  router.push({ name: 'risks' })
+  if (!canUseRiskEvents.value) return
+  router.push({ name: 'risks', query: { risk_level: 'high', handled: 'false' } })
+}
+
+function goRiskDetail(id: number) {
+  if (!canUseRiskEvents.value) return
+  router.push({ name: 'risks', query: { event_id: String(id) } })
 }
 
 function stopServerMetricsPolling() {
