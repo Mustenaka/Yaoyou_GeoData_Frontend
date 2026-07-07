@@ -206,7 +206,22 @@ const ImageField = defineComponent({
             alt: props.label,
             objectFit: 'contain',
             lazy: true,
+            width: '100%',
+            height: '100%',
+            imgProps: {
+              style: {
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              },
+            },
             class: 'image-preview-img',
+            style: {
+              width: '100%',
+              height: '100%',
+              display: 'block',
+            },
           }),
         ]),
         h('div', { class: 'image-control' }, [
@@ -228,7 +243,7 @@ const ImageField = defineComponent({
             { secondary: true, loading: props.loading, onClick: () => emit('upload') },
             {
               icon: () => h(NIcon, { component: CloudUploadOutline }),
-              default: () => '上传图片',
+              default: () => '上传/替换图片',
             },
           ),
         ]),
@@ -572,8 +587,9 @@ onMounted(loadHomeContent)
 .image-grid,
 .card-editors {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 14px;
+  align-items: start;
 }
 
 .card-editor {
@@ -587,13 +603,14 @@ onMounted(loadHomeContent)
 
 .image-field {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   align-items: start;
+  min-width: 0;
 }
 
 .image-preview {
-  width: 180px;
+  width: 100%;
+  max-width: 220px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border: 1px solid var(--yy-border);
@@ -614,15 +631,32 @@ onMounted(loadHomeContent)
   display: block;
 }
 
+.image-preview :deep(.n-image > img) {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain !important;
+  display: block;
+}
+
 .image-preview :deep(img) {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
   display: block;
 }
 
 .image-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
   min-width: 0;
+}
+
+.image-control :deep(.n-form-item) {
+  margin-bottom: 0;
 }
 
 .hidden-file-input {
@@ -630,12 +664,12 @@ onMounted(loadHomeContent)
 }
 
 @media (max-width: 720px) {
-  .image-field {
-    grid-template-columns: 1fr;
+  .image-preview {
+    max-width: 100%;
   }
 
-  .image-preview {
-    width: 100%;
+  .image-control {
+    grid-template-columns: 1fr;
   }
 }
 </style>
