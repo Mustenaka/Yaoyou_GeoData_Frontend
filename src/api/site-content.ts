@@ -45,6 +45,7 @@ export interface SiteSupportContent {
 
 export interface SiteAssetUploadResponse {
   url: string
+  thumb_url?: string
 }
 
 export const DEFAULT_SITE_HOME_CONTENT: SiteHomeContent = {

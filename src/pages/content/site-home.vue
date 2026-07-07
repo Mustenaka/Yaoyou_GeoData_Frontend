@@ -66,6 +66,7 @@
               label="桌面端图片"
               :value="form.section1.images.win"
               :preview="previewSrc('section1.win')"
+              :original="originalSrc('section1.win')"
               :loading="uploadingTarget === 'section1.win'"
               @update:value="form.section1.images.win = $event"
               @upload="triggerUpload('section1.win')"
@@ -74,6 +75,7 @@
               label="平板图片"
               :value="form.section1.images.pad"
               :preview="previewSrc('section1.pad')"
+              :original="originalSrc('section1.pad')"
               :loading="uploadingTarget === 'section1.pad'"
               @update:value="form.section1.images.pad = $event"
               @upload="triggerUpload('section1.pad')"
@@ -82,6 +84,7 @@
               label="手机图片"
               :value="form.section1.images.phone"
               :preview="previewSrc('section1.phone')"
+              :original="originalSrc('section1.phone')"
               :loading="uploadingTarget === 'section1.phone'"
               @update:value="form.section1.images.phone = $event"
               @upload="triggerUpload('section1.phone')"
@@ -149,6 +152,7 @@
                 :label="`卡片 ${index + 1} 图片`"
                 :value="card.image"
                 :preview="previewSrc(index === 0 ? 'section2.card0' : 'section2.card1')"
+                :original="originalSrc(index === 0 ? 'section2.card0' : 'section2.card1')"
                 :loading="uploadingTarget === (index === 0 ? 'section2.card0' : 'section2.card1')"
                 @update:value="card.image = $event"
                 @upload="triggerUpload(index === 0 ? 'section2.card0' : 'section2.card1')"
@@ -165,7 +169,7 @@
 
 <script setup lang="ts">
 import { defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { NButton, NFormItem, NIcon, NInput, useMessage } from 'naive-ui'
+import { NButton, NFormItem, NIcon, NImage, NInput, useMessage } from 'naive-ui'
 import { CloudUploadOutline, RefreshOutline, SaveOutline } from '@vicons/ionicons5'
 import PageHeader from '@/components/PageHeader.vue'
 import {
@@ -187,13 +191,24 @@ const ImageField = defineComponent({
     label: { type: String, required: true },
     value: { type: String, required: true },
     preview: { type: String, required: true },
+    original: { type: String, required: true },
     loading: { type: Boolean, default: false },
   },
   emits: ['update:value', 'upload'],
   setup(props, { emit }) {
     return () =>
       h('div', { class: 'image-field' }, [
-        h('div', { class: 'image-preview' }, [h('img', { src: props.preview, alt: props.label })]),
+        h('div', { class: 'image-preview' }, [
+          h(NImage, {
+            src: props.preview,
+            previewSrc: props.original,
+            fallbackSrc: props.original,
+            alt: props.label,
+            objectFit: 'contain',
+            lazy: true,
+            class: 'image-preview-img',
+          }),
+        ]),
         h('div', { class: 'image-control' }, [
           h(
             NFormItem,
@@ -225,6 +240,7 @@ const allowedImagePrefixes = ['/assets/', '/api/site/assets/']
 const allowedAssetTypes = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const allowedAssetExts = new Set(['png', 'jpg', 'jpeg', 'webp'])
 const maxAssetSize = 5 * 1024 * 1024
+const siteAssetOriginalRe = /^\/api\/site\/assets\/([a-f0-9]{32})\.(?:png|jpg|jpeg|webp)$/
 
 const message = useMessage()
 const loading = ref(false)
@@ -355,8 +371,17 @@ function setImageValue(target: ImageTarget, value: string) {
 }
 
 function previewSrc(target: ImageTarget) {
+  return thumbnailPreviewSrc(originalSrc(target))
+}
+
+function originalSrc(target: ImageTarget) {
   const value = getImageValue(target)
   return isAllowedImagePath(value) ? value.trim() : fallbackImage(target)
+}
+
+function thumbnailPreviewSrc(value: string) {
+  const match = value.match(siteAssetOriginalRe)
+  return match ? `/api/site/assets/${match[1]}_thumb.jpg` : value
 }
 
 function requireText(label: string, value: string, max: number) {
@@ -562,24 +587,37 @@ onMounted(loadHomeContent)
 
 .image-field {
   display: grid;
-  grid-template-columns: 136px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 
 .image-preview {
-  width: 136px;
+  width: 180px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border: 1px solid var(--yy-border);
   border-radius: 8px;
-  background: #f8fafc;
+  background:
+    linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%),
+    #f8fafc;
+  background-size: 18px 18px;
+  background-position:
+    0 0,
+    0 9px;
 }
 
-.image-preview img {
+.image-preview :deep(.n-image) {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  display: block;
+}
+
+.image-preview :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   display: block;
 }
 
