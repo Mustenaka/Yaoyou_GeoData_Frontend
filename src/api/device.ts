@@ -6,6 +6,8 @@ import type {
   DeviceExportAuthorizePayload,
   DeviceExportAuthorizeResponse,
   DeviceItem,
+  DeviceRiskHandlePayload,
+  DeviceRiskHandleResult,
   DeviceRiskItem,
   DeviceRiskListParams,
   DeviceStatus,
@@ -22,6 +24,9 @@ export const deviceApi = {
   },
   risks(params: DeviceRiskListParams) {
     return request.get<PageResult<DeviceRiskItem>, PageResult<DeviceRiskItem>>('/admin/devices/risks', { params })
+  },
+  handleRisk(deviceFingerprintId: number, payload: DeviceRiskHandlePayload) {
+    return request.post<DeviceRiskHandleResult, DeviceRiskHandleResult>(`/admin/devices/risks/${deviceFingerprintId}/handle`, payload)
   },
   updateStatus(id: number, status: DeviceStatus, reason?: string) {
     return request.put(`/admin/devices/${id}/status`, { status, reason: reason || '' })

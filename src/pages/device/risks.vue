@@ -1,9 +1,9 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="风险设备" subtitle="按设备聚合尝试破解、频繁切换账号与频繁切换 IP 风险。" />
+    <PageHeader title="风险设备" subtitle="按设备聚合尝试破解、频繁登录、频繁切换账号与频繁切换 IP 风险。" />
 
     <n-alert class="risk-note" type="info" :bordered="false">
-      频繁切换账号按企业感知判断：同企业内多账号使用同一已授权设备视为正常，跨企业或无企业账号共享才计入风险。
+      频繁登录按设备登录次数计数；频繁切换账号按企业感知判断：同企业内多账号使用同一已授权设备视为正常，跨企业或无企业账号共享才计入风险。
     </n-alert>
 
     <div class="page-card toolbar">
@@ -50,19 +50,36 @@
         </n-descriptions>
       </n-drawer-content>
     </n-drawer>
+
+    <n-modal v-model:show="handleVisible" preset="card" :title="handleTitle" :mask-closable="false" style="width: min(520px, 92vw)">
+      <n-alert class="handle-note" :type="handleForm.action === 'handle' ? 'info' : 'warning'" :bordered="false">
+        {{ handleHint }}
+      </n-alert>
+      <n-form label-placement="top">
+        <n-form-item label="处理备注" required>
+          <n-input v-model:value="handleForm.note" type="textarea" :autosize="{ minRows: 3, maxRows: 6 }" placeholder="请输入处理依据、审批原因或处置说明" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="handleVisible = false">取消</n-button>
+          <n-button type="primary" :loading="handleSaving" @click="submitRiskAction">提交</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
-import { NButton, NTag, NTooltip, useMessage } from 'naive-ui'
+import { NButton, NTag, NTooltip, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
 import { deviceApi } from '@/api/device'
 import { useAuthStore } from '@/stores/auth'
-import type { DeviceDetail, DeviceRiskCategory, DeviceRiskItem, DeviceRiskLevel } from '@/types/api'
+import type { DeviceDetail, DeviceRiskCategory, DeviceRiskHandleAction, DeviceRiskItem, DeviceRiskLevel } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import {
   clientTypeLabel,
@@ -78,11 +95,19 @@ import { pageList, queryValue } from '@/utils/query'
 const router = useRouter()
 const authStore = useAuthStore()
 const message = useMessage()
+const dialog = useDialog()
 const loading = ref(false)
 const rows = ref<DeviceRiskItem[]>([])
 const detail = ref<DeviceDetail | null>(null)
 const detailVisible = ref(false)
 const companyOptions = ref<SelectOption[]>([])
+const handleVisible = ref(false)
+const handleSaving = ref(false)
+const selectedRisk = ref<DeviceRiskItem | null>(null)
+const handleForm = reactive({
+  action: 'handle' as DeviceRiskHandleAction,
+  note: '',
+})
 
 const filters = reactive({
   company_id: null as number | null,
@@ -122,17 +147,35 @@ const columns: DataTableColumns<DeviceRiskItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 170,
+    width: 300,
     fixed: 'right',
     render: (row) =>
-      h('div', { class: 'table-actions' }, [
+      h('div', { class: 'table-actions table-actions--wrap' }, [
         h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
-        authStore.isSuperAdmin
-          ? h(NButton, { size: 'small', quaternary: true, onClick: () => openRiskEvents() }, { default: () => '事件流' })
+        h(NButton, { size: 'small', quaternary: true, onClick: () => openRiskEvents(row) }, { default: () => '事件流' }),
+        h(NButton, { size: 'small', type: 'primary', secondary: true, onClick: () => openRiskAction(row, 'handle') }, { default: () => '标记处理' }),
+        authStore.isBackOfficeScopeAll
+          ? h(NButton, { size: 'small', type: 'warning', secondary: true, onClick: () => openRiskAction(row, 'block_user') }, { default: () => '标记封号' })
+          : null,
+        authStore.isBackOfficeScopeAll
+          ? h(NButton, { size: 'small', type: 'error', secondary: true, onClick: () => openRiskAction(row, 'block_device') }, { default: () => '标记封设备' })
           : null,
       ]),
   },
 ]
+
+const riskActionLabels: Record<DeviceRiskHandleAction, string> = {
+  handle: '标记处理',
+  block_user: '标记封号',
+  block_device: '标记封设备',
+}
+
+const handleTitle = computed(() => riskActionLabels[handleForm.action])
+const handleHint = computed(() => {
+  if (handleForm.action === 'block_user') return '仅 superadmin/admin 可用；提交后会禁用该设备的最近用户，且仅允许普通/临时用户。'
+  if (handleForm.action === 'block_device') return '仅 superadmin/admin 可用；提交后会将该设备状态置为 blocked。'
+  return '提交后会记录处理人、时间和备注，并处理当前窗口内相关风险信号。'
+})
 
 function companyText(row: DeviceRiskItem) {
   return row.company?.company_name || row.company_name || (row.company_id ? `企业 #${row.company_id}` : '未归属')
@@ -158,6 +201,12 @@ function renderCategoryTags(row: DeviceRiskItem) {
         { type: riskLevelTagType(item.level), round: true },
         { default: () => `${deviceRiskCategoryLabel(item.category)} · ${deviceRiskLevelLabel(item.level)} · ${item.count}` },
       )
+      if (item.category === 'login_churn') {
+        return h(NTooltip, null, {
+          trigger: () => tag,
+          default: () => '按同一设备在风险窗口内的登录次数计数，区别于频繁切换 IP 的去重 IP 数。',
+        })
+      }
       if (item.category !== 'account_churn') return tag
       return h(NTooltip, null, {
         trigger: () => tag,
@@ -228,8 +277,53 @@ async function openDetail(row: DeviceRiskItem) {
   detailVisible.value = true
 }
 
-function openRiskEvents() {
-  router.push({ name: 'risks' })
+function openRiskEvents(row: DeviceRiskItem) {
+  router.push({ name: 'risks', query: { company_id: row.company_id ?? undefined } })
+}
+
+function openRiskAction(row: DeviceRiskItem, action: DeviceRiskHandleAction) {
+  selectedRisk.value = row
+  handleForm.action = action
+  handleForm.note = ''
+  handleVisible.value = true
+}
+
+async function submitRiskAction() {
+  const row = selectedRisk.value
+  if (!row) return
+  const note = handleForm.note.trim()
+  if (!note) {
+    message.warning('请输入处理备注')
+    return
+  }
+  const label = riskActionLabels[handleForm.action]
+  const confirmed = await confirmHighRisk(`确认对设备 #${row.device_fingerprint_id} 执行「${label}」？`)
+  if (!confirmed) return
+  handleSaving.value = true
+  try {
+    await deviceApi.handleRisk(row.device_fingerprint_id, { action: handleForm.action, note })
+    message.success(`${label}已提交`)
+    handleVisible.value = false
+    await fetchRisks()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : `${label}失败`)
+  } finally {
+    handleSaving.value = false
+  }
+}
+
+function confirmHighRisk(content: string) {
+  return new Promise<boolean>((resolve) => {
+    dialog.warning({
+      title: '高风险操作确认',
+      content,
+      positiveText: '确认执行',
+      negativeText: '取消',
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false),
+    })
+  })
 }
 
 onMounted(async () => {
@@ -242,10 +336,18 @@ onMounted(async () => {
   margin-bottom: 14px;
 }
 
+.handle-note {
+  margin-bottom: 14px;
+}
+
 .risk-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+.table-actions--wrap {
+  flex-wrap: wrap;
 }
 </style>

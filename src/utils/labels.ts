@@ -232,6 +232,7 @@ export const deviceRiskLevelOptions: Array<{ label: string; value: DeviceRiskLev
 
 export const deviceRiskCategoryOptions: Array<{ label: string; value: DeviceRiskCategory }> = [
   { label: '尝试破解', value: 'crack' },
+  { label: '频繁登录', value: 'login_churn' },
   { label: '频繁切换账号', value: 'account_churn' },
   { label: '频繁切换 IP', value: 'ip_churn' },
 ]

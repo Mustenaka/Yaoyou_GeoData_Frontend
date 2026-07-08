@@ -24,8 +24,9 @@ export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
 export type AuthorizationValidityType = 'long_term' | 'fixed_term'
 export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
-export type DeviceRiskCategory = 'crack' | 'ip_churn' | 'account_churn'
+export type DeviceRiskCategory = 'crack' | 'login_churn' | 'ip_churn' | 'account_churn'
 export type DeviceRiskLevel = 'low' | 'medium' | 'high'
+export type DeviceRiskHandleAction = 'handle' | 'block_user' | 'block_device'
 export type ChangeRequestStatus = 'pending' | 'approved' | 'rejected'
 export type FileObjectType =
   | 'project_package'
@@ -491,6 +492,20 @@ export interface DeviceRiskListParams {
   client_type?: string | null
   category?: DeviceRiskCategory | string | null
   level?: DeviceRiskLevel | string | null
+}
+
+export interface DeviceRiskHandlePayload {
+  action: DeviceRiskHandleAction
+  note: string
+}
+
+export interface DeviceRiskHandleResult {
+  device_fingerprint_id: number
+  action: DeviceRiskHandleAction
+  note: string
+  blocked_user_id?: number
+  affected_events: number
+  handled_at: string
 }
 
 export interface ListParams {
