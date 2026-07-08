@@ -22,6 +22,7 @@ export type UserStatus = 'active' | 'disabled' | 'expired' | 'locked'
 export type ClientType = 'admin' | 'mobile' | 'win'
 export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
+export type AuthorizationValidityType = 'long_term' | 'fixed_term'
 export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
 export type DeviceRiskCategory = 'crack' | 'ip_churn' | 'account_churn'
 export type DeviceRiskLevel = 'low' | 'medium' | 'high'
@@ -253,6 +254,7 @@ export interface CompanyPayload {
   valid_from?: string | null
   valid_until?: string | null
   cascade_user_valid_until?: boolean
+  cascade_device_valid_until?: boolean
   remark?: string
 }
 
@@ -324,6 +326,8 @@ export interface LicenseItem {
   product_scope: string
   valid_from?: string | null
   valid_until?: string | null
+  validity_type?: AuthorizationValidityType
+  effective_expired?: boolean
   status: AuthorizationStatus
   revoked_at?: string | null
   last_check_at?: string | null
@@ -371,7 +375,10 @@ export interface DeviceItem {
   device_authorization_id?: number | null
   authorization_status?: AuthorizationStatus | ''
   product_scope?: string
+  valid_from?: string | null
   valid_until?: string | null
+  validity_type?: AuthorizationValidityType
+  effective_expired?: boolean
   last_check_at?: string | null
 }
 

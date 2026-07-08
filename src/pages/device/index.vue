@@ -67,11 +67,13 @@ import type { AuthorizationStatus, DeviceDetail, DeviceItem, DeviceStatus } from
 import {
   authStatusLabel,
   authStatusOptions,
+  authorizationValidityTagType,
+  authorizationValidityTypeLabel,
   clientTypeLabel,
   deviceStatusLabel,
   deviceStatusOptions,
 } from '@/utils/labels'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatValidityDateTime, isEffectiveExpired } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
 
 type DeviceTab = 'mobile' | 'win'
@@ -125,6 +127,8 @@ const deviceColumns: DataTableColumns<DeviceItem> = [
         { default: () => authStatusLabel(row.authorization_status) },
       ),
   },
+  { title: '有效期类型', key: 'validity_type', width: 120, render: (row) => renderDeviceValidityType(row) },
+  { title: '授权到期时间', key: 'valid_until', width: 190, render: (row) => renderDeviceExpiry(row) },
   { title: '风险', key: 'risk_level', width: 90, render: (row) => riskTag(row.risk_level) },
   { title: '最近出现', key: 'last_seen_at', width: 170, render: (row) => formatDateTime(row.last_seen_at) },
   {
@@ -168,6 +172,30 @@ const deviceColumns: DataTableColumns<DeviceItem> = [
       ]),
   },
 ]
+
+function hasAuthorization(row: DeviceItem) {
+  return Boolean(row.device_authorization_id || row.authorization_status)
+}
+
+function renderDeviceValidityType(row: DeviceItem) {
+  if (!hasAuthorization(row)) return '-'
+  return h(
+    NTag,
+    { type: authorizationValidityTagType(row.validity_type, row.valid_until), round: true },
+    { default: () => authorizationValidityTypeLabel(row.validity_type, row.valid_until) },
+  )
+}
+
+function renderDeviceExpiry(row: DeviceItem) {
+  if (!hasAuthorization(row)) return '-'
+  if (isEffectiveExpired(row.valid_until, row.effective_expired)) {
+    return h('div', { class: 'expiry-cell' }, [
+      h(NTag, { type: 'error', round: true }, { default: () => '已过期' }),
+      h('span', { class: 'expiry-cell__date' }, formatDateTime(row.valid_until)),
+    ])
+  }
+  return formatValidityDateTime(row.valid_until)
+}
 
 function riskTag(level: string) {
   const type = level === 'high' ? 'error' : level === 'medium' ? 'warning' : 'success'
@@ -293,3 +321,16 @@ onMounted(() => {
   fetchDevices()
 })
 </script>
+
+<style scoped>
+.expiry-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.expiry-cell__date {
+  color: var(--text-color-2);
+}
+</style>

@@ -1,5 +1,6 @@
 import type {
   AuthorizationStatus,
+  AuthorizationValidityType,
   ChangeRequestStatus,
   ClientLogObjectType,
   ClientType,
@@ -45,6 +46,11 @@ export const authStatusOptions: Array<{ label: string; value: AuthorizationStatu
   { label: '有效', value: 'active' },
   { label: '已撤销', value: 'revoked' },
   { label: '已过期', value: 'expired' },
+]
+
+export const authorizationValidityTypeOptions: Array<{ label: string; value: AuthorizationValidityType }> = [
+  { label: '长期有效', value: 'long_term' },
+  { label: '定期有效', value: 'fixed_term' },
 ]
 
 export const deviceStatusOptions: Array<{ label: string; value: DeviceStatus }> = [
@@ -251,6 +257,20 @@ export function userStatusLabel(status?: string) {
 
 export function authStatusLabel(status?: string) {
   return authStatusOptions.find((item) => item.value === status)?.label || status || '-'
+}
+
+export function authorizationValidityTypeValue(type?: string | null, validUntil?: string | number | null): AuthorizationValidityType {
+  if (type === 'fixed_term' || type === 'long_term') return type
+  return validUntil ? 'fixed_term' : 'long_term'
+}
+
+export function authorizationValidityTypeLabel(type?: string | null, validUntil?: string | number | null) {
+  const value = authorizationValidityTypeValue(type, validUntil)
+  return authorizationValidityTypeOptions.find((item) => item.value === value)?.label || '-'
+}
+
+export function authorizationValidityTagType(type?: string | null, validUntil?: string | number | null) {
+  return authorizationValidityTypeValue(type, validUntil) === 'long_term' ? 'success' : 'warning'
 }
 
 export function deviceStatusLabel(status?: string) {

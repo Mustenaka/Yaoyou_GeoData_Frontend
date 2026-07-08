@@ -151,7 +151,7 @@ import { companyApi } from '@/api/company'
 import { useAuthStore } from '@/stores/auth'
 import type { CompanyItem, CompanyPayload, CompanyPolicyPayload } from '@/types/api'
 import { companyStatusOptions } from '@/utils/labels'
-import { datePickerISOString, datePickerValue, formatDateTime } from '@/utils/format'
+import { datePickerISOString, datePickerValue, formatDateTime, formatValidityDateTime } from '@/utils/format'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { pageList, queryString, queryValue } from '@/utils/query'
 
@@ -320,7 +320,7 @@ async function exportExcel() {
 }
 
 function formatCompanyValidity(value?: string | null) {
-  return value ? formatDateTime(value) : '长期有效'
+  return formatValidityDateTime(value)
 }
 
 function normalizeValidUntil(value?: string | null) {

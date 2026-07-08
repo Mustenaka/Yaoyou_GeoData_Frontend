@@ -119,7 +119,7 @@ import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import type { RoleCode, UserItem, UserPayload, UserStatus } from '@/types/api'
 import { roleLabel, roleOptions, userStatusLabel, userStatusOptions } from '@/utils/labels'
-import { addMonthsDatePickerValue, datePickerISOString, datePickerValue, formatDateTime } from '@/utils/format'
+import { addMonthsDatePickerValue, datePickerISOString, datePickerValue, formatDateTime, formatValidityDateTime } from '@/utils/format'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { passwordPolicyText, stripSpaces, validateOptionalPasswordInput, validateUsernameInput } from '@/utils/accountPolicy'
 import { pageList, queryValue } from '@/utils/query'
@@ -339,7 +339,7 @@ function handleValidityPermanentUpdate(checked: boolean) {
 }
 
 function formatValidity(value?: string | null) {
-  return value ? formatDateTime(value) : '长期有效'
+  return formatValidityDateTime(value)
 }
 
 function currentValidUntilPayload() {

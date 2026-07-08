@@ -22,6 +22,21 @@ export function datePickerISOString(value?: number | null) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
+export function formatValidityDateTime(value?: string | number | null) {
+  return value ? formatDateTime(value) : '长期有效'
+}
+
+export function isDateTimeExpired(value?: string | number | null, now = Date.now()) {
+  if (!value) return false
+  const time = typeof value === 'number' ? value : new Date(value).getTime()
+  return Number.isFinite(time) && time < now
+}
+
+export function isEffectiveExpired(value?: string | number | null, effectiveExpired?: boolean, now = Date.now()) {
+  if (typeof effectiveExpired === 'boolean') return effectiveExpired
+  return isDateTimeExpired(value, now)
+}
+
 export function addMonthsDatePickerValue(months = 1, from = Date.now()) {
   const date = new Date(from)
   date.setMonth(date.getMonth() + months)
