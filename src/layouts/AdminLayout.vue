@@ -229,6 +229,8 @@ const routeIcons: Record<string, unknown> = {
   projects: FolderOpenOutline,
   'mobile-global-config': SettingsOutline,
   'mobile-feature-settings': OptionsOutline,
+  'mobile-smart-fill-config': OptionsOutline,
+  'mobile-equipment-config': SettingsOutline,
   'mobile-collab-settings': OptionsOutline,
   'mobile-collab-sdk': KeyOutline,
   'mobile-logs': FileTrayFullOutline,

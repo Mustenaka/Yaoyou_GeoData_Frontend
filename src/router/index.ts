@@ -9,6 +9,8 @@ declare module 'vue-router' {
     roles?: RoleCode[]
     group?: string
     subGroup?: string
+    description?: string
+    plannedFlow?: string[]
     hideInMenu?: boolean
     disabled?: boolean
   }
@@ -96,6 +98,32 @@ const routes: RouteRecordRaw[] = [
         name: 'mobile-feature-settings',
         component: () => import('@/pages/mobile-feature/index.vue'),
         meta: { title: '移动端功能设置', group: '移动端项目与数据', roles: ['superadmin', 'admin'] },
+      },
+      {
+        path: 'mobile/config/smart-fill',
+        name: 'mobile-smart-fill-config',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: {
+          title: '智能填充配置',
+          group: '移动端项目与数据',
+          subGroup: '配置分发',
+          roles: contentRoles,
+          description: '预留智能填充配置分发入口，后续用于从 Excel 解析配置、发布范围并供移动端主动下拉覆盖本机同名配置。',
+          plannedFlow: ['上传 Excel', '后台解析', '发布到全网或指定企业', '移动端下拉覆盖本机同名配置'],
+        },
+      },
+      {
+        path: 'mobile/config/equipment',
+        name: 'mobile-equipment-config',
+        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        meta: {
+          title: '器械管理配置',
+          group: '移动端项目与数据',
+          subGroup: '配置分发',
+          roles: contentRoles,
+          description: '预留器械管理配置分发入口，后续用于统一维护器械配置版本并按企业隔离下发。',
+          plannedFlow: ['上传 Excel', '后台解析', '发布到全网或指定企业', '移动端下拉覆盖本机同名配置'],
+        },
       },
       {
         path: 'mobile/collab/settings',
