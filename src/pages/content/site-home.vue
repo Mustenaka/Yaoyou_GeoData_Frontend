@@ -598,7 +598,7 @@ onMounted(loadHomeContent)
   padding: 14px;
   border: 1px solid var(--yy-border);
   border-radius: 8px;
-  background: rgba(248, 250, 252, 0.68);
+  background: var(--yy-surface-soft);
 }
 
 .image-field {
@@ -618,7 +618,7 @@ onMounted(loadHomeContent)
   background:
     linear-gradient(45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(148, 163, 184, 0.08) 25%, transparent 25%),
-    #f8fafc;
+    var(--yy-surface-soft);
   background-size: 18px 18px;
   background-position:
     0 0,
