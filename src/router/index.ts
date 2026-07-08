@@ -210,6 +210,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '系统信息', roles: adminRoles },
       },
       {
+        path: 'release-notes',
+        name: 'release-notes',
+        component: () => import('@/pages/release-notes/index.vue'),
+        meta: { title: '版本更新日志', roles: adminRoles },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/pages/settings/index.vue'),

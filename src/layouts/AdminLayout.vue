@@ -240,6 +240,7 @@ const routeIcons: Record<string, unknown> = {
   'sync-files': CloudUploadOutline,
   audit: ListOutline,
   about: InformationCircleOutline,
+  'release-notes': DocumentTextOutline,
   settings: SettingsOutline,
   'mail-settings': MailOutline,
   'system-logs': FileTrayFullOutline,

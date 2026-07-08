@@ -1,7 +1,7 @@
 <template>
   <div class="page-shell">
     <PageHeader title="系统信息" subtitle="垚无忧土工数据管理系统 / Yaowuyou">
-      <n-button :loading="loading" @click="loadHealth">
+      <n-button :loading="loading" @click="loadSystemInfo">
         <template #icon>
           <n-icon :component="RefreshOutline" />
         </template>
@@ -19,8 +19,8 @@
           </div>
         </div>
         <n-descriptions :column="1" label-placement="left" bordered>
-          <n-descriptions-item label="前端版本">{{ appVersion }}</n-descriptions-item>
-          <n-descriptions-item label="构建时间">{{ formatDateTime(buildTime) }}</n-descriptions-item>
+          <n-descriptions-item label="后台(前端)版本">{{ appVersion }}</n-descriptions-item>
+          <n-descriptions-item label="后台构建时间">{{ formatBuildTime(buildTime) }}</n-descriptions-item>
           <n-descriptions-item label="运行路径">/admin/</n-descriptions-item>
           <n-descriptions-item label="API 基址">相对路径 /api</n-descriptions-item>
         </n-descriptions>
@@ -29,8 +29,8 @@
       <section class="page-card about-card">
         <div class="section-head">
           <div>
-            <strong>后端健康状态</strong>
-            <span>来自已有 /api/health</span>
+            <strong>后端服务版本</strong>
+            <span>来自 /api/version 与 /api/health</span>
           </div>
           <n-tag :type="health?.status === 'ok' ? 'success' : 'warning'" round>
             {{ health?.status || 'unknown' }}
@@ -40,7 +40,12 @@
           {{ errorText }}
         </n-alert>
         <n-descriptions v-else :column="1" label-placement="left" bordered>
-          <n-descriptions-item label="状态">{{ health?.status || '-' }}</n-descriptions-item>
+          <n-descriptions-item label="服务版本">{{ backendInfo?.version || '-' }}</n-descriptions-item>
+          <n-descriptions-item label="构建时间">{{ formatBuildTime(backendInfo?.build_time) }}</n-descriptions-item>
+          <n-descriptions-item label="提交 SHA">
+            <span class="mono">{{ backendInfo?.sha || '-' }}</span>
+          </n-descriptions-item>
+          <n-descriptions-item label="健康状态">{{ health?.status || '-' }}</n-descriptions-item>
           <n-descriptions-item label="检查时间">{{ checkedAt ? formatDateTime(checkedAt) : '-' }}</n-descriptions-item>
         </n-descriptions>
       </section>
@@ -64,11 +69,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RefreshOutline } from '@vicons/ionicons5'
 import PageHeader from '@/components/PageHeader.vue'
 import { systemApi } from '@/api/system'
-import type { HealthStatus } from '@/types/api'
+import type { HealthStatus, VersionStatus } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 
 const appVersion = __APP_VERSION__
@@ -77,21 +82,47 @@ const loading = ref(false)
 const errorText = ref('')
 const checkedAt = ref('')
 const health = ref<HealthStatus | null>(null)
+const versionStatus = ref<VersionStatus | null>(null)
 
-async function loadHealth() {
+const backendInfo = computed(() => versionStatus.value?.backend || health.value?.backend || null)
+
+function formatBuildTime(value?: string | null) {
+  if (!value) return '-'
+  const formatted = formatDateTime(value)
+  return formatted === '-' ? value : formatted
+}
+
+async function loadSystemInfo() {
   loading.value = true
   errorText.value = ''
   try {
-    health.value = await systemApi.health()
+    const [healthResult, versionResult] = await Promise.allSettled([systemApi.health(), systemApi.version()])
+    const errors: string[] = []
+
+    if (healthResult.status === 'fulfilled') {
+      health.value = healthResult.value
+    } else {
+      errors.push(healthResult.reason instanceof Error ? healthResult.reason.message : '健康检查失败')
+    }
+
+    if (versionResult.status === 'fulfilled') {
+      versionStatus.value = versionResult.value
+    } else {
+      errors.push(versionResult.reason instanceof Error ? versionResult.reason.message : '版本信息获取失败')
+    }
+
+    if (errors.length) {
+      errorText.value = Array.from(new Set(errors)).join('；')
+    }
     checkedAt.value = new Date().toISOString()
   } catch (error) {
-    errorText.value = error instanceof Error ? error.message : '健康检查失败'
+    errorText.value = error instanceof Error ? error.message : '系统信息获取失败'
   } finally {
     loading.value = false
   }
 }
 
-onMounted(loadHealth)
+onMounted(loadSystemInfo)
 </script>
 
 <style scoped>

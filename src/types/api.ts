@@ -843,8 +843,21 @@ export interface ServiceHealth {
   overall: string
 }
 
+export interface BackendVersionInfo {
+  system_name: string
+  service: string
+  version: string
+  build_time: string
+  sha: string
+}
+
 export interface HealthStatus {
   status: string
+  backend?: BackendVersionInfo
+}
+
+export interface VersionStatus {
+  backend: BackendVersionInfo
 }
 
 export interface ExpiringSummary {
