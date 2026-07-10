@@ -1,70 +1,122 @@
-# 垚无忧土工数据管理系统 Frontend
+# 垚无忧土工数据管理系统 · Frontend
 
-遥佑土工 GeoData 管理后台前端，面向系统管理员和企业管理员提供企业、用户、授权、设备、项目档案、文件同步、Mobile/Win 数据、配置、审计、安全和运维管理界面。本项目是 Vue 3 + Vite 单页应用，生产路径挂载在 `/admin/`。
+本仓库同时包含两套前端产物：
+
+- 管理后台：Vue 3 单页应用，生产路径为 `/admin/`。
+- 官网首页：原生 TypeScript/CSS 页面，生产路径为 `/`。
+
+当前事实快照：2026-07-10，Frontend `main` HEAD `308adc6`，`package.json` 版本 `0.1.0`。功能状态以当前代码、后端契约和真实浏览器结果为准，旧规划文档不作为实现证据。
 
 ## 技术栈
 
-- Vue 3
-- Vite 7
-- TypeScript
-- Vue Router 4
-- Pinia
+- Vue 3.5、Vue Router 4、Pinia 3
+- Vite 7、TypeScript 5.9
+- Naive UI、`@vicons/ionicons5`
 - Axios
-- Naive UI
-- @vicons/ionicons5
 - ECharts / vue-echarts
+- grid-layout-plus（控制台可拖拽布局）
+- VueUse
 
-## 目录结构
+## 仓库结构
 
 ```text
 Yaoyou_GeoData_Frontend/
-├─ public/
-├─ src/
-│  ├─ api/                 # Axios 请求封装和各业务 API
-│  ├─ components/          # 通用页面头、统计卡片
-│  ├─ composables/         # SSE 指标流等组合函数
-│  ├─ layouts/             # 管理后台壳层
-│  ├─ pages/               # 路由页面
-│  ├─ router/              # 路由与权限守卫
-│  ├─ stores/              # Pinia 登录态
-│  ├─ styles/              # 全局样式变量
-│  ├─ types/               # 后端响应与业务类型
-│  └─ utils/               # 下载、格式化、标签、存储工具
-├─ index.html
+├─ src/                    # 管理后台
+│  ├─ api/                 # Axios 封装与业务 API
+│  ├─ components/          # 通用页头、统计卡、控制台面板
+│  ├─ composables/         # 遗留 SSE 组合函数；当前正式页面未引用
+│  ├─ layouts/             # 后台壳层、菜单、主题与改密入口
+│  ├─ pages/               # 后台与公开申请页
+│  ├─ router/              # 路由、角色元数据与导航守卫
+│  ├─ stores/              # 登录态、主题
+│  ├─ styles/              # 全局样式与主题变量
+│  ├─ types/               # API/业务类型
+│  └─ utils/               # 标签、格式化、下载、快照解析等
+├─ site/                   # 官网源码
+│  ├─ public/assets/       # 官网内置图片
+│  └─ src/                 # 官网 TypeScript 与 CSS
+├─ dist/                   # 管理后台构建产物（不作为源码事实）
+├─ site-dist/              # 官网构建产物（不作为源码事实）
 ├─ package.json
-├─ tsconfig.json
-└─ vite.config.ts
+├─ vite.config.ts          # 管理后台构建配置
+└─ vite.site.config.ts     # 官网构建配置
 ```
 
-## 当前页面
+## npm 命令
 
-| 路由 | 页面 | 角色 |
+| 命令 | 作用 | 默认地址/产物 |
 | --- | --- | --- |
-| `/login` | 后台登录 | 公开 |
-| `/dashboard` | 系统控制台 | 系统管理员、企业管理员 |
-| `/companies` | 企业管理 | 系统管理员、企业管理员 |
-| `/users` | 用户管理 | 系统管理员、企业管理员 |
-| `/licenses` | 授权管理 | 系统管理员 |
-| `/devices` | 设备管理 | 系统管理员、企业管理员 |
-| `/sync-files` | 文件同步中心 | 系统管理员、企业管理员 |
-| `/projects` | 项目档案 | 系统管理员、企业管理员 |
-| `/mobile-data` | Mobile 数据管理 | 系统管理员、企业管理员 |
-| `/win-data` | Win 数据管理 | 系统管理员、企业管理员 |
-| `/configs` | 配置管理 | 系统管理员、企业管理员 |
-| `/audit` | 操作记录 | 系统管理员、企业管理员 |
-| `/logs/client` | 客户端日志 | 系统管理员、企业管理员 |
-| `/logs/system` | 系统日志 | 系统管理员 |
-| `/security/risks` | 安全风险 | 系统管理员 |
-| `/security/server-time` | 服务器时间戳 | 系统管理员 |
-| `/settings` | 系统设置 | 系统管理员 |
+| `npm run dev` | 启动管理后台开发服务 | `http://127.0.0.1:3000/admin/` |
+| `npm run dev:site` | 启动官网开发服务 | `http://127.0.0.1:3001/` |
+| `npm run build` | `tsc && vite build` | `dist/` |
+| `npm run build:site` | 构建官网 | `site-dist/` |
+| `npm run preview` | 预览管理后台构建产物 | Vite preview 地址 |
 
-普通用户、试用用户和临时用户默认不能进入后台，业务录入入口在 Mobile 端。
+仓库当前没有 `test`、`lint` 或端到端测试脚本，也没有 Vitest/Jest/Playwright/Cypress 测试框架。`npm run build` 与 `npm run build:site` 只能证明类型检查和构建通过，页面改动还必须在真实浏览器核对渲染、Console、Network、权限和交互。
+
+## 当前角色与后台准入
+
+当前角色码只有：
+
+| 角色码 | 显示名 | 后台准入 |
+| --- | --- | --- |
+| `superadmin` | 技术超级管理员 | 是，全局与系统运维能力 |
+| `admin` | 普通管理员 | 是，平台业务管理能力 |
+| `enterprise_admin` | 企业管理员 | 是，前端收敛部分操作，数据范围最终由后端企业隔离 |
+| `normal_user` | 普通用户 | 否 |
+| `temporary_user` | 临时用户 | 否 |
+
+`src/stores/auth.ts` 会把一个仅用于历史本地会话兼容的管理员值归一为 `superadmin`；当前路由、类型和页面只使用上表角色码。管理后台准入由 `canEnterAdmin` 控制；页面/菜单再按 `route.meta.roles` 过滤。前端隐藏不是安全边界，后端仍必须执行角色和企业范围校验。
+
+## 当前路由与实现状态
+
+### 公开页面
+
+| 路由 | 状态 | 说明 |
+| --- | --- | --- |
+| `/login` | 已实现 | 管理后台登录；只有三个管理员角色可继续进入后台 |
+| `/apply` | 已实现 | 企业/个人开通申请；个人可选目标企业或无企业，角色为普通用户/临时用户 |
+
+### 后台页面
+
+下表中的“平台管理员”指 `superadmin` + `admin`，“三类管理员”再包含 `enterprise_admin`。
+
+| 菜单/路由 | 可见角色 | 当前边界 |
+| --- | --- | --- |
+| 系统控制台 `/dashboard` | 三类管理员 | REST 摘要、近期事件、审计；平台管理员可看 REST 服务器指标，只有 `superadmin` 可看容量 |
+| 企业管理 `/companies` | 三类管理员 | 资料、有效期、状态、策略、导出；创建/启停仅平台管理员，企业范围由后端裁剪 |
+| 用户管理 `/users` | 三类管理员 | 角色范围按当前管理员收敛，支持有效期、产品权限、重置密码、导出 |
+| 注册申请 `/registration/applications` | 三类管理员 | 编辑、审批、拒绝；企业申请可批量创建账号，个人申请可分配企业/管理人 |
+| 内容管理 `/content/site-home` | 平台管理员 | 官网首屏和两张应用卡片的文案、站内图片上传与预览 |
+| 内容管理 `/content/mobile-support` | 平台管理员 | 移动端登录页技术支持纯文本 |
+| 移动端项目与数据 `/projects` | 三类管理员 | 企业 → 设备 → 项目档案与关键词检索 |
+| 项目详情 `/projects/:id` | 三类管理员 | 基本信息、项目配置、开土记录快照、导出、项目生命周期展示与撤销彻底删除 |
+| 全局配置记录 `/mobile/global-config` | 三类管理员 | 企业 → 设备 → 该设备全局配置版本；详情为隐藏路由 `/mobile/global-config/:id` |
+| 移动端功能设置 `/mobile/feature-settings` | 平台管理员 | 智能填充“查看入口”全局/企业隐藏策略，不删除数据也不禁用填充执行 |
+| 智能填充配置、器械管理配置 | 平台管理员 | 可进入的 ComingSoon 占位页，尚无上传、解析或分发实现 |
+| 协作设置、授权协作 SDK | 平台管理员 | 可进入的 ComingSoon 占位页，历史协作页未挂载 |
+| 移动端日志 `/mobile/logs` | 三类管理员 | 固定 `client_type=mobile`，按运行日志/操作记录及设备/账号分组 |
+| Win 端项目与数据五项 | 三类管理员 | 菜单禁用占位，不可点击，不代表已实现 |
+| 文件同步中心 `/sync-files` | `superadmin` | 全量文件查询、详情、下载、项目跳转、重解析、删除 |
+| 授权管理 `/licenses` | 三类管理员 | 企业管理员只读；平台管理员可发放、调整、撤销单条授权 |
+| 设备管理 `/devices` | 三类管理员 | Mobile/Win 台账、详情、状态、阻断、撤销本机全部授权；后端负责最终范围/动作校验 |
+| 风险设备 `/devices/risks` | 三类管理员 | 设备聚合风险；企业管理员可标记处理，封号/封设备只对平台管理员显示 |
+| 授权审批 `/devices/authorization-requests` | 三类管理员 | 新增设备/换机审批和加密导出信息代加设备；企业管理员目标用户限定本企业 |
+| 操作记录 `/audit` | 三类管理员 | 操作审计 + `client_log` 文件标签页 |
+| 系统信息 `/about` | 三类管理员 | 前端版本/构建时间与后端 `/health`、`/version` 信息 |
+| 版本更新日志 `/release-notes` | 三类管理员 | 只读解析仓库 `CHANGELOG.md`，不是后端可编辑发布系统 |
+| 基本设置、邮件系统、系统日志、服务器时间戳 | `superadmin` | 系统级运维能力 |
+| 安全风险 `/settings/risks` | 三类管理员 | 事件流详情与处理/阻断/解除；企业筛选只对平台管理员显示 |
+
+## 关键实现边界
+
+- 控制台正式指标来自 `/api/admin/dashboard/*` REST 接口。`src/composables/useMetricsSSE.ts` 虽仍存在，但没有被当前页面引用，不能据此宣称 SSE 已接入。
+- `src/pages/collab/index.vue` 与 `src/api/project.ts` 是未挂入当前正式信息架构的遗留文件，不能视为已上线功能。
+- Win 端菜单全部为 `disabled` 占位；智能填充配置、器械配置、协作设置和协作 SDK 为可点击 ComingSoon 占位。
+- 项目档案与全局配置记录是云端上行数据的查看、结构化展示和导出入口；当前页面没有配置下发、在线协同或写回客户端链路。
+- 版本更新日志来自构建时打包的 `CHANGELOG.md`；`package.json` 版本经 Vite 注入系统信息页。
 
 ## 本地运行
-
-后端和本地依赖请先按 [后端 LOCAL_RUN.md](/D:/Work/Projects/SKY_ExcelProject/Yaoyou/Yaoyou_GeoData_Backend/LOCAL_RUN.md) 启动。
-
-前端启动：
 
 ```powershell
 cd D:\Work\Projects\SKY_ExcelProject\Yaoyou\Yaoyou_GeoData_Frontend
@@ -72,124 +124,61 @@ npm ci
 npm run dev
 ```
 
-默认开发地址：
+管理后台开发代理：
 
-- `http://127.0.0.1:3000/admin/login`
+- `/api` → `http://127.0.0.1:8080`
+- `/ws` → `ws://127.0.0.1:8080`（当前正式后台页面没有使用历史协作 WebSocket）
 
-Vite 开发代理：
+官网开发：
 
-- `/api` -> `http://127.0.0.1:8080`
-- `/ws` -> `ws://127.0.0.1:8080`
+```powershell
+npm run dev:site
+```
 
-## 构建与预览
+官网只代理 `/api` 到 `http://127.0.0.1:8080`。
+
+## API 与会话约定
+
+统一请求封装位于 `src/api/request.ts`：
+
+- `baseURL = import.meta.env.VITE_API_BASE || '/api'`。
+- 请求自动附加 `Authorization: Bearer <access_token>`。
+- 统一解包 `{ code, message, data }`；非零业务码抛出 `ApiError`。
+- HTTP 401 使用 Refresh Token 单飞刷新并重放队列；失败后清理会话并跳转 `/admin/login`。
+- 文件下载使用 blob，不把 token 放进 URL。
+- 当前请求超时为 20 秒。
+
+会话落在 localStorage，包含 Access/Refresh Token、用户、角色、企业、强制改密标记、派生权限列表和策略。派生 `permissions` 当前不参与路由判定，路由守卫以 `roleCode` 和 `meta.roles` 为准。
+
+## 双构建与部署
 
 ```powershell
 npm run build
-npm run preview
+npm run build:site
 ```
 
-`vite.config.ts` 中 `base` 固定为 `/admin/`，构建产物位于 `dist/`，用于部署到 Nginx 的 `/admin/` 目录。
+- 管理后台：`vite.config.ts` 固定 `base: '/admin/'`，输出 `dist/`。
+- 官网：`vite.site.config.ts` 固定 `base: '/'`，输出 `site-dist/`。
 
-## 环境变量
+`Tools/deploy-frontend.sh` 当前流程为：拉取 Frontend `main`、`npm ci`、执行两套构建、把官网同步到 `/usr/share/nginx/html/`（保留 `/admin/`）、把后台同步到 `/usr/share/nginx/html/admin/`、检查并重载 Nginx，最后分别 smoke check `/` 与 `/admin/`。
 
-默认 API 基址为 `/api`。如需覆盖，可在本地环境文件中设置：
+## 验收要求
 
-```env
-VITE_API_BASE=http://127.0.0.1:8080/api
-```
-
-一般本地开发不需要设置该变量，直接使用 Vite proxy 即可。
-
-## 登录与权限
-
-登录成功后，`src/stores/auth.ts` 会保存：
-
-- `access_token`
-- `refresh_token`
-- 当前用户 ID、用户名、角色
-- 企业 ID、企业名称
-- 企业策略
-
-后台可进入角色：
-
-- `system_admin`
-- `enterprise_admin`
-
-路由守卫位于 [src/router/index.ts](/D:/Work/Projects/SKY_ExcelProject/Yaoyou/Yaoyou_GeoData_Frontend/src/router/index.ts)。未登录会跳转到 `/login`，无后台权限会清空会话并返回登录页，无页面权限会回到控制台。
-
-## API 约定
-
-统一请求封装位于 [src/api/request.ts](/D:/Work/Projects/SKY_ExcelProject/Yaoyou/Yaoyou_GeoData_Frontend/src/api/request.ts)。
-
-- 默认 `baseURL` 为 `import.meta.env.VITE_API_BASE || '/api'`。
-- 请求自动注入 `Authorization: Bearer <access_token>`。
-- 后端统一响应 `{ code, message, data }`，前端只返回 `data`。
-- `code !== 0` 会抛出 `ApiError`，错误码文案在 `errorMessages` 中维护。
-- HTTP 401 会自动用 `refresh_token` 刷新 Access Token；刷新失败后清会话并跳转登录。
-- 下载接口使用 `responseType: 'blob'`，不在 URL 中暴露 token。
-
-业务 API 文件：
-
-| 文件 | 后端模块 |
-| --- | --- |
-| `auth.ts` | 登录、刷新、注销、当前用户 |
-| `ops.ts` | 控制台、系统设置、备份、清理 |
-| `company.ts` | 企业与企业策略 |
-| `user.ts` | 用户管理 |
-| `license.ts` | 授权管理 |
-| `device.ts` | 设备和换机申请 |
-| `syncFile.ts` | 文件同步中心 |
-| `archive.ts` | 项目档案、Mobile/Win 数据、配置快照 |
-| `audit.ts` | 操作审计 |
-| `security.ts` | 安全风险、服务器时间日志 |
-| `log.ts` | 系统日志、客户端日志 |
-| `project.ts` | 旧项目接口兼容 |
-
-## 本地发布验证
-
-本地发布验证使用前端构建产物和仓库根目录的 Nginx 配置模拟生产访问。
+文档或纯文本改动至少执行：
 
 ```powershell
-cd D:\Work\Projects\SKY_ExcelProject\Yaoyou\Yaoyou_GeoData_Frontend
 npm run build
-
-docker rm -f yaoyou-local-release 2>$null
-docker run -d --name yaoyou-local-release `
-  -p 8081:8081 `
-  -v D:\Work\Projects\SKY_ExcelProject\Yaoyou\Tools\nginx-local-release.conf:/etc/nginx/conf.d/default.conf:ro `
-  -v D:\Work\Projects\SKY_ExcelProject\Yaoyou\Yaoyou_GeoData_Frontend\dist:/usr/share/nginx/html/admin:ro `
-  nginx:1.27
+npm run build:site
+git diff --check
 ```
 
-验证：
+涉及页面、路由、角色、响应式样式、下载或交互时，还必须用真实浏览器验证：
 
-```powershell
-Invoke-WebRequest -Uri 'http://127.0.0.1:8081/admin/' -UseBasicParsing
-Invoke-RestMethod -Uri 'http://127.0.0.1:8081/api/health' -Method Get
-```
+- 目标角色的菜单可见性与直达 URL 守卫；
+- 页面真实渲染、弹窗/抽屉/表格/下载交互；
+- Console 无新增 error/warning；
+- Network 请求路径、参数和响应正确；
+- 至少检查桌面与窄屏布局；
+- 不把占位页、未引用文件或仅构建通过报告成已完成能力。
 
-停止本地发布容器：
-
-```powershell
-docker rm -f yaoyou-local-release
-```
-
-## 生产部署
-
-部署脚本位于 [Tools/deploy-frontend.sh](/D:/Work/Projects/SKY_ExcelProject/Yaoyou/Tools/deploy-frontend.sh)，核心流程：
-
-1. 拉取 `main`。
-2. 执行 `npm ci`。
-3. 执行 `npm run build`。
-4. 将 `dist/` 同步到 `/usr/share/nginx/html/admin/`。
-5. `nginx -t` 后 reload Nginx。
-6. 访问 `http://127.0.0.1/admin/` 做 smoke check。
-
-## 验证命令
-
-```powershell
-npm ci
-npm run build
-```
-
-更详细的前端阶段规划见 [Yaoyou_Document/Frontend](/D:/Work/Projects/SKY_ExcelProject/Yaoyou/Yaoyou_Document/Frontend)。
+详细现状文档见 `Yaoyou_Document/Frontend/`。
