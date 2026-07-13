@@ -199,13 +199,13 @@ const routes: RouteRecordRaw[] = [
         path: 'licenses',
         name: 'licenses',
         component: () => import('@/pages/license/index.vue'),
-        meta: { title: '授权管理', group: '授权与设备', roles: adminRoles },
+        meta: { title: '产品授权', group: '授权与设备', roles: adminRoles },
       },
       {
         path: 'devices',
         name: 'devices',
         component: () => import('@/pages/device/index.vue'),
-        meta: { title: '设备管理', group: '授权与设备', roles: adminRoles },
+        meta: { title: '授权设备', group: '授权与设备', roles: adminRoles },
       },
       {
         path: 'devices/risks',

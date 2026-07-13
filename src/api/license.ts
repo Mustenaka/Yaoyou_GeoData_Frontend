@@ -2,7 +2,7 @@ import request from './request'
 import type { LicenseIssueResponse, LicenseItem, LicensePayload, LicenseUpdatePayload, ListParams, PageResult } from '@/types/api'
 
 export const licenseApi = {
-  list(params: Pick<ListParams, 'page' | 'page_size' | 'company_id' | 'user_id' | 'status' | 'client_type'>) {
+  list(params: Pick<ListParams, 'id' | 'page' | 'page_size' | 'company_id' | 'user_id' | 'status' | 'client_type'>) {
     return request.get<PageResult<LicenseItem>, PageResult<LicenseItem>>('/admin/licenses', { params })
   },
   issue(payload: LicensePayload) {

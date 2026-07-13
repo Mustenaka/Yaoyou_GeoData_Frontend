@@ -326,7 +326,12 @@ async function submitExportAuthorize() {
       blob,
       target_user_id: exportForm.target_user_id,
     })
-    message.success(`设备已代加并激活授权 #${result.device_authorization_id}`)
+    const reference = result.device_binding_id
+      ? `设备绑定 #${result.device_binding_id}`
+      : result.device_authorization_id
+        ? `旧授权 #${result.device_authorization_id}`
+        : `设备 #${result.device_fingerprint_id}`
+    message.success(`设备已代加并激活（${reference}）`)
     exportModalVisible.value = false
     await fetchRequests()
   } catch (error) {

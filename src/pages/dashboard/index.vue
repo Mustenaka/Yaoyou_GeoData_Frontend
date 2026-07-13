@@ -497,7 +497,29 @@ const expiryRows = computed<EventRow[]>(() => {
     rows.push({ key: `company-${item.id}`, title: item.company_name, desc: '企业有效期即将到期', time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'amber', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'companies' }) : undefined })
   })
   ;(recent.value?.expiring_licenses || []).forEach((item) => {
-    rows.push({ key: `license-${item.id}`, title: item.username || `用户 ${item.user_id ?? '-'}`, desc: `${clientTypeLabel(item.client_type)} 授权 / ${item.product_scope}`, time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'blue', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'licenses' }) : undefined })
+    const isProductEntitlement = item.authorization_kind === 'product_entitlement'
+    rows.push({
+      key: `${isProductEntitlement ? 'entitlement' : 'legacy-license'}-${item.id}`,
+      title: item.subject_name || item.username || `用户 ${item.user_id ?? '-'}`,
+      desc: isProductEntitlement
+        ? `${clientTypeLabel(item.client_type)} 产品授权即将到期`
+        : `${clientTypeLabel(item.client_type)} 旧设备授权固定截止`,
+      time: formatDateTime(item.valid_until),
+      sortAt: item.valid_until,
+      tone: 'blue',
+      route: authStore.canEnterAdmin
+        ? () => router.push({
+            name: 'licenses',
+            query: {
+              entitlement_id: isProductEntitlement ? String(item.id) : undefined,
+              legacy_authorization_id: isProductEntitlement ? undefined : String(item.id),
+              company_id: item.company_id ? String(item.company_id) : undefined,
+              user_id: item.user_id ? String(item.user_id) : undefined,
+              client_type: item.client_type || undefined,
+            },
+          })
+        : undefined,
+    })
   })
   ;(recent.value?.expiring_users || []).forEach((item) => {
     rows.push({ key: `user-${item.id}`, title: item.username, desc: roleLabel(item.role_code), time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'amber', route: () => router.push({ name: 'users' }) })

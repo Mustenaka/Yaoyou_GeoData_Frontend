@@ -23,6 +23,10 @@ export type ClientType = 'admin' | 'mobile' | 'win'
 export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
 export type AuthorizationValidityType = 'long_term' | 'fixed_term'
+export type ProductCode = 'mobile' | 'win'
+export type ProductEntitlementState = 'enabled' | 'suspended' | 'revoked'
+export type ProductEntitlementMigrationState = 'needs_review' | 'confirmed'
+export type DeviceBindingState = 'pending' | 'approved' | 'revoked'
 export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
 export type DeviceRiskCategory = 'crack' | 'login_churn' | 'ip_churn' | 'account_churn'
 export type DeviceRiskLevel = 'low' | 'medium' | 'high'
@@ -62,15 +66,29 @@ export interface LoginPolicy {
   min_mobile_version: string
   min_win_version: string
   risk_block_enabled: boolean
+  hide_smart_fill?: boolean
 }
 
 export interface TokenAuthorization {
   client_type: ClientType
   device_fingerprint_id?: number | null
   device_authorization_id?: number | null
+  device_binding_id?: number | null
   product_scope?: string
   valid_until?: string | null
   status: string
+  effective_status?: string
+  effective_until?: string | null
+  blocking_reason?: string
+}
+
+export interface TokenProductEntitlement {
+  id: number
+  product_code: ProductCode
+  state: ProductEntitlementState
+  migration_state?: ProductEntitlementMigrationState
+  effective_status: string
+  effective_until?: string | null
 }
 
 export interface LoginResponse {
@@ -79,7 +97,8 @@ export interface LoginResponse {
   expires_in: number
   user: TokenUser
   company?: TokenCompany | null
-  authorization: TokenAuthorization
+  authorization: TokenAuthorization | null
+  product_entitlement?: TokenProductEntitlement | null
   policy: LoginPolicy
   server_time: string
   license_ticket?: string
@@ -89,7 +108,8 @@ export interface LoginResponse {
 export interface MeResponse {
   user: TokenUser
   company?: TokenCompany | null
-  authorization: TokenAuthorization
+  authorization: TokenAuthorization | null
+  product_entitlement?: TokenProductEntitlement | null
   policy: LoginPolicy
   server_time: string
   request_signing_key?: string
@@ -285,10 +305,24 @@ export interface UserItem {
   valid_until?: string | null
   can_use_mobile: boolean
   can_use_win: boolean
+  mobile_product_access?: UserProductAccessSummary
+  win_product_access?: UserProductAccessSummary
   last_login_at?: string | null
   last_login_ip?: string
   created_at: string
   updated_at: string
+}
+
+export interface UserProductAccessSummary {
+  product_code: ProductCode
+  entitlement_id?: number | null
+  access_state?: string
+  access_generation?: number
+  current_entitlement_generation?: number
+  current_enabled?: boolean
+  needs_regrant?: boolean
+  effective_status?: string
+  source_of_truth?: string
 }
 
 export interface UserPayload {
@@ -329,6 +363,10 @@ export interface LicenseItem {
   valid_until?: string | null
   validity_type?: AuthorizationValidityType
   effective_expired?: boolean
+  lifecycle_status?: string
+  effective_status?: string
+  effective_until?: string | null
+  blocking_reason?: string
   status: AuthorizationStatus
   revoked_at?: string | null
   last_check_at?: string | null
@@ -357,6 +395,159 @@ export interface LicenseUpdatePayload {
 export interface LicenseIssueResponse {
   authorization: LicenseItem
   license_key?: string
+}
+
+export interface AuthorizationCapabilities {
+  can_create?: boolean
+  can_update?: boolean
+  can_confirm?: boolean
+  can_revoke?: boolean
+  can_reissue?: boolean
+  can_reapprove?: boolean
+  assigned_user_supported?: boolean
+}
+
+export interface AuthorizationV2Readiness {
+  legacy_authorization_count: number
+  needs_review_count: number
+  unmapped_legacy_count: number
+  pending_shadow_event_count: number
+  unresolved_anomaly_count: number
+  materialization_drift_count: number
+  active_outside_effective_window_count: number
+  backfill_incomplete: boolean
+}
+
+export interface AuthorizationMigrationAnomalySummary {
+  legacy_authorization_id: number
+  anomaly_type: string
+}
+
+export interface AuthorizationPageResult<T> extends PageResult<T> {
+  source_of_truth?: string
+  mode?: string
+  capabilities?: AuthorizationCapabilities
+  readiness?: AuthorizationV2Readiness | null
+}
+
+export interface ProductEntitlementItem {
+  id: number
+  company_id?: number | null
+  owner_user_id?: number | null
+  subject_type?: 'company' | 'user' | string
+  subject_name?: string
+  company_name?: string
+  owner_username?: string
+  product_code: ProductCode
+  state: ProductEntitlementState
+  generation: number
+  migration_state: ProductEntitlementMigrationState
+  valid_from?: string | null
+  valid_until?: string | null
+  device_limit?: number | null
+  allocated_device_count?: number
+  bound_device_count?: number
+  usable_device_count?: number
+  activated_at?: string | null
+  revoked_at?: string | null
+  revoke_reason?: string
+  created_at: string
+  updated_at: string
+  lifecycle_status?: string
+  effective_status?: string
+  effective_from?: string | null
+  effective_until?: string | null
+  blocking_reason?: string
+  over_quota?: boolean
+  source_of_truth?: string
+  capabilities?: AuthorizationCapabilities
+  migration_anomalies?: AuthorizationMigrationAnomalySummary[]
+}
+
+export interface ProductEntitlementPayload {
+  company_id?: number | null
+  owner_user_id?: number | null
+  product_code?: ProductCode
+  state?: ProductEntitlementState
+  migration_state?: ProductEntitlementMigrationState
+  valid_from?: string | null
+  valid_until?: string | null
+  device_limit?: number | null
+  revoke_reason?: string
+  reissue?: boolean
+  review_acknowledged?: boolean
+}
+
+export interface ProductEntitlementListParams {
+  page?: number
+  page_size?: number
+  company_id?: number
+  owner_user_id?: number
+  product_code?: ProductCode
+  state?: ProductEntitlementState
+  migration_state?: ProductEntitlementMigrationState
+  effective_status?: string
+}
+
+export interface DeviceBindingItem {
+  id: number
+  entitlement_id: number
+  entitlement_generation: number
+  current_entitlement_generation?: number
+  device_fingerprint_id: number
+  company_id?: number | null
+  owner_user_id?: number | null
+  subject_name?: string
+  product_code: ProductCode
+  state: DeviceBindingState
+  assigned_user_id?: number | null
+  assigned_username?: string
+  valid_from_override?: string | null
+  valid_until_override?: string | null
+  activation_source?: string
+  requested_by?: number | null
+  approved_by?: number | null
+  approved_at?: string | null
+  revoked_at?: string | null
+  revoked_by?: number | null
+  revoked_reason?: string
+  last_check_at?: string | null
+  created_at: string
+  updated_at: string
+  lifecycle_status?: string
+  device_readiness_status?: string
+  effective_from?: string | null
+  effective_until?: string | null
+  blocking_reason?: string
+  legacy_authorization_id?: number | null
+  source_of_truth?: string
+  capabilities?: AuthorizationCapabilities
+  device_name?: string
+  fingerprint_hash?: string
+  device_status?: DeviceStatus
+  risk_level?: string
+  last_seen_at?: string | null
+}
+
+export interface DeviceBindingUpdatePayload {
+  state?: DeviceBindingState
+  assigned_user_id?: number | null
+  valid_from_override?: string | null
+  valid_until_override?: string | null
+  reapprove?: boolean
+}
+
+export interface DeviceBindingListParams {
+  page?: number
+  page_size?: number
+  company_id?: number
+  owner_user_id?: number
+  entitlement_id?: number
+  product_code?: ProductCode
+  state?: DeviceBindingState
+  effective_status?: string
+  device_fingerprint_id?: number
+  device_status?: DeviceStatus
 }
 
 export interface DeviceItem {
@@ -416,6 +607,8 @@ export interface DeviceChangeRequest {
   old_device_id?: number | null
   new_device_id?: number | null
   old_device_authorization_id?: number | null
+  old_device_binding_id?: number | null
+  new_device_binding_id?: number | null
   new_client_type: string
   new_fingerprint_hash: string
   reason: string
@@ -441,7 +634,8 @@ export interface DeviceExportAuthorizePayload {
 
 export interface DeviceExportAuthorizeResponse {
   device_fingerprint_id: number
-  device_authorization_id: number
+  device_authorization_id?: number | null
+  device_binding_id?: number | null
   target_user_id: number
   company_id?: number | null
   client_type: 'mobile' | 'win' | string
@@ -509,6 +703,7 @@ export interface DeviceRiskHandleResult {
 }
 
 export interface ListParams {
+  id?: number
   page?: number
   page_size?: number
   keyword?: string
@@ -519,6 +714,7 @@ export interface ListParams {
   client_type?: string
   risk_level?: string
   authorization_status?: string
+  no_company?: boolean
 }
 
 export interface ClientFileItem {
@@ -974,6 +1170,8 @@ export interface DashboardRiskEvent {
 
 export interface ExpiringLicenseEvent {
   id: number
+  authorization_kind?: 'product_entitlement' | 'legacy_device_authorization' | string
+  subject_name?: string
   company_id?: number | null
   user_id?: number | null
   username: string
