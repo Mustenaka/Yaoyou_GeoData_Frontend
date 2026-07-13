@@ -1,7 +1,5 @@
 import './styles.css'
 
-type ProductScope = 'both' | 'mobile' | 'win'
-
 interface ApiResponse<T> {
   code: number
   message?: string
@@ -281,12 +279,6 @@ function renderPage(content: SiteHomeContent) {
             <span>邮箱</span>
             <input name="email" type="email" maxlength="128" autocomplete="email" required />
           </label>
-          <fieldset>
-            <legend>申请产品</legend>
-            <label><input type="radio" name="requested_product" value="both" checked /> 垚无忧土工移动端 + 垚无忧土工桌面端</label>
-            <label><input type="radio" name="requested_product" value="mobile" /> 垚无忧土工移动端</label>
-            <label><input type="radio" name="requested_product" value="win" /> 垚无忧土工桌面端</label>
-          </fieldset>
           <label>
             <span>申请说明</span>
             <textarea name="reason" maxlength="1000" rows="4" placeholder="可填写项目场景、预计使用范围或需要开通的账号说明"></textarea>
@@ -361,7 +353,6 @@ async function submitApplication(event: SubmitEvent) {
   const contactName = formValue(data, 'contact_name')
   const phone = formValue(data, 'phone')
   const email = formValue(data, 'email')
-  const requestedProduct = formValue(data, 'requested_product') as ProductScope
   const reason = formValue(data, 'reason')
 
   if (!companyName || !contactName || !phone || !email) {
@@ -392,7 +383,6 @@ async function submitApplication(event: SubmitEvent) {
         contact_name: contactName,
         phone,
         email,
-        requested_product: requestedProduct,
         requested_role: 'enterprise_admin',
         reason,
       }),

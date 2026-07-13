@@ -198,8 +198,23 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'licenses',
         name: 'licenses',
-        component: () => import('@/pages/license/index.vue'),
-        meta: { title: '产品授权', group: '授权与设备', roles: adminRoles },
+        redirect: (to) => {
+          const query = { ...to.query }
+          const clientType = query.client_type || query.product_code
+          delete query.product_code
+          delete query.entitlement_id
+          delete query.owner_user_id
+          delete query.user_id
+          delete query.legacy_authorization_id
+          return {
+            name: 'devices',
+            query: {
+              ...query,
+              client_type: clientType,
+            },
+          }
+        },
+        meta: { title: '授权设备', group: '授权与设备', roles: adminRoles, hideInMenu: true },
       },
       {
         path: 'devices',

@@ -117,6 +117,7 @@ export interface MeResponse {
 }
 
 export type RegistrationAppType = 'enterprise' | 'user'
+/** @deprecated Compatibility value returned by old registration records only. */
 export type RegistrationProduct = 'mobile' | 'win' | 'both'
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
 export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site' | 'mobile_app'
@@ -132,7 +133,6 @@ export interface RegistrationApplicationPayload {
   target_company_id?: number | null
   no_company?: boolean
   manager_user_id?: number | null
-  requested_product: RegistrationProduct
   requested_role?: RoleCode
   valid_until?: string | null
   device_client_type?: string
@@ -149,7 +149,6 @@ export interface RegistrationApplicationUpdatePayload {
   target_company_id?: number | null
   no_company?: boolean
   manager_user_id?: number | null
-  requested_product: RegistrationProduct
   requested_role?: RoleCode
   valid_until?: string | null
   reason?: string
@@ -193,7 +192,8 @@ export interface RegistrationApplication {
   no_company?: boolean
   manager_user_id?: number | null
   manager_username?: string
-  requested_product: RegistrationProduct
+  /** @deprecated Historical application intent; never use as an authorization gate. */
+  requested_product?: RegistrationProduct
   requested_role: RoleCode | string
   valid_until?: string | null
   device_client_type?: string | null
@@ -450,89 +450,9 @@ export interface AuthorizationPageResult<T> extends PageResult<T> {
   readiness?: AuthorizationV2Readiness | null
 }
 
-export interface ProductEntitlementItem {
-  id: number
-  company_id?: number | null
-  owner_user_id?: number | null
-  subject_type?: 'company' | 'user' | string
-  subject_name?: string
-  company_name?: string
-  owner_username?: string
-  product_code: ProductCode
-  state: ProductEntitlementState
-  generation: number
-  revision: number
-  migration_state: ProductEntitlementMigrationState
-  valid_from?: string | null
-  valid_until?: string | null
-  device_limit?: number | null
-  allocated_device_count?: number
-  bound_device_count?: number
-  usable_device_count?: number
-  activated_at?: string | null
-  revoked_at?: string | null
-  revoke_reason?: string
-  created_at: string
-  updated_at: string
-  lifecycle_status?: string
-  effective_status?: string
-  effective_from?: string | null
-  effective_until?: string | null
-  blocking_reason?: string
-  over_quota?: boolean
-  source_of_truth?: string
-  capabilities?: AuthorizationCapabilities
-  migration_anomalies?: AuthorizationMigrationAnomalySummary[]
-}
-
-export interface ProductEntitlementPayload {
-  company_id?: number | null
-  owner_user_id?: number | null
-  product_code?: ProductCode
-  state?: ProductEntitlementState
-  migration_state?: ProductEntitlementMigrationState
-  valid_from?: string | null
-  valid_until?: string | null
-  device_limit?: number | null
-  revoke_reason?: string
-  reissue?: boolean
-  review_acknowledged?: boolean
-}
-
-export interface ProductEntitlementBatchCreatePayload {
-  items: ProductEntitlementPayload[]
-}
-
-export interface ProductEntitlementBatchUpdateItem extends ProductEntitlementPayload {
-  id: number
-  expected_revision: number
-  expected_updated_at?: string
-}
-
-export interface ProductEntitlementBatchUpdatePayload {
-  items: ProductEntitlementBatchUpdateItem[]
-}
-
-export interface ProductEntitlementBatchResponse {
-  items: ProductEntitlementItem[]
-  source_of_truth?: string
-  capabilities?: AuthorizationCapabilities
-  readiness?: AuthorizationV2Readiness | null
-}
-
-export interface ProductEntitlementListParams {
-  page?: number
-  page_size?: number
-  company_id?: number
-  owner_user_id?: number
-  product_code?: ProductCode
-  state?: ProductEntitlementState
-  migration_state?: ProductEntitlementMigrationState
-  effective_status?: string
-}
-
 export interface DeviceBindingItem {
   id: number
+  revision: number
   entitlement_id: number
   entitlement_generation: number
   current_entitlement_generation?: number
@@ -540,12 +460,16 @@ export interface DeviceBindingItem {
   company_id?: number | null
   owner_user_id?: number | null
   subject_name?: string
+  company_name?: string
   product_code: ProductCode
+  client_type?: 'mobile' | 'win' | string
   state: DeviceBindingState
   assigned_user_id?: number | null
   assigned_username?: string
   valid_from_override?: string | null
   valid_until_override?: string | null
+  valid_from?: string | null
+  valid_until?: string | null
   activation_source?: string
   requested_by?: number | null
   approved_by?: number | null
@@ -576,16 +500,20 @@ export interface DeviceBindingUpdatePayload {
   assigned_user_id?: number | null
   valid_from_override?: string | null
   valid_until_override?: string | null
-  reapprove?: boolean
+  valid_from?: string | null
+  valid_until?: string | null
+  expected_revision: number
 }
 
 export interface DeviceBindingListParams {
   page?: number
   page_size?: number
+  binding_id?: number
   company_id?: number
   owner_user_id?: number
   entitlement_id?: number
   product_code?: ProductCode
+  client_type?: 'mobile' | 'win'
   state?: DeviceBindingState
   effective_status?: string
   device_fingerprint_id?: number
@@ -648,6 +576,7 @@ export interface DeviceChangeRequest {
   real_name?: string
   old_device_id?: number | null
   new_device_id?: number | null
+  new_device_name?: string
   old_device_authorization_id?: number | null
   old_device_binding_id?: number | null
   new_device_binding_id?: number | null
@@ -667,6 +596,28 @@ export interface DeviceChangeRequestListParams {
   page_size?: number
   status?: ChangeRequestStatus | string | null
   request_type?: DeviceAuthorizationRequestType | string | null
+  company_id?: number | null
+}
+
+export interface DeviceAuthorizationDecisionPayload {
+  note?: string
+  valid_from?: string | null
+  valid_until?: string | null
+}
+
+export interface DeviceAuthorizationBatchApproveItem {
+  id: number
+  valid_from?: string | null
+  valid_until?: string | null
+}
+
+export interface DeviceAuthorizationBatchApprovePayload {
+  items: DeviceAuthorizationBatchApproveItem[]
+  note?: string
+}
+
+export interface DeviceAuthorizationBatchApproveResponse {
+  items: DeviceChangeRequest[]
 }
 
 export interface DeviceExportAuthorizePayload {

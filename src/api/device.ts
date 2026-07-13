@@ -2,6 +2,9 @@ import request from './request'
 import type {
   DeviceChangeRequest,
   DeviceChangeRequestListParams,
+  DeviceAuthorizationBatchApprovePayload,
+  DeviceAuthorizationBatchApproveResponse,
+  DeviceAuthorizationDecisionPayload,
   DeviceDetail,
   DeviceExportAuthorizePayload,
   DeviceExportAuthorizeResponse,
@@ -31,9 +34,6 @@ export const deviceApi = {
   updateStatus(id: number, status: DeviceStatus, reason?: string) {
     return request.put(`/admin/devices/${id}/status`, { status, reason: reason || '' })
   },
-  revoke(id: number, reason?: string) {
-    return request.post(`/admin/devices/${id}/revoke`, { reason: reason || 'admin_revoke' })
-  },
   changeRequests(params: DeviceChangeRequestListParams) {
     return request.get<PageResult<DeviceChangeRequest>, PageResult<DeviceChangeRequest>>('/admin/devices/change-requests', {
       params,
@@ -42,10 +42,11 @@ export const deviceApi = {
   authorizeByExport(payload: DeviceExportAuthorizePayload) {
     return request.post<DeviceExportAuthorizeResponse, DeviceExportAuthorizeResponse>('/admin/devices/authorize-by-export', payload)
   },
-  approveChangeRequest(id: number, note?: string) {
-    return request.post<DeviceChangeRequest, DeviceChangeRequest>(`/admin/devices/change-requests/${id}/approve`, {
-      note: note || '',
-    })
+  approveChangeRequest(id: number, payload: DeviceAuthorizationDecisionPayload = {}) {
+    return request.post<DeviceChangeRequest, DeviceChangeRequest>(`/admin/devices/change-requests/${id}/approve`, payload)
+  },
+  batchApproveChangeRequests(payload: DeviceAuthorizationBatchApprovePayload) {
+    return request.post<DeviceAuthorizationBatchApproveResponse, DeviceAuthorizationBatchApproveResponse>('/admin/devices/change-requests/batch-approve', payload)
   },
   rejectChangeRequest(id: number, note?: string) {
     return request.post<DeviceChangeRequest, DeviceChangeRequest>(`/admin/devices/change-requests/${id}/reject`, {

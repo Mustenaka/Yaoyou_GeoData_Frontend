@@ -29,7 +29,7 @@
       />
     </div>
 
-    <n-drawer v-model:show="detailVisible" width="620">
+    <n-drawer v-model:show="detailVisible" width="min(620px, 100vw)">
       <n-drawer-content title="设备详情">
         <n-descriptions v-if="detail" bordered :column="1">
           <n-descriptions-item label="设备 ID">{{ detail.id }}</n-descriptions-item>

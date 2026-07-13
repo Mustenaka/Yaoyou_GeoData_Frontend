@@ -4,7 +4,7 @@
       <div class="console-head__copy">
         <span>{{ scopeText }}</span>
         <h1>系统控制台</h1>
-        <p>按当前角色汇总平台运行、授权到期、同步上传、安全风险和操作消息。</p>
+        <p>按当前角色汇总平台运行、设备授权到期、同步上传、安全风险和操作消息。</p>
       </div>
       <div class="console-head__actions">
         <span class="console-head__time">更新于 {{ lastUpdatedText }}</span>
@@ -271,7 +271,7 @@ const panelDefinitions: Record<PanelId, PanelDefinition> = {
   server: { id: 'server', title: '服务器性能', description: '真实 CPU、内存、磁盘与运行趋势', backOfficeOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 4, minW: 5, minH: 4 } },
   storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', superOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
   message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
-  expiry: { id: 'expiry', title: '到期提醒', description: '企业、授权和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
+  expiry: { id: 'expiry', title: '到期提醒', description: '设备和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
   failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
   risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', defaultItem: { i: 'risks', x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
   sync: { id: 'sync', title: '最近同步', description: '最近完成的上传同步', superOnly: true, defaultItem: { i: 'sync', x: 8, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
@@ -493,28 +493,22 @@ const storageAdvice = computed(() => {
 
 const expiryRows = computed<EventRow[]>(() => {
   const rows: EventRow[] = []
-  ;(recent.value?.expiring_companies || []).forEach((item) => {
-    rows.push({ key: `company-${item.id}`, title: item.company_name, desc: '企业有效期即将到期', time: formatDateTime(item.valid_until), sortAt: item.valid_until, tone: 'amber', route: authStore.isBackOfficeScopeAll ? () => router.push({ name: 'companies' }) : undefined })
-  })
   ;(recent.value?.expiring_licenses || []).forEach((item) => {
-    const isProductEntitlement = item.authorization_kind === 'product_entitlement'
+    const isDeviceBinding = item.authorization_kind === 'device_binding'
     rows.push({
-      key: `${isProductEntitlement ? 'entitlement' : 'legacy-license'}-${item.id}`,
-      title: item.subject_name || item.username || `用户 ${item.user_id ?? '-'}`,
-      desc: isProductEntitlement
-        ? `${clientTypeLabel(item.client_type)} 产品授权即将到期`
-        : `${clientTypeLabel(item.client_type)} 旧设备授权固定截止`,
+      key: `device-authorization-${item.id}`,
+      title: item.subject_name || item.username || (item.device_fingerprint_id ? `设备 #${item.device_fingerprint_id}` : `企业 #${item.company_id ?? '-'}`),
+      desc: `${clientTypeLabel(item.client_type)} 设备授权即将到期`,
       time: formatDateTime(item.valid_until),
       sortAt: item.valid_until,
       tone: 'blue',
       route: authStore.canEnterAdmin
         ? () => router.push({
-            name: 'licenses',
+            name: 'devices',
             query: {
-              entitlement_id: isProductEntitlement ? String(item.id) : undefined,
-              legacy_authorization_id: isProductEntitlement ? undefined : String(item.id),
+              binding_id: isDeviceBinding ? String(item.id) : undefined,
+              device_fingerprint_id: item.device_fingerprint_id ? String(item.device_fingerprint_id) : undefined,
               company_id: item.company_id ? String(item.company_id) : undefined,
-              user_id: item.user_id ? String(item.user_id) : undefined,
               client_type: item.client_type || undefined,
             },
           })
@@ -750,7 +744,7 @@ function panelSubtitle(id: PanelId) {
 }
 
 function panelActionLabel(id: PanelId) {
-  if (id === 'expiry' && authStore.isBackOfficeScopeAll) return '授权'
+  if (id === 'expiry' && authStore.isBackOfficeScopeAll) return '授权设备'
   if (id === 'failed' || id === 'sync') return authStore.isSuperAdmin ? '文件同步' : ''
   if (id === 'risks') return canUseRiskEvents.value ? '安全风险' : ''
   if (id === 'audit') return '操作记录'
@@ -758,7 +752,7 @@ function panelActionLabel(id: PanelId) {
 }
 
 function runPanelAction(id: PanelId) {
-  if (id === 'expiry' && authStore.isBackOfficeScopeAll) router.push({ name: 'licenses' })
+  if (id === 'expiry' && authStore.isBackOfficeScopeAll) router.push({ name: 'devices' })
   if (id === 'failed') goFailedUploads()
   if (id === 'sync' && authStore.isSuperAdmin) router.push({ name: 'sync-files' })
   if (id === 'risks') goRisks()

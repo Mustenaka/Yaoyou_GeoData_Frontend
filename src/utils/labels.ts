@@ -13,9 +13,6 @@ import type {
   FileParseStatus,
   FileUploadStatus,
   ProjectLifecycleStatus,
-  ProductCode,
-  ProductEntitlementMigrationState,
-  ProductEntitlementState,
   RoleCode,
   UserStatus,
 } from '@/types/api'
@@ -46,9 +43,9 @@ export const clientTypeOptions: Array<{ label: string; value: ClientType }> = [
 ]
 
 export const authStatusOptions: Array<{ label: string; value: AuthorizationStatus }> = [
-  { label: '待激活', value: 'pending' },
-  { label: '已激活/未撤销', value: 'active' },
-  { label: '已撤销', value: 'revoked' },
+  { label: '待授权', value: 'pending' },
+  { label: '有效', value: 'active' },
+  { label: '已取消', value: 'revoked' },
 ]
 
 export const authorizationValidityTypeOptions: Array<{ label: string; value: AuthorizationValidityType }> = [
@@ -56,31 +53,10 @@ export const authorizationValidityTypeOptions: Array<{ label: string; value: Aut
   { label: '固定截止', value: 'fixed_term' },
 ]
 
-export const productCodeOptions: Array<{ label: string; value: ProductCode }> = [
-  { label: 'Mobile', value: 'mobile' },
-  { label: 'Win', value: 'win' },
-]
-
-export const productGrantScopeOptions = [
-  { label: 'Mobile + Win', value: 'both' },
-  ...productCodeOptions,
-] as const
-
-export const productEntitlementStateOptions: Array<{ label: string; value: ProductEntitlementState }> = [
-  { label: '已启用', value: 'enabled' },
-  { label: '已暂停', value: 'suspended' },
-  { label: '已撤销', value: 'revoked' },
-]
-
-export const productEntitlementMigrationStateOptions: Array<{ label: string; value: ProductEntitlementMigrationState }> = [
-  { label: '待人工确认', value: 'needs_review' },
-  { label: '已确认', value: 'confirmed' },
-]
-
 export const deviceBindingStateOptions: Array<{ label: string; value: DeviceBindingState }> = [
-  { label: '待审批', value: 'pending' },
-  { label: '已绑定', value: 'approved' },
-  { label: '已撤销', value: 'revoked' },
+  { label: '待授权', value: 'pending' },
+  { label: '已授权', value: 'approved' },
+  { label: '已取消', value: 'revoked' },
 ]
 
 export const deviceStatusOptions: Array<{ label: string; value: DeviceStatus }> = [
@@ -90,8 +66,8 @@ export const deviceStatusOptions: Array<{ label: string; value: DeviceStatus }> 
 ]
 
 export const changeRequestStatusOptions: Array<{ label: string; value: ChangeRequestStatus }> = [
-  { label: '待处理', value: 'pending' },
-  { label: '已同意', value: 'approved' },
+  { label: '待授权', value: 'pending' },
+  { label: '已授权', value: 'approved' },
   { label: '已拒绝', value: 'rejected' },
 ]
 
@@ -291,18 +267,6 @@ export function authStatusLabel(status?: string) {
   return authStatusOptions.find((item) => item.value === status)?.label || status || '-'
 }
 
-export function productCodeLabel(productCode?: string) {
-  return productCodeOptions.find((item) => item.value === productCode)?.label || productCode || '-'
-}
-
-export function productEntitlementStateLabel(state?: string) {
-  return productEntitlementStateOptions.find((item) => item.value === state)?.label || state || '-'
-}
-
-export function productEntitlementMigrationStateLabel(state?: string) {
-  return productEntitlementMigrationStateOptions.find((item) => item.value === state)?.label || state || '-'
-}
-
 export function deviceBindingStateLabel(state?: string) {
   return deviceBindingStateOptions.find((item) => item.value === state)?.label || state || '-'
 }
@@ -310,23 +274,23 @@ export function deviceBindingStateLabel(state?: string) {
 const effectiveStatusLabels: Record<string, string> = {
   usable: '可用',
   company_disabled: '企业已停用',
-  company_not_started: '企业尚未生效',
-  company_expired: '企业总账户已过期',
-  product_not_granted: '产品未授权',
-  product_suspended: '产品授权已暂停',
-  product_revoked: '产品授权已撤销',
-  product_not_started: '产品授权尚未生效',
-  product_expired: '产品授权已过期',
+  company_not_started: '企业当前不可用',
+  company_expired: '企业当前不可用',
+  product_not_granted: '设备尚未授权',
+  product_suspended: '设备授权当前不可用',
+  product_revoked: '设备授权已取消',
+  product_not_started: '设备授权尚未生效',
+  product_expired: '设备授权已过期',
   account_disabled: '账号已停用',
   account_expired: '账号已过期',
-  user_product_disabled: '用户产品准入未开启',
+  user_product_disabled: '当前账号不可使用此设备',
   device_unregistered: '设备未登记',
-  device_pending: '设备待审批',
-  device_revoked: '设备绑定已撤销',
+  device_pending: '设备待授权',
+  device_revoked: '设备授权已取消',
   device_disabled: '设备已停用',
   device_blocked: '设备已阻断',
-  device_override_not_started: '临时设备期限尚未生效',
-  device_override_expired: '临时设备期限已过期',
+  device_override_not_started: '设备授权尚未生效',
+  device_override_expired: '设备授权已过期',
   device_user_mismatch: '专属用户不匹配',
   device_company_mismatch: '设备企业不匹配',
   client_type_mismatch: '客户端类型不匹配',
@@ -342,32 +306,32 @@ export function effectiveStatusLabel(status?: string) {
 
 const blockingReasonLabels: Record<string, string> = {
   COMPANY_DISABLED: '企业已停用',
-  COMPANY_NOT_STARTED: '企业总账户尚未生效',
-  COMPANY_EXPIRED: '企业总账户已过期',
-  PRODUCT_NOT_GRANTED: '尚未授予该产品',
-  PRODUCT_ENTITLEMENT_NOT_GRANTED: '尚未授予该产品或迁移权益尚未确认',
-  PRODUCT_ENTITLEMENT_SUSPENDED: '产品授权已暂停',
-  PRODUCT_ENTITLEMENT_REVOKED: '产品授权已撤销',
-  PRODUCT_ENTITLEMENT_NOT_STARTED: '产品授权尚未生效',
-  PRODUCT_ENTITLEMENT_EXPIRED: '产品授权已过期',
+  COMPANY_NOT_STARTED: '企业当前不可用',
+  COMPANY_EXPIRED: '企业当前不可用',
+  PRODUCT_NOT_GRANTED: '设备尚未授权',
+  PRODUCT_ENTITLEMENT_NOT_GRANTED: '设备尚未授权',
+  PRODUCT_ENTITLEMENT_SUSPENDED: '设备授权当前不可用',
+  PRODUCT_ENTITLEMENT_REVOKED: '设备授权已取消',
+  PRODUCT_ENTITLEMENT_NOT_STARTED: '设备授权尚未生效',
+  PRODUCT_ENTITLEMENT_EXPIRED: '设备授权已过期',
   ACCOUNT_DISABLED: '账号已停用',
   ACCOUNT_EXPIRED: '账号已过期',
-  USER_PRODUCT_DISABLED: '用户产品准入未开启',
-  USER_PRODUCT_ACCESS_DISABLED: '用户产品准入未开启',
+  USER_PRODUCT_DISABLED: '当前账号不可使用此设备',
+  USER_PRODUCT_ACCESS_DISABLED: '当前账号不可使用此设备',
   DEVICE_UNREGISTERED: '设备未登记',
-  DEVICE_BINDING_PENDING: '设备绑定待审批',
-  DEVICE_BINDING_REVOKED: '设备绑定已撤销',
-  DEVICE_BINDING_GENERATION_MISMATCH: '设备绑定属于旧权益代次',
-  DEVICE_BINDING_FINGERPRINT_MISMATCH: '设备绑定与当前指纹不匹配',
+  DEVICE_BINDING_PENDING: '设备待授权',
+  DEVICE_BINDING_REVOKED: '设备授权已取消',
+  DEVICE_BINDING_GENERATION_MISMATCH: '设备授权记录已失效，请重新授权',
+  DEVICE_BINDING_FINGERPRINT_MISMATCH: '设备授权与当前指纹不匹配',
   DEVICE_DISABLED: '设备已停用',
   DEVICE_BLOCKED: '设备已阻断',
-  DEVICE_OVERRIDE_NOT_STARTED: '临时设备期限尚未生效',
-  DEVICE_OVERRIDE_EXPIRED: '临时设备期限已过期',
+  DEVICE_OVERRIDE_NOT_STARTED: '设备授权尚未生效',
+  DEVICE_OVERRIDE_EXPIRED: '设备授权已过期',
   DEVICE_AUTHORIZATION_NOT_STARTED: '旧设备授权尚未生效',
   DEVICE_AUTHORIZATION_EXPIRED: '旧设备授权已过期',
   DEVICE_USER_MISMATCH: '设备专属用户不匹配',
   DEVICE_COMPANY_MISMATCH: '设备企业归属不匹配',
-  CLIENT_TYPE_MISMATCH: '设备客户端类型与产品不匹配',
+  CLIENT_TYPE_MISMATCH: '设备客户端类型与当前授权不匹配',
   VERSION_TOO_LOW: '客户端版本过低',
   SESSION_INVALID: '会话已失效',
 }

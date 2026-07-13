@@ -74,14 +74,6 @@
           <n-input v-model:value="form.email" maxlength="128" />
         </n-form-item>
 
-        <n-form-item label="产品" path="requested_product">
-          <n-radio-group v-model:value="form.requested_product">
-            <n-radio-button value="both">Mobile + Win</n-radio-button>
-            <n-radio-button value="mobile">Mobile</n-radio-button>
-            <n-radio-button value="win">Win</n-radio-button>
-          </n-radio-group>
-        </n-form-item>
-
         <n-form-item label="申请说明" path="reason">
           <n-input v-model:value="form.reason" type="textarea" maxlength="1000" show-count />
         </n-form-item>
@@ -122,7 +114,6 @@ const form = reactive<RegistrationApplicationPayload>({
   email: '',
   target_company_id: null,
   no_company: false,
-  requested_product: 'both',
   requested_role: 'normal_user' as RoleCode,
   valid_until: null,
   reason: '',
@@ -165,7 +156,6 @@ const rules: FormRules = {
     { required: true, message: '请输入邮箱', trigger: ['blur', 'input'] },
     { validator: () => (emailPattern.test(form.email || '') ? true : new Error('邮箱格式不正确')), trigger: ['blur', 'input'] },
   ],
-  requested_product: [{ required: true, message: '请选择产品', trigger: ['blur', 'change'] }],
 }
 
 function resetForm() {
@@ -178,7 +168,6 @@ function resetForm() {
     email: '',
     target_company_id: null,
     no_company: false,
-    requested_product: 'both',
     requested_role: 'normal_user',
     valid_until: null,
     reason: '',
@@ -226,7 +215,6 @@ async function submit() {
       email: form.email,
       target_company_id: form.app_type === 'user' && userCompanyMode.value === 'company' ? form.target_company_id : null,
       no_company: form.app_type === 'user' && userCompanyMode.value === 'none',
-      requested_product: form.requested_product,
       requested_role: form.app_type === 'enterprise' ? 'enterprise_admin' : form.requested_role,
       valid_until: form.app_type === 'user' && form.requested_role === 'temporary_user' ? validityPayload() : null,
       reason: form.reason,

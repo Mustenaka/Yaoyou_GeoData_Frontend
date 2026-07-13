@@ -1,6 +1,6 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="企业管理" subtitle="维护企业资料、有效期、启停状态与基础策略。">
+    <PageHeader title="企业管理" subtitle="维护企业资料、启停状态与基础策略。">
       <n-button v-if="authStore.isBackOfficeScopeAll" type="primary" @click="openCreate">新建企业</n-button>
     </PageHeader>
 
@@ -50,21 +50,6 @@
           <n-form-item label="地址">
             <n-input v-model:value="form.address" />
           </n-form-item>
-          <n-grid :cols="2" :x-gap="12">
-            <n-grid-item>
-              <n-form-item label="有效期开始">
-                <n-date-picker v-model:value="form.valid_from_value" type="datetime" clearable />
-              </n-form-item>
-            </n-grid-item>
-            <n-grid-item>
-              <n-form-item label="有效期结束">
-                <div class="validity-field">
-                  <n-date-picker v-model:value="form.valid_until_value" type="datetime" clearable :disabled="form.valid_until_permanent" />
-                  <n-checkbox v-model:checked="form.valid_until_permanent" @update:checked="handleValidUntilPermanentUpdate">长期有效</n-checkbox>
-                </div>
-              </n-form-item>
-            </n-grid-item>
-          </n-grid>
           <n-form-item label="备注">
             <n-input v-model:value="form.remark" type="textarea" />
           </n-form-item>
@@ -88,16 +73,6 @@
             <n-switch v-model:value="policyForm.allow_normal_user_config_edit" />
           </n-form-item>
           <n-grid :cols="2" :x-gap="12">
-            <n-grid-item>
-              <n-form-item label="Mobile 设备上限">
-                <n-input-number v-model:value="policyForm.max_mobile_devices" clearable style="width: 100%" />
-              </n-form-item>
-            </n-grid-item>
-            <n-grid-item>
-              <n-form-item label="Win 设备上限">
-                <n-input-number v-model:value="policyForm.max_win_devices" clearable style="width: 100%" />
-              </n-form-item>
-            </n-grid-item>
             <n-grid-item>
               <n-form-item label="最低 Mobile 版本">
                 <n-input v-model:value="policyForm.min_mobile_version" />
@@ -127,9 +102,6 @@
           <n-form-item label="启用风险阻断">
             <n-switch v-model:value="policyForm.risk_block_enabled" />
           </n-form-item>
-          <n-form-item v-if="authStore.isBackOfficeScopeAll" label="首个设备自动授权">
-            <n-switch v-model:value="policyForm.auto_activate_first_device" />
-          </n-form-item>
         </n-form>
         <template #footer>
           <div class="drawer-footer">
@@ -145,19 +117,17 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
 import type { DataTableColumns, FormInst, FormRules, PaginationProps } from 'naive-ui'
-import { NButton, NPopconfirm, NTag, useDialog, useMessage } from 'naive-ui'
+import { NButton, NPopconfirm, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
 import { useAuthStore } from '@/stores/auth'
 import type { CompanyItem, CompanyPayload, CompanyPolicyPayload } from '@/types/api'
 import { companyStatusOptions } from '@/utils/labels'
-import { datePickerISOString, datePickerValue, formatDateTime, formatValidityDateTime } from '@/utils/format'
 import { ensureXlsxBlob, saveBlob, timestampedXlsxFilename } from '@/utils/download'
 import { pageList, queryString, queryValue } from '@/utils/query'
 
 const authStore = useAuthStore()
 const message = useMessage()
-const dialog = useDialog()
 const loading = ref(false)
 const saving = ref(false)
 const exporting = ref(false)
@@ -165,9 +135,6 @@ const rows = ref<CompanyItem[]>([])
 const drawerVisible = ref(false)
 const policyVisible = ref(false)
 const editingId = ref<number | null>(null)
-const editingOriginalValidUntil = ref<string | null>(null)
-const editingCompanyName = ref('')
-const editingUserCount = ref(0)
 const policyCompanyId = ref<number | null>(null)
 const formRef = ref<FormInst | null>(null)
 
@@ -184,11 +151,7 @@ const pagination = reactive<PaginationProps>({
   pageSizes: [10, 20, 50],
 })
 
-type CompanyForm = Omit<CompanyPayload, 'valid_from' | 'valid_until' | 'cascade_user_valid_until'> & {
-  valid_from_value: number | null
-  valid_until_value: number | null
-  valid_until_permanent: boolean
-}
+type CompanyForm = Omit<CompanyPayload, 'valid_from' | 'valid_until' | 'cascade_user_valid_until' | 'cascade_device_valid_until'>
 
 const emptyForm: CompanyForm = {
   company_name: '',
@@ -199,9 +162,6 @@ const emptyForm: CompanyForm = {
   contact_email: '',
   address: '',
   status: 1,
-  valid_from_value: null,
-  valid_until_value: null,
-  valid_until_permanent: true,
   remark: '',
 }
 
@@ -209,15 +169,12 @@ const form = reactive<CompanyForm>({ ...emptyForm })
 
 const policyForm = reactive<CompanyPolicyPayload>({
   allow_normal_user_config_edit: undefined,
-  max_mobile_devices: undefined,
-  max_win_devices: undefined,
   min_mobile_version: '',
   min_win_version: '',
   password_min_length: undefined,
   log_retention_days: undefined,
   storage_quota_gb: undefined,
   risk_block_enabled: undefined,
-  auto_activate_first_device: undefined,
 })
 
 const rules: FormRules = {
@@ -236,10 +193,9 @@ const columns: DataTableColumns<CompanyItem> = [
     render: (row) =>
       h(NTag, { type: row.status === 1 ? 'success' : 'error', round: true }, { default: () => (row.status === 1 ? '启用' : '禁用') }),
   },
-  { title: '有效期', key: 'valid_until', width: 170, render: (row) => formatCompanyValidity(row.valid_until) },
   { title: '用户数', key: 'user_count', width: 86, render: (row) => row.user_count ?? 0 },
-  { title: 'Mobile 授权', key: 'mobile_license_count', width: 110, render: (row) => row.mobile_license_count ?? 0 },
-  { title: 'Win 授权', key: 'win_license_count', width: 96, render: (row) => row.win_license_count ?? 0 },
+  { title: 'Mobile 设备', key: 'mobile_license_count', width: 110, render: (row) => row.mobile_license_count ?? 0 },
+  { title: 'Win 设备', key: 'win_license_count', width: 96, render: (row) => row.win_license_count ?? 0 },
   {
     title: '操作',
     key: 'actions',
@@ -319,43 +275,12 @@ async function exportExcel() {
   }
 }
 
-function formatCompanyValidity(value?: string | null) {
-  return formatValidityDateTime(value)
-}
-
-function normalizeValidUntil(value?: string | null) {
-  return datePickerISOString(datePickerValue(value))
-}
-
-function currentValidUntilValue() {
-  return form.valid_until_permanent ? null : datePickerISOString(form.valid_until_value)
-}
-
-function validUntilChanged() {
-  return currentValidUntilValue() !== editingOriginalValidUntil.value
-}
-
-function validUntilConfirmText(value: string | null) {
-  return value ? formatDateTime(value) : '长期有效'
-}
-
-function handleValidUntilPermanentUpdate(checked: boolean) {
-  if (checked) {
-    form.valid_until_value = null
-  } else if (!form.valid_until_value) {
-    form.valid_until_value = Date.now()
-  }
-}
-
 function assignForm(payload: Partial<CompanyForm>) {
   Object.assign(form, emptyForm, payload)
 }
 
 function openCreate() {
   editingId.value = null
-  editingOriginalValidUntil.value = null
-  editingCompanyName.value = ''
-  editingUserCount.value = 0
   assignForm({ ...emptyForm })
   drawerVisible.value = true
 }
@@ -363,9 +288,6 @@ function openCreate() {
 async function openEdit(row: CompanyItem) {
   const detail = await companyApi.detail(row.id)
   editingId.value = row.id
-  editingOriginalValidUntil.value = normalizeValidUntil(detail.valid_until)
-  editingCompanyName.value = detail.company_name || row.company_name
-  editingUserCount.value = row.user_count ?? 0
   assignForm({
     company_name: detail.company_name,
     company_short_name: detail.company_short_name,
@@ -375,9 +297,6 @@ async function openEdit(row: CompanyItem) {
     contact_email: detail.contact_email,
     address: detail.address,
     status: detail.status,
-    valid_from_value: datePickerValue(detail.valid_from),
-    valid_until_value: datePickerValue(detail.valid_until),
-    valid_until_permanent: !detail.valid_until,
     remark: detail.remark,
   })
   drawerVisible.value = true
@@ -387,15 +306,12 @@ function openPolicy(row: CompanyItem) {
   policyCompanyId.value = row.id
   Object.assign(policyForm, {
     allow_normal_user_config_edit: undefined,
-    max_mobile_devices: undefined,
-    max_win_devices: undefined,
     min_mobile_version: '',
     min_win_version: '',
     password_min_length: undefined,
     log_retention_days: undefined,
     storage_quota_gb: undefined,
     risk_block_enabled: undefined,
-    auto_activate_first_device: undefined,
   })
   policyVisible.value = true
 }
@@ -410,8 +326,6 @@ function cleanCompanyPayload(): CompanyPayload {
     contact_email: form.contact_email,
     address: form.address,
     status: form.status,
-    valid_from: datePickerISOString(form.valid_from_value),
-    valid_until: form.valid_until_permanent ? null : datePickerISOString(form.valid_until_value),
     remark: form.remark,
   }
 }
@@ -428,33 +342,15 @@ function cleanPolicyPayload(): CompanyPolicyPayload {
 
 async function submitCompany() {
   await formRef.value?.validate()
-  if (editingId.value && authStore.isBackOfficeScopeAll && validUntilChanged()) {
-    const nextValidUntil = currentValidUntilValue()
-    const userCount = editingUserCount.value
-    const companyName = editingCompanyName.value || form.company_name
-    dialog.warning({
-      title: '同步旗下账号有效期',
-      content: `将把「${companyName}」旗下 ${userCount} 个账号的有效期统一改为 ${validUntilConfirmText(nextValidUntil)}，是否同步？`,
-      positiveText: '同步并保存',
-      negativeText: '仅改企业',
-      onPositiveClick: () => saveCompany(true, `已同步 ${userCount} 个账号有效期`),
-      onNegativeClick: () => saveCompany(false, '企业资料已更新'),
-    })
-    return
-  }
   await saveCompany()
 }
 
-async function saveCompany(cascadeUserValidUntil?: boolean, successText?: string) {
+async function saveCompany() {
   saving.value = true
   try {
     if (editingId.value) {
-      const payload = cleanCompanyPayload()
-      if (cascadeUserValidUntil !== undefined) {
-        payload.cascade_user_valid_until = cascadeUserValidUntil
-      }
-      await companyApi.update(editingId.value, payload)
-      message.success(successText || '企业资料已更新')
+      await companyApi.update(editingId.value, cleanCompanyPayload())
+      message.success('企业资料已更新')
     } else {
       await companyApi.create(cleanCompanyPayload())
       message.success('企业已创建')
@@ -486,19 +382,3 @@ async function toggleStatus(row: CompanyItem) {
 
 onMounted(fetchList)
 </script>
-
-<style scoped>
-.validity-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-}
-
-@media (max-width: 560px) {
-  .validity-field {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

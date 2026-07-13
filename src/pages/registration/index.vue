@@ -38,7 +38,6 @@
           <n-descriptions-item label="姓名/实名">{{ selected.contact_name }}</n-descriptions-item>
           <n-descriptions-item label="手机">{{ selected.phone }}</n-descriptions-item>
           <n-descriptions-item label="邮箱">{{ selected.email }}</n-descriptions-item>
-          <n-descriptions-item label="产品">{{ productLabel(selected.requested_product) }}</n-descriptions-item>
           <n-descriptions-item label="角色">{{ roleLabel(selected.requested_role) }}</n-descriptions-item>
           <n-descriptions-item label="账户有效期">{{ formatValidity(selected.valid_until) }}</n-descriptions-item>
           <n-descriptions-item label="申请设备">
@@ -101,13 +100,6 @@
         </div>
         <n-form-item label="邮箱">
           <n-input v-model:value="editForm.email" maxlength="128" />
-        </n-form-item>
-        <n-form-item label="产品">
-          <n-radio-group v-model:value="editForm.requested_product">
-            <n-radio-button value="both">Mobile + Win</n-radio-button>
-            <n-radio-button value="mobile">Mobile</n-radio-button>
-            <n-radio-button value="win">Win</n-radio-button>
-          </n-radio-group>
         </n-form-item>
         <n-form-item label="申请说明">
           <n-input v-model:value="editForm.reason" type="textarea" maxlength="1000" show-count />
@@ -253,7 +245,6 @@ import type {
   RegistrationApprovePayload,
   RegistrationApproveResponse,
   RegistrationCreatedUserResponse,
-  RegistrationProduct,
   RegistrationSourceChannel,
   RegistrationStatus,
   RoleCode,
@@ -325,7 +316,6 @@ const editForm = reactive({
   target_company_id: null as number | null,
   no_company: false,
   manager_user_id: null as number | null,
-  requested_product: 'both' as RegistrationProduct,
   requested_role: 'normal_user' as RoleCode,
   valid_until_value: null as number | null,
   valid_until_permanent: true,
@@ -381,7 +371,6 @@ const columns: DataTableColumns<RegistrationApplication> = [
   { title: '单位', key: 'company_name', minWidth: 190, render: (row) => applicationCompanyLabel(row) },
   { title: '姓名/实名', key: 'contact_name', width: 120 },
   { title: '手机', key: 'phone', width: 132 },
-  { title: '产品', key: 'requested_product', width: 112, render: (row) => productLabel(row.requested_product) },
   { title: '账号', key: 'created_user_count', width: 90, render: (row) => createdAccountLabel(row) },
   {
     title: '状态',
@@ -434,13 +423,6 @@ function sourceLabel(source?: string) {
   if (source === 'official_site') return '官网首页'
   if (source === 'admin_apply_page' || !source) return '后台申请页'
   return source
-}
-
-function productLabel(product?: string) {
-  if (product === 'both') return 'Mobile + Win'
-  if (product === 'mobile') return 'Mobile'
-  if (product === 'win') return 'Win'
-  return product || '-'
 }
 
 function formatValidity(value?: string | null) {
@@ -598,7 +580,6 @@ async function openEdit(row: RegistrationApplication) {
     target_company_id: editTarget.value.target_company_id ?? null,
     no_company: Boolean(editTarget.value.no_company),
     manager_user_id: editTarget.value.manager_user_id ?? null,
-    requested_product: editTarget.value.requested_product,
     requested_role: (editTarget.value.requested_role || 'normal_user') as RoleCode,
     valid_until_value: datePickerValue(editTarget.value.valid_until),
     valid_until_permanent: !editTarget.value.valid_until,
@@ -671,7 +652,6 @@ async function submitEdit() {
       target_company_id: editTarget.value.app_type === 'user' && !editForm.no_company ? editForm.target_company_id : null,
       no_company: editTarget.value.app_type === 'user' ? editForm.no_company : false,
       manager_user_id: editTarget.value.app_type === 'user' && !editForm.no_company ? editForm.manager_user_id : null,
-      requested_product: editForm.requested_product,
       requested_role: editTarget.value.app_type === 'enterprise' ? 'enterprise_admin' : editForm.requested_role,
       valid_until: editTarget.value.app_type === 'user' && editForm.requested_role === 'temporary_user' ? validityPayload(editForm.valid_until_permanent, editForm.valid_until_value) : null,
       reason: editForm.reason,
