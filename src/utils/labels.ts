@@ -61,6 +61,11 @@ export const productCodeOptions: Array<{ label: string; value: ProductCode }> = 
   { label: 'Win', value: 'win' },
 ]
 
+export const productGrantScopeOptions = [
+  { label: 'Mobile + Win', value: 'both' },
+  ...productCodeOptions,
+] as const
+
 export const productEntitlementStateOptions: Array<{ label: string; value: ProductEntitlementState }> = [
   { label: '已启用', value: 'enabled' },
   { label: '已暂停', value: 'suspended' },

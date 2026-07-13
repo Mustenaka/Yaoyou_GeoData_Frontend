@@ -24,6 +24,7 @@ export type DeviceStatus = 'active' | 'disabled' | 'blocked'
 export type AuthorizationStatus = 'pending' | 'active' | 'revoked' | 'expired'
 export type AuthorizationValidityType = 'long_term' | 'fixed_term'
 export type ProductCode = 'mobile' | 'win'
+export type ProductGrantScope = ProductCode | 'both'
 export type ProductEntitlementState = 'enabled' | 'suspended' | 'revoked'
 export type ProductEntitlementMigrationState = 'needs_review' | 'confirmed'
 export type DeviceBindingState = 'pending' | 'approved' | 'revoked'
@@ -419,8 +420,27 @@ export interface AuthorizationV2Readiness {
 }
 
 export interface AuthorizationMigrationAnomalySummary {
+  id: number
   legacy_authorization_id: number
   anomaly_type: string
+  evidence_hash: string
+}
+
+export interface AuthorizationMigrationAnomalyResolutionPayload {
+  action: 'accept_as_device_override' | 'normalize_product_scope_to_client'
+  reason: string
+  expected_evidence_hash: string
+}
+
+export interface AuthorizationMigrationAnomalyItem extends AuthorizationMigrationAnomalySummary {
+  resolved_at?: string | null
+  resolution_action?: string
+  resolution_evidence_hash?: string
+  resolved_by?: number | null
+  resolution_reason?: string
+  resolution_recorded_at?: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface AuthorizationPageResult<T> extends PageResult<T> {
@@ -441,6 +461,7 @@ export interface ProductEntitlementItem {
   product_code: ProductCode
   state: ProductEntitlementState
   generation: number
+  revision: number
   migration_state: ProductEntitlementMigrationState
   valid_from?: string | null
   valid_until?: string | null
@@ -476,6 +497,27 @@ export interface ProductEntitlementPayload {
   revoke_reason?: string
   reissue?: boolean
   review_acknowledged?: boolean
+}
+
+export interface ProductEntitlementBatchCreatePayload {
+  items: ProductEntitlementPayload[]
+}
+
+export interface ProductEntitlementBatchUpdateItem extends ProductEntitlementPayload {
+  id: number
+  expected_revision: number
+  expected_updated_at?: string
+}
+
+export interface ProductEntitlementBatchUpdatePayload {
+  items: ProductEntitlementBatchUpdateItem[]
+}
+
+export interface ProductEntitlementBatchResponse {
+  items: ProductEntitlementItem[]
+  source_of_truth?: string
+  capabilities?: AuthorizationCapabilities
+  readiness?: AuthorizationV2Readiness | null
 }
 
 export interface ProductEntitlementListParams {
