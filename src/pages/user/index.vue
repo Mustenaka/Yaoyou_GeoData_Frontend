@@ -222,6 +222,12 @@ const columns: DataTableColumns<UserItem> = [
   { title: '有效期', key: 'valid_until', width: 170, render: (row) => formatValidity(row.valid_until) },
   { title: '最近登录', key: 'last_login_at', width: 170, render: (row) => formatDateTime(row.last_login_at) },
   {
+    title: 'Mobile登录有效期',
+    key: 'mobile_session_expires_at',
+    width: 190,
+    render: (row) => row.mobile_session_expires_at ? formatDateTime(row.mobile_session_expires_at) : '未登录或已失效',
+  },
+  {
     title: '操作',
     key: 'actions',
     width: 400,

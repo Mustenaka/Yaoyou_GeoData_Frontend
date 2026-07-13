@@ -310,6 +310,7 @@ export interface UserItem {
   win_product_access?: UserProductAccessSummary
   last_login_at?: string | null
   last_login_ip?: string
+  mobile_session_expires_at?: string | null
   created_at: string
   updated_at: string
 }
