@@ -102,27 +102,25 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'mobile/config/smart-fill',
         name: 'mobile-smart-fill-config',
-        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        component: () => import('@/pages/config-distribution/index.vue'),
+        props: { objectType: 'smart_fill_config' },
         meta: {
           title: '智能填充配置',
           group: '移动端项目与数据',
           subGroup: '配置分发',
           roles: contentRoles,
-          description: '预留智能填充配置分发入口，后续用于从 Excel 解析配置、发布范围并供移动端主动下拉覆盖本机同名配置。',
-          plannedFlow: ['上传 Excel', '后台解析', '发布到全网或指定企业', '移动端下拉覆盖本机同名配置'],
         },
       },
       {
         path: 'mobile/config/equipment',
         name: 'mobile-equipment-config',
-        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        component: () => import('@/pages/config-distribution/index.vue'),
+        props: { objectType: 'equipment_config' },
         meta: {
           title: '器械管理配置',
           group: '移动端项目与数据',
           subGroup: '配置分发',
           roles: contentRoles,
-          description: '预留器械管理配置分发入口，后续用于统一维护器械配置版本并按企业隔离下发。',
-          plannedFlow: ['上传 Excel', '后台解析', '发布到全网或指定企业', '移动端下拉覆盖本机同名配置'],
         },
       },
       {
