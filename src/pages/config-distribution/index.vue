@@ -92,23 +92,34 @@
         </n-data-table>
       </section>
     </div>
+
+    <ConfigDistributionDrawer
+      v-model:show="drawerOpen"
+      :item="drawerItem"
+      :start-in-edit-mode="drawerEditMode"
+      @published="handleDrawerPublished"
+      @download="downloadConfig"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
-import { NButton, NTag, useDialog, useMessage, type DataTableColumns, type UploadFileInfo } from 'naive-ui'
+import { NButton, NDropdown, NTag, useDialog, useMessage, type DataTableColumns, type DropdownOption, type UploadFileInfo } from 'naive-ui'
 import { RefreshOutline } from '@vicons/ionicons5'
 import PageHeader from '@/components/PageHeader.vue'
+import ConfigDistributionDrawer from './ConfigDistributionDrawer.vue'
 import { companyApi } from '@/api/company'
 import type { CompanyItem } from '@/types/api'
 import {
   configDistributionApi,
+  type ConfigDistributionDownloadFormat,
   type ConfigDistributionItem,
   type ConfigDistributionObjectType,
   type ConfigDistributionScope,
   type ConfigDistributionStatus,
 } from '@/api/config-distribution'
+import { ensureXlsxBlob, saveBlob } from '@/utils/download'
 
 const props = defineProps<{ objectType: ConfigDistributionObjectType }>()
 const message = useMessage()
@@ -123,6 +134,10 @@ const page = ref(1)
 const pageSize = ref(20)
 const fileList = ref<UploadFileInfo[]>([])
 const companyOptions = ref<Array<{ label: string; value: number }>>([])
+const drawerOpen = ref(false)
+const drawerItem = ref<ConfigDistributionItem | null>(null)
+const drawerEditMode = ref(false)
+const downloadLoadingKey = ref('')
 
 const publishForm = reactive({
   configName: '',
@@ -181,12 +196,31 @@ const columns = computed<DataTableColumns<ConfigDistributionItem>>(() => [
   },
   { title: '发布时间', key: 'published_at', width: 170, render: (row) => formatDate(row.published_at) },
   {
-    title: '操作', key: 'actions', width: 100, fixed: 'right',
-    render: (row) => row.status === 'published'
-      ? h(NButton, { size: 'small', type: 'error', secondary: true, onClick: () => confirmRevoke(row) }, { default: () => '撤销' })
-      : h('span', { class: 'muted-action' }, '—'),
+    title: '操作', key: 'actions', width: 310, fixed: 'right',
+    render: (row) => h('div', { class: 'table-actions' }, [
+      h(NButton, { size: 'small', secondary: true, onClick: () => openDrawer(row, false) }, { default: () => '预览' }),
+      h(NButton, { size: 'small', type: 'primary', secondary: true, onClick: () => openDrawer(row, true) }, { default: () => '编辑' }),
+      h(NDropdown, {
+        trigger: 'click', options: downloadOptions,
+        onSelect: (format: string | number) => downloadConfig(row, String(format) as ConfigDistributionDownloadFormat),
+      }, {
+        default: () => h(NButton, {
+          size: 'small', secondary: true,
+          loading: downloadLoadingKey.value.startsWith(`${row.id}:`),
+        }, { default: () => '下载' }),
+      }),
+      row.status === 'published'
+        ? h(NButton, { size: 'small', type: 'error', secondary: true, onClick: () => confirmRevoke(row) }, { default: () => '撤销' })
+        : h('span', { class: 'muted-action' }, '已撤销'),
+    ]),
   },
 ])
+
+const downloadOptions: DropdownOption[] = [
+  { label: 'Excel（.xlsx）', key: 'xlsx' },
+  { label: 'CSV（.csv）', key: 'csv' },
+  { label: '完整 JSON', key: 'json' },
+]
 
 async function loadCompanies() {
   companiesLoading.value = true
@@ -292,6 +326,40 @@ function confirmRevoke(row: ConfigDistributionItem) {
   })
 }
 
+function openDrawer(row: ConfigDistributionItem, edit: boolean) {
+  drawerItem.value = row
+  drawerEditMode.value = edit
+  drawerOpen.value = true
+}
+
+async function handleDrawerPublished(item: ConfigDistributionItem) {
+  drawerEditMode.value = false
+  drawerItem.value = item
+  page.value = 1
+  await loadList()
+}
+
+async function downloadConfig(row: ConfigDistributionItem, format: ConfigDistributionDownloadFormat) {
+  const key = `${row.id}:${format}`
+  if (downloadLoadingKey.value) return
+  downloadLoadingKey.value = key
+  errorText.value = ''
+  try {
+    const blob = await configDistributionApi.download(row.id, format)
+    if (!blob || blob.size === 0) throw new Error('下载文件为空')
+    if (format === 'xlsx') ensureXlsxBlob(blob)
+    saveBlob(blob, `${safeFilename(row.config_name)}.${format}`)
+  } catch (error) {
+    errorText.value = error instanceof Error ? error.message : '配置下载失败'
+  } finally {
+    downloadLoadingKey.value = ''
+  }
+}
+
+function safeFilename(value: string) {
+  return value.replace(/[\\/:*?"<>|]/g, '_').trim() || 'mobile-config'
+}
+
 function applyFilters() {
   page.value = 1
   loadList()
@@ -382,6 +450,13 @@ onMounted(() => {
 
 .muted-action {
   color: var(--yy-text-muted);
+  font-size: 12px;
+}
+
+:deep(.table-actions) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 @media (max-width: 1180px) {

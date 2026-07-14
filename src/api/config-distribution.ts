@@ -1,9 +1,45 @@
-import request from './request'
+import request, { downloadBlob } from './request'
 import type { PageResult } from '@/types/api'
 
 export type ConfigDistributionObjectType = 'smart_fill_config' | 'equipment_config'
 export type ConfigDistributionScope = 'global' | 'company'
 export type ConfigDistributionStatus = 'published' | 'revoked'
+export type ConfigDistributionDownloadFormat = 'xlsx' | 'csv' | 'json'
+
+export interface SmartFillConfigPayload {
+  id: string
+  name: string
+  description?: string
+  conditionColumns: string[]
+  equalsColumn: string
+  generateColumns: string[]
+  conditionFormMap?: Record<string, string>
+  generateFormMap?: Record<string, string>
+  columnWidths?: Record<string, number>
+  rows: Array<Record<string, string>>
+}
+
+export interface EquipmentConfigColumn {
+  key: string
+  label: string
+  width?: number
+  locked?: boolean
+}
+
+export interface EquipmentConfigPayload {
+  key: string
+  name: string
+  description?: string
+  builtin?: boolean
+  defaultColumns?: EquipmentConfigColumn[]
+  config: {
+    columns: EquipmentConfigColumn[]
+    rows: Array<Record<string, string>>
+    updatedAt?: number
+  }
+}
+
+export type ConfigDistributionPayload = SmartFillConfigPayload | EquipmentConfigPayload
 
 export interface ConfigDistributionItem {
   id: number
@@ -26,6 +62,7 @@ export interface ConfigDistributionItem {
   revoked_at?: string | null
   created_at: string
   updated_at: string
+  payload?: ConfigDistributionPayload
 }
 
 export interface ConfigDistributionListParams {
@@ -51,6 +88,12 @@ export interface ConfigDistributionPublishPayload {
 export const configDistributionApi = {
   list(params: ConfigDistributionListParams): Promise<PageResult<ConfigDistributionItem>> {
     return request.get('/admin/mobile/config-distributions', { params })
+  },
+  detail(id: number): Promise<ConfigDistributionItem> {
+    return request.get(`/admin/mobile/config-distributions/${id}`)
+  },
+  download(id: number, format: ConfigDistributionDownloadFormat): Promise<Blob> {
+    return downloadBlob(`/admin/mobile/config-distributions/${id}/download`, { format })
   },
   publish(payload: ConfigDistributionPublishPayload): Promise<ConfigDistributionItem> {
     const data = new FormData()
