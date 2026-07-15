@@ -1,6 +1,7 @@
 import request from './request'
 import type {
   AuthorizationPageResult,
+  DeviceBindingDetail,
   DeviceBindingItem,
   DeviceBindingListParams,
   DeviceBindingUpdatePayload,
@@ -14,7 +15,7 @@ export const deviceBindingApi = {
     )
   },
   detail(id: number) {
-    return request.get<DeviceBindingItem, DeviceBindingItem>(`/admin/device-bindings/${id}`)
+    return request.get<DeviceBindingDetail, DeviceBindingDetail>(`/admin/device-bindings/${id}`)
   },
   update(id: number, payload: DeviceBindingUpdatePayload) {
     return request.put<DeviceBindingItem, DeviceBindingItem>(`/admin/device-bindings/${id}`, payload)

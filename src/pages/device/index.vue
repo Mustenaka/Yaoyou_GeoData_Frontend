@@ -42,6 +42,153 @@
       />
     </div>
 
+    <n-drawer v-model:show="detailVisible" width="min(860px, 100vw)">
+      <n-drawer-content :title="detailDrawerTitle()">
+        <div v-if="detailLoading" class="detail-loading" aria-live="polite">
+          <n-skeleton text :repeat="8" />
+        </div>
+
+        <n-result v-else-if="detailError" status="error" title="授权详情加载失败" :description="detailError">
+          <template #footer>
+            <n-button type="primary" @click="reloadDetail">重试</n-button>
+          </template>
+        </n-result>
+
+        <template v-else-if="detailBinding">
+          <section class="detail-section">
+            <div class="detail-section__header">
+              <h3>授权概况</h3>
+              <n-tag :type="authorizationTagType(authorizationViewState(detailBinding))" round>
+                {{ authorizationStateLabel(authorizationViewState(detailBinding)) }}
+              </n-tag>
+            </div>
+            <n-descriptions bordered :column="detailDescriptionColumns" label-placement="left" class="detail-descriptions">
+              <n-descriptions-item label="授权记录">#{{ detailBinding.id }}</n-descriptions-item>
+              <n-descriptions-item label="修订版本">{{ detailBinding.revision }}</n-descriptions-item>
+              <n-descriptions-item label="权益记录">#{{ detailBinding.entitlement_id }}</n-descriptions-item>
+              <n-descriptions-item label="权益代次">{{ detailBinding.entitlement_generation }} / 当前 {{ detailBinding.current_entitlement_generation ?? '-' }}</n-descriptions-item>
+              <n-descriptions-item label="企业 / 归属">{{ companyLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="授权账号">{{ bindingOwnerLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="客户端">{{ clientLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="产品代码">{{ detailBinding.product_code || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="授权来源">{{ detailBinding.activation_source || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="事实来源">{{ detailBinding.source_of_truth || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="生命周期状态">{{ detailBinding.lifecycle_status || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="设备准入状态">{{ detailBinding.device_readiness_status || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="授权期限">{{ authorizationValidityLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="实际生效区间">{{ effectiveValidityLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="准入阻断原因">{{ detailBinding.blocking_reason || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="发起人">{{ actorIdLabel(detailBinding.requested_by) }}</n-descriptions-item>
+              <n-descriptions-item label="批准人 / 时间">{{ actorTimeLabel(detailBinding.approved_by, detailBinding.approved_at) }}</n-descriptions-item>
+              <n-descriptions-item label="撤销人 / 时间">{{ actorTimeLabel(detailBinding.revoked_by, detailBinding.revoked_at) }}</n-descriptions-item>
+              <n-descriptions-item label="撤销原因">{{ detailBinding.revoked_reason || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="最近准入检查">{{ formatDateTime(detailBinding.last_check_at) }}</n-descriptions-item>
+              <n-descriptions-item label="旧授权记录">{{ detailBinding.legacy_authorization_id ? `#${detailBinding.legacy_authorization_id}` : '-' }}</n-descriptions-item>
+              <n-descriptions-item label="可用操作" :span="detailDescriptionColumns">{{ capabilitySummary(detailBinding.capabilities) }}</n-descriptions-item>
+              <n-descriptions-item label="活跃会话">{{ detailBinding.active_session_count ?? 0 }} 个</n-descriptions-item>
+              <n-descriptions-item label="最近会话到期">{{ formatDateTime(detailBinding.latest_session_expires_at) }}</n-descriptions-item>
+              <n-descriptions-item label="创建时间">{{ formatDateTime(detailBinding.created_at) }}</n-descriptions-item>
+              <n-descriptions-item label="更新时间">{{ formatDateTime(detailBinding.updated_at) }}</n-descriptions-item>
+            </n-descriptions>
+          </section>
+
+          <section class="detail-section">
+            <div class="detail-section__header">
+              <h3>设备信息</h3>
+              <n-text depth="3">指纹及设备标识仅显示脱敏摘要</n-text>
+            </div>
+            <n-descriptions v-if="detailBinding.device" bordered :column="detailDescriptionColumns" label-placement="left" class="detail-descriptions">
+              <n-descriptions-item label="设备">{{ detailDeviceLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="设备记录">#{{ detailBinding.device.id }}</n-descriptions-item>
+              <n-descriptions-item label="设备指纹">
+                <span class="mono">{{ maskedIdentifier(detailBinding.device.fingerprint_hash || detailBinding.fingerprint_hash) }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="指纹载荷">{{ fingerprintPayloadSummary(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="安装标识">
+                <span class="mono">{{ maskedIdentifier(detailBinding.device.mobile_install_id_hash || detailBinding.device.mobile_install_id) }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="主板标识">
+                <span class="mono">{{ maskedIdentifier(detailBinding.device.win_mainboard_id_hash) }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="系统版本">{{ detailBinding.device.os_version || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="应用版本">{{ detailBinding.device.app_version || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="设备状态">{{ deviceStatusText(detailBinding.device.status) }}</n-descriptions-item>
+              <n-descriptions-item label="风险级别">{{ detailBinding.device.risk_level || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="首次登记">{{ formatDateTime(detailBinding.device.first_seen_at) }}</n-descriptions-item>
+              <n-descriptions-item label="最近使用">{{ formatDateTime(detailBinding.device.last_seen_at) }}</n-descriptions-item>
+              <n-descriptions-item label="设备阻断时间">{{ formatDateTime(detailBinding.device.blocked_at) }}</n-descriptions-item>
+              <n-descriptions-item label="设备创建时间">{{ formatDateTime(detailBinding.device.created_at) }}</n-descriptions-item>
+              <n-descriptions-item label="设备更新时间">{{ formatDateTime(detailBinding.device.updated_at) }}</n-descriptions-item>
+              <n-descriptions-item v-if="detailBinding.device.blocked_reason" label="阻断原因" :span="detailDescriptionColumns">
+                {{ detailBinding.device.blocked_reason }}
+              </n-descriptions-item>
+            </n-descriptions>
+            <n-empty v-else description="暂无可展示的设备详情" />
+          </section>
+
+          <section class="detail-section">
+            <div class="detail-section__header">
+              <h3>相关申请</h3>
+              <n-text depth="3">{{ detailBinding.requests?.length || 0 }} 条</n-text>
+            </div>
+            <div v-if="detailBinding.requests?.length" class="request-list">
+              <div v-for="request in detailBinding.requests" :key="request.id" class="request-card">
+                <div class="request-card__header">
+                  <n-space size="small">
+                    <n-tag size="small" round>{{ requestTypeText(request.request_type) }}</n-tag>
+                    <n-tag size="small" :type="requestStatusTagType(request.status)" round>{{ requestStatusText(request.status) }}</n-tag>
+                  </n-space>
+                  <span>{{ formatDateTime(request.created_at) }}</span>
+                </div>
+                <div class="request-card__meta">
+                  <span>申请 #{{ request.id }}</span>
+                  <span>申请人：{{ requestActorLabel(request) }}</span>
+                  <span>企业：{{ request.company_name || (request.company_id ? `#${request.company_id}` : '-') }}</span>
+                  <span v-if="request.handled_by">处理人：#{{ request.handled_by }}</span>
+                  <span v-if="request.handled_at">处理于 {{ formatDateTime(request.handled_at) }}</span>
+                  <span v-if="request.updated_at">更新于 {{ formatDateTime(request.updated_at) }}</span>
+                </div>
+                <p v-if="request.reason">原因：{{ request.reason }}</p>
+                <p v-if="request.note">处理备注：{{ request.note }}</p>
+              </div>
+            </div>
+            <n-empty v-else description="暂无相关授权申请" />
+          </section>
+
+          <section class="detail-section detail-section--history">
+            <div class="detail-section__header">
+              <h3>操作历史</h3>
+              <n-text depth="3">最新记录在前</n-text>
+            </div>
+            <n-timeline v-if="detailBinding.history?.length">
+              <n-timeline-item
+                v-for="item in detailBinding.history"
+                :key="item.id"
+                :type="historyTimelineType(item.event_type)"
+                :title="historyEventLabel(item.event_type)"
+                :time="formatDateTime(item.occurred_at || item.created_at)"
+              >
+                <div class="history-content">
+                  <div>{{ item.summary || historyEventLabel(item.event_type) }}</div>
+                  <div class="history-meta">
+                    <span>{{ historyActorLabel(item) }}</span>
+                    <span v-if="item.request_id">申请 #{{ item.request_id }}</span>
+                    <span v-if="historyRevision(item) !== null">修订 {{ historyRevision(item) }}</span>
+                  </div>
+                  <div v-if="safeHistoryDetail(item.detail_json)" class="history-detail">
+                    {{ safeHistoryDetail(item.detail_json) }}
+                  </div>
+                </div>
+              </n-timeline-item>
+            </n-timeline>
+            <n-empty v-else description="暂无操作历史" />
+          </section>
+        </template>
+
+        <n-empty v-else description="请选择授权设备查看详情" />
+      </n-drawer-content>
+    </n-drawer>
+
     <n-drawer v-model:show="validityVisible" width="min(520px, 100vw)">
       <n-drawer-content title="修改授权期限">
         <n-form v-if="editingBinding" label-placement="top">
@@ -93,15 +240,24 @@
 </template>
 
 <script setup lang="ts">
-import { h, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { deviceBindingApi } from '@/api/authorization'
 import { useAuthStore } from '@/stores/auth'
-import type { AuthorizationCapabilities, DeviceBindingItem, DeviceBindingState, ProductCode } from '@/types/api'
+import type {
+  AuthorizationCapabilities,
+  DeviceBindingDetail,
+  DeviceBindingHistoryItem,
+  DeviceBindingItem,
+  DeviceBindingRequestItem,
+  DeviceBindingState,
+  ProductCode,
+} from '@/types/api'
 import { addMonthsDatePickerValue, datePickerISOString, datePickerValue, formatDateTime, shortHash } from '@/utils/format'
+import { changeRequestStatusLabel, deviceAuthorizationRequestTypeLabel, deviceStatusLabel } from '@/utils/labels'
 import { pageList, queryValue } from '@/utils/query'
 import { fetchCompanySelectOptions, mergeSelectedOption } from '@/utils/adminOptions'
 
@@ -118,6 +274,11 @@ const saving = ref(false)
 const revokeSaving = ref(false)
 const errorText = ref('')
 const bindings = ref<DeviceBindingItem[]>([])
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detailError = ref('')
+const detailBinding = ref<DeviceBindingDetail | null>(null)
+const detailBindingId = ref<number | null>(null)
 const validityVisible = ref(false)
 const revokeVisible = ref(false)
 const editingBinding = ref<DeviceBindingItem | null>(null)
@@ -127,6 +288,7 @@ const companyOptions = ref<SelectOption[]>([])
 const companyOptionsLoading = ref(false)
 const pageCapabilities = ref<AuthorizationCapabilities>({})
 const targetBindingId = ref<number | null>(null)
+const detailDescriptionColumns = ref(2)
 let internalRouteUpdate = false
 
 const clientOptions = [
@@ -168,7 +330,7 @@ const columns: DataTableColumns<DeviceBindingItem> = [
     minWidth: 220,
     render: (row) => h('div', { class: 'device-cell' }, [
       h('span', { class: 'device-cell__name' }, deviceLabel(row)),
-      h('span', { class: 'device-cell__hash mono', title: row.fingerprint_hash || '' }, shortHash(row.fingerprint_hash)),
+      h('span', { class: 'device-cell__hash mono' }, shortHash(row.fingerprint_hash)),
     ]),
   },
   { title: '客户端', key: 'client_type', width: 100, render: clientLabel },
@@ -186,9 +348,10 @@ const columns: DataTableColumns<DeviceBindingItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 210,
+    width: 285,
     fixed: 'right',
     render: (row) => h('div', { class: 'table-actions' }, [
+      h(NButton, { size: 'small', secondary: true, onClick: () => openDetail(row) }, { default: () => '详情' }),
       rowCanUpdate(row)
         ? h(NButton, { size: 'small', onClick: () => openValidity(row) }, { default: () => '修改期限' })
         : null,
@@ -216,6 +379,152 @@ function companyLabel(row: DeviceBindingItem) {
 
 function deviceLabel(row: DeviceBindingItem) {
   return row.device_name || `设备 #${row.device_fingerprint_id}`
+}
+
+function detailDrawerTitle() {
+  return detailBinding.value ? `${deviceLabel(detailBinding.value)} · 授权详情` : '设备授权详情'
+}
+
+function detailDeviceLabel(row: DeviceBindingDetail) {
+  return row.device?.device_name || row.device_name || `设备 #${row.device?.id || row.device_fingerprint_id}`
+}
+
+function bindingOwnerLabel(row: DeviceBindingDetail) {
+  if (row.assigned_username) return `${row.assigned_username}${row.assigned_user_id ? ` #${row.assigned_user_id}` : ''}`
+  if (row.subject_name) return `${row.subject_name}${row.owner_user_id ? ` #${row.owner_user_id}` : ''}`
+  if (row.owner_user_id) return `账号 #${row.owner_user_id}`
+  return '-'
+}
+
+function effectiveValidityLabel(row: DeviceBindingDetail) {
+  const from = row.effective_from ? formatDateTime(row.effective_from) : '立即生效'
+  return row.effective_until ? `${from} 至 ${formatDateTime(row.effective_until)}` : `${from}起长期有效`
+}
+
+function actorIdLabel(value?: number | null) {
+  return value ? `#${value}` : '-'
+}
+
+function actorTimeLabel(actor?: number | null, occurredAt?: string | null) {
+  if (!actor && !occurredAt) return '-'
+  return `${actorIdLabel(actor)} / ${formatDateTime(occurredAt)}`
+}
+
+function capabilitySummary(capabilities?: AuthorizationCapabilities) {
+  if (!capabilities) return '-'
+  const enabled = Object.entries(capabilities)
+    .filter(([, value]) => value === true)
+    .map(([key]) => key)
+  return enabled.length ? enabled.join('、') : '无可用操作'
+}
+
+function updateDetailDescriptionColumns() {
+  detailDescriptionColumns.value = typeof window !== 'undefined' && window.innerWidth <= 700 ? 1 : 2
+}
+
+function maskedIdentifier(value?: string | null) {
+  if (!value) return '-'
+  if (value.length <= 4) return '***'
+  if (value.length <= 12) return `${value.slice(0, 2)}***${value.slice(-2)}`
+  return `${value.slice(0, 8)}...${value.slice(-6)}`
+}
+
+function fingerprintPayloadSummary(row: DeviceBindingDetail) {
+  const payload = row.device?.fingerprint_payload || parseSafeRecord(row.device?.fingerprint_payload_json)
+  if (!payload) return '未记录或不可展示'
+  const keys = Object.keys(payload).filter((key) => !sensitiveDetailKey(key)).sort()
+  return keys.length ? `已脱敏（${keys.slice(0, 8).join('、')}${keys.length > 8 ? '…' : ''}）` : '已脱敏'
+}
+
+function deviceStatusText(status?: string) {
+  return deviceStatusLabel(status) || '-'
+}
+
+function requestTypeText(type?: string) {
+  return deviceAuthorizationRequestTypeLabel(type)
+}
+
+function requestStatusText(status?: string) {
+  return changeRequestStatusLabel(status)
+}
+
+function requestStatusTagType(status?: string): TagType {
+  if (status === 'approved') return 'success'
+  if (status === 'pending') return 'warning'
+  if (status === 'rejected') return 'error'
+  return 'default'
+}
+
+function requestActorLabel(request: DeviceBindingRequestItem) {
+  const name = request.real_name || request.username
+  return name ? `${name}${request.user_id ? ` #${request.user_id}` : ''}` : request.user_id ? `#${request.user_id}` : '-'
+}
+
+function historyEventLabel(type?: string) {
+  const labels: Record<string, string> = {
+    authorization_requested: '发起授权申请',
+    authorized: '授权生效',
+    auto_expired: '授权自动过期',
+    renewal_requested: '发起续期申请',
+    renewed: '授权续期',
+    terms_updated: '修改授权期限',
+    revoked: '取消授权',
+    request_rejected: '拒绝授权申请',
+  }
+  return labels[type || ''] || type || '授权状态变更'
+}
+
+function historyTimelineType(type?: string): TagType {
+  if (type === 'authorized' || type === 'renewed') return 'success'
+  if (type === 'authorization_requested' || type === 'renewal_requested' || type === 'terms_updated') return 'warning'
+  if (type === 'auto_expired' || type === 'revoked' || type === 'request_rejected') return 'error'
+  return 'default'
+}
+
+function historyActorLabel(item: DeviceBindingHistoryItem) {
+  const name = item.actor_real_name || item.actor_username
+  if (name) return `操作人：${name}${item.actor_user_id ? ` #${item.actor_user_id}` : ''}`
+  if (item.actor_user_id) return `操作人：#${item.actor_user_id}`
+  return item.actor_type === 'system' || item.event_type === 'auto_expired' ? '系统自动记录' : '操作人：-'
+}
+
+function historyRevision(item: DeviceBindingHistoryItem) {
+  return item.binding_revision ?? item.revision ?? null
+}
+
+function safeHistoryDetail(value: DeviceBindingHistoryItem['detail_json']) {
+  const record = typeof value === 'string' ? parseSafeRecord(value) : value
+  if (!record) return value ? '详情已记录（内容不适合直接展示）' : ''
+  return Object.entries(record)
+    .slice(0, 12)
+    .map(([key, item]) => `${key}：${sensitiveDetailKey(key) ? '***' : safeDetailValue(item)}`)
+    .join('；')
+}
+
+function parseSafeRecord(value?: string | null) {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+function sensitiveDetailKey(key: string) {
+  return /(fingerprint|payload|token|secret|password|credential|signature|nonce|install|mainboard|private|certificate|hash)/i.test(key)
+}
+
+function safeDetailValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return '-'
+  if (typeof value === 'string') {
+    if (/^[a-f\d]{24,}$/i.test(value) || /^eyJ[A-Za-z\d_-]+\./.test(value)) return '***'
+    return value
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return `${value.length} 项`
+  if (typeof value === 'object') return `${Object.keys(value as Record<string, unknown>).length} 项`
+  return '-'
 }
 
 function clientValue(row: DeviceBindingItem) {
@@ -344,6 +653,32 @@ async function fetchBindings() {
   }
 }
 
+async function openDetail(row: DeviceBindingItem) {
+  detailBindingId.value = row.id
+  detailBinding.value = null
+  detailError.value = ''
+  detailVisible.value = true
+  await reloadDetail()
+}
+
+async function reloadDetail() {
+  const id = detailBindingId.value
+  if (!id) return
+  detailLoading.value = true
+  detailError.value = ''
+  try {
+    const result = await deviceBindingApi.detail(id)
+    if (detailBindingId.value === id) detailBinding.value = result
+  } catch (error) {
+    if (detailBindingId.value === id) {
+      detailBinding.value = null
+      detailError.value = error instanceof Error ? error.message : '设备授权详情加载失败'
+    }
+  } finally {
+    if (detailBindingId.value === id) detailLoading.value = false
+  }
+}
+
 async function applyFilters() {
   pagination.page = 1
   targetBindingId.value = null
@@ -432,6 +767,7 @@ async function submitValidity() {
     message.success('设备授权期限已更新')
     validityVisible.value = false
     await fetchBindings()
+    if (detailVisible.value && detailBindingId.value === row.id) await reloadDetail()
   } catch (error) {
     message.error(error instanceof Error ? error.message : '设备授权期限更新失败')
   } finally {
@@ -460,6 +796,7 @@ async function submitRevoke() {
     message.success('设备授权已取消')
     revokeVisible.value = false
     await fetchBindings()
+    if (detailVisible.value && detailBindingId.value === row.id) await reloadDetail()
   } catch (error) {
     message.error(error instanceof Error ? error.message : '取消设备授权失败')
   } finally {
@@ -497,8 +834,14 @@ watch(
 )
 
 onMounted(async () => {
+  updateDetailDescriptionColumns()
+  window.addEventListener('resize', updateDetailDescriptionColumns)
   applyRouteFilters()
   await Promise.all([fetchBindings(), searchCompanies()])
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateDetailDescriptionColumns)
 })
 </script>
 
@@ -522,6 +865,86 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
+.detail-loading {
+  min-height: 260px;
+  padding: 8px 0;
+}
+
+.detail-section {
+  padding: 4px 0 22px;
+}
+
+.detail-section + .detail-section {
+  border-top: 1px solid var(--yy-border);
+  padding-top: 22px;
+}
+
+.detail-section__header,
+.request-card__header,
+.request-card__meta,
+.history-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-section__header {
+  margin-bottom: 14px;
+}
+
+.detail-section__header h3 {
+  margin: 0;
+  color: var(--text-color-1);
+  font-size: 16px;
+}
+
+.request-list {
+  display: grid;
+  gap: 12px;
+}
+
+.request-card {
+  padding: 14px;
+  border: 1px solid var(--yy-border);
+  border-radius: var(--radius-sm);
+  background: var(--yy-surface);
+}
+
+.request-card__header > span,
+.request-card__meta,
+.history-meta,
+.history-detail {
+  color: var(--text-color-3);
+  font-size: 12px;
+}
+
+.request-card__meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.request-card p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+.history-content {
+  display: grid;
+  gap: 6px;
+  line-height: 1.6;
+}
+
+.history-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.history-detail {
+  overflow-wrap: anywhere;
+}
+
 :deep(.target-row td) {
   background: rgba(24, 160, 88, 0.1) !important;
 }
@@ -529,6 +952,12 @@ onMounted(async () => {
 @media (max-width: 700px) {
   :deep(.n-drawer-body-content-wrapper) {
     padding: 16px;
+  }
+
+  .detail-section__header,
+  .request-card__header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

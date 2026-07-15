@@ -73,6 +73,27 @@ export interface ConfigEquipmentConfigItem extends ConfigSnapshotTable {
   typeName: string
 }
 
+export interface StructuredConfigModuleState {
+  schemaVersion: string
+  isSchema3: boolean
+  dataEntryPresent: boolean
+  dataEntrySource: string
+  dataEntryDefaultApplied: boolean
+  smartFillPresent: boolean
+  smartFillSource: string
+  smartFillConfigCount: number
+  smartFillBodyCount: number
+  smartFillDistributedRefCount: number
+  smartFillUsesDefaultRule: boolean
+  smartFillConfigFileId: string
+  equipmentPresent: boolean
+  equipmentSource: string
+  equipmentConfigCount: number
+  equipmentBodyCount: number
+  equipmentDistributedRefCount: number
+  equipmentIsEmpty: boolean
+}
+
 export interface StructuredConfig {
   rawText: string
   error: string
@@ -85,6 +106,7 @@ export interface StructuredConfig {
   equipmentTypes: ConfigEquipmentTypeItem[]
   equipmentConfigs: ConfigEquipmentConfigItem[]
   configItems: ConfigKeyValueItem[]
+  moduleState: StructuredConfigModuleState
 }
 
 export interface SnapshotColumnDef {
@@ -125,25 +147,187 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
       equipmentTypes: [],
       equipmentConfigs: [],
       configItems: [],
+      moduleState: emptyStructuredConfigModuleState(),
     }
   }
 
-  const workForms = extractWorkForms(parsed.record)
+  const record = normalizeStructuredConfigRecord(parsed.record)
+  const workForms = extractWorkForms(record)
   const mappingColumns = workForms.flatMap((form) => form.columns)
-  const equipmentTypes = extractEquipmentTypes(parsed.record)
+  const fillConfigs = extractFillConfigs(record)
+  const equipmentTypes = extractEquipmentTypes(record)
+  const equipmentConfigs = extractEquipmentConfigs(record, equipmentTypes)
   return {
     rawText: parsed.rawText,
     error: parsed.error,
-    basicInfoItems: extractGlobalConfigBasicInfo(parsed.record),
-    operationSettings: extractOperationSettings(parsed.record),
+    basicInfoItems: extractGlobalConfigBasicInfo(record),
+    operationSettings: extractOperationSettings(record),
     workForms,
     mappingColumns,
     mappingRules: workForms.flatMap((form) => form.rules),
-    fillConfigs: extractFillConfigs(parsed.record),
+    fillConfigs,
     equipmentTypes,
-    equipmentConfigs: extractEquipmentConfigs(parsed.record, equipmentTypes),
-    configItems: extractConfigItems(parsed.record),
+    equipmentConfigs,
+    configItems: extractConfigItems(record),
+    moduleState: extractStructuredConfigModuleState(parsed.record, fillConfigs.length, equipmentConfigs.length),
   }
+}
+
+function emptyStructuredConfigModuleState(): StructuredConfigModuleState {
+  return {
+    schemaVersion: '',
+    isSchema3: false,
+    dataEntryPresent: false,
+    dataEntrySource: '',
+    dataEntryDefaultApplied: false,
+    smartFillPresent: false,
+    smartFillSource: '',
+    smartFillConfigCount: 0,
+    smartFillBodyCount: 0,
+    smartFillDistributedRefCount: 0,
+    smartFillUsesDefaultRule: false,
+    smartFillConfigFileId: '',
+    equipmentPresent: false,
+    equipmentSource: '',
+    equipmentConfigCount: 0,
+    equipmentBodyCount: 0,
+    equipmentDistributedRefCount: 0,
+    equipmentIsEmpty: false,
+  }
+}
+
+function extractStructuredConfigModuleState(record: JsonRecord, fillConfigCount: number, equipmentConfigCount: number): StructuredConfigModuleState {
+  const modules = asRecord(record.modules)
+  const schema3DataEntry = asRecord(parseEmbeddedJSON(record.data_entry_mapping))
+  const schema3MultiRule = asRecord(parseEmbeddedJSON(record.multi_rule_mapping))
+  const schema3Equipment = asRecord(parseEmbeddedJSON(record.equipment_management))
+  const v2DataEntry = asRecord(parseEmbeddedJSON(modules?.dataEntryMapping))
+  const v2MultiRule = asRecord(parseEmbeddedJSON(modules?.multiRuleMapping))
+  const v2Equipment = asRecord(parseEmbeddedJSON(modules?.equipmentManagement))
+  const explicitState = findExplicitModuleState(record)
+  const explicitDataEntry = asRecord(explicitState?.data_entry_mapping) || asRecord(explicitState?.dataEntryMapping)
+  const explicitSmartFill = asRecord(explicitState?.multi_rule_mapping) || asRecord(explicitState?.multiRuleMapping)
+  const explicitEquipment = asRecord(explicitState?.equipment_management) || asRecord(explicitState?.equipmentManagement)
+  const explicitRuleReference = asRecord(explicitSmartFill?.rule_reference) || asRecord(explicitSmartFill?.ruleReference)
+  const globalRule = asRecord(parseEmbeddedJSON(
+    schema3MultiRule?.global_rule ?? schema3MultiRule?.globalRule ?? v2MultiRule?.globalRule ?? record.globalFillRule,
+  ))
+  const schemaVersion = firstNonEmptyString(record.schema_version, record.version, record.packageVersion, record.package_version)
+  const isSchema3 = Number(schemaVersion) === 3
+  const dataEntryPresent = !!explicitDataEntry || !!schema3DataEntry || !!v2DataEntry || !!asRecord(parseEmbeddedJSON(record.globalMapping))
+  const smartFillPresent = !!explicitSmartFill || !!schema3MultiRule || !!v2MultiRule || isConfigCollection(record.fillConfigs)
+  const equipmentPresent = !!explicitEquipment || !!schema3Equipment || !!v2Equipment || isConfigCollection(record.equipmentConfigs)
+  const explicitSmartFillEmpty = optionalBoolean(explicitSmartFill?.default_empty_config ?? explicitSmartFill?.defaultEmptyConfig)
+  const explicitEquipmentEmpty = optionalBoolean(explicitEquipment?.default_empty_config ?? explicitEquipment?.defaultEmptyConfig)
+  return {
+    schemaVersion,
+    isSchema3,
+    dataEntryPresent,
+    dataEntrySource: firstNonEmptyString(explicitDataEntry?.source),
+    dataEntryDefaultApplied: optionalBoolean(explicitDataEntry?.default_applied ?? explicitDataEntry?.defaultApplied) ?? false,
+    smartFillPresent,
+    smartFillSource: firstNonEmptyString(explicitSmartFill?.source),
+    smartFillConfigCount: fillConfigCount,
+    smartFillBodyCount: optionalNonNegativeNumber(explicitSmartFill?.body_count ?? explicitSmartFill?.bodyCount ?? explicitSmartFill?.local_body_count) ?? fillConfigCount,
+    smartFillDistributedRefCount: optionalNonNegativeNumber(explicitSmartFill?.distributed_ref_count ?? explicitSmartFill?.distributedRefCount) ?? 0,
+    smartFillUsesDefaultRule: explicitSmartFillEmpty ?? (!!globalRule && (!!schema3MultiRule || !!v2MultiRule) && fillConfigCount === 0),
+    smartFillConfigFileId: firstNonEmptyString(
+      explicitRuleReference?.config_file_id,
+      explicitRuleReference?.configFileId,
+      globalRule?.configFileId,
+      globalRule?.config_file_id,
+    ),
+    equipmentPresent,
+    equipmentSource: firstNonEmptyString(explicitEquipment?.source),
+    equipmentConfigCount,
+    equipmentBodyCount: optionalNonNegativeNumber(explicitEquipment?.body_count ?? explicitEquipment?.bodyCount ?? explicitEquipment?.local_body_count) ?? equipmentConfigCount,
+    equipmentDistributedRefCount: optionalNonNegativeNumber(explicitEquipment?.distributed_ref_count ?? explicitEquipment?.distributedRefCount) ?? 0,
+    equipmentIsEmpty: explicitEquipmentEmpty ?? ((!!schema3Equipment || !!v2Equipment) && equipmentConfigCount === 0),
+  }
+}
+
+function isConfigCollection(value: unknown): boolean {
+  const parsed = parseEmbeddedJSON(value)
+  return Array.isArray(parsed) || !!asRecord(parsed)
+}
+
+function findExplicitModuleState(record: JsonRecord): JsonRecord | null {
+  const direct = asRecord(parseEmbeddedJSON(record.module_state)) || asRecord(parseEmbeddedJSON(record.moduleState))
+  if (direct) return direct
+  const formConfigs = asRecord(record.formConfigs) || asRecord(record.form_configs)
+  if (!formConfigs) return null
+  for (const value of Object.values(formConfigs)) {
+    const form = asRecord(parseEmbeddedJSON(value))
+    const state = asRecord(parseEmbeddedJSON(form?.moduleState)) || asRecord(parseEmbeddedJSON(form?.module_state))
+    if (state) return state
+  }
+  return null
+}
+
+function optionalBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
+}
+
+function optionalNonNegativeNumber(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+function normalizeStructuredConfigRecord(record: JsonRecord): JsonRecord {
+  const normalized: JsonRecord = { ...record }
+  setAlias(normalized, 'version', record.schema_version)
+  setAlias(normalized, 'appSettings', record.app_settings)
+  setAlias(normalized, 'globalProjectConfig', record.global_project_config)
+  setAlias(normalized, 'embeddedConfigs', record.embedded_configs)
+  setAlias(normalized, 'configRefs', record.distributed_config_refs)
+  setAlias(normalized, 'resolvedDistributedConfigs', record.resolved_distributed_configs)
+
+  const modules: JsonRecord = { ...(asRecord(record.modules) || {}) }
+  const dataEntryMapping = normalizeSnakeModule(record.data_entry_mapping, {
+    generatedJson: 'generated_json',
+    formType: 'form_type',
+    formTitle: 'form_title',
+  })
+  const multiRuleMapping = normalizeSnakeModule(record.multi_rule_mapping, {
+    globalRule: 'global_rule',
+    generatedJson: 'generated_json',
+    fillConfigs: 'fill_configs',
+  })
+  const equipmentManagement = normalizeSnakeModule(record.equipment_management, {
+    customTypes: 'custom_types',
+    typeNameOverrides: 'type_name_overrides',
+    equipmentConfigs: 'configs',
+    generatedJson: 'generated_json',
+  })
+
+  if (modules.dataEntryMapping === undefined && dataEntryMapping !== null) modules.dataEntryMapping = dataEntryMapping
+  if (modules.multiRuleMapping === undefined && multiRuleMapping !== null) modules.multiRuleMapping = multiRuleMapping
+  if (modules.equipmentManagement === undefined && equipmentManagement !== null) modules.equipmentManagement = equipmentManagement
+  if (Object.keys(modules).length) normalized.modules = modules
+
+  const canonicalDataEntryMapping = asRecord(modules.dataEntryMapping)
+  const canonicalMultiRuleMapping = asRecord(modules.multiRuleMapping)
+  const canonicalEquipmentManagement = asRecord(modules.equipmentManagement)
+  setAlias(normalized, 'globalMapping', canonicalDataEntryMapping?.config ?? dataEntryMapping)
+  setAlias(normalized, 'globalFillRule', canonicalMultiRuleMapping?.globalRule)
+  setAlias(normalized, 'fillConfigs', canonicalMultiRuleMapping?.configs ?? canonicalMultiRuleMapping?.fillConfigs)
+  setAlias(normalized, 'equipmentTypes', canonicalEquipmentManagement?.types)
+  setAlias(normalized, 'customEquipmentTypes', canonicalEquipmentManagement?.customTypes)
+  setAlias(normalized, 'equipmentTypeNameOverrides', canonicalEquipmentManagement?.typeNameOverrides)
+  setAlias(normalized, 'equipmentConfigs', canonicalEquipmentManagement?.equipmentConfigs ?? canonicalEquipmentManagement?.configs)
+  return normalized
+}
+
+function normalizeSnakeModule(value: unknown, aliases: Record<string, string>): JsonRecord | null {
+  const record = asRecord(parseEmbeddedJSON(value))
+  if (!record) return null
+  const normalized: JsonRecord = { ...record }
+  Object.entries(aliases).forEach(([canonical, source]) => setAlias(normalized, canonical, record[source]))
+  return normalized
+}
+
+function setAlias(record: JsonRecord, key: string, value: unknown) {
+  if (record[key] === undefined && value !== undefined) record[key] = value
 }
 
 export function parseFormSnapshot(raw?: string | null): ParsedFormSnapshot {
@@ -251,6 +435,7 @@ function extractWorkForms(record: JsonRecord): ConfigWorkForm[] {
 
 function collectMappingSources(record: JsonRecord): JsonRecord[] {
   const candidates = [
+    ...formConfigMappingCandidates(record),
     readNestedValue(record, ['configs', 'dataEntryMapping', 'config']),
     readNestedValue(record, ['configs', 'dataEntryMapping']),
     readNestedValue(record, ['configs', 'globalMapping', 'config']),
@@ -262,6 +447,9 @@ function collectMappingSources(record: JsonRecord): JsonRecord[] {
     readNestedValue(record, ['modules', 'dataEntryMapping', 'config']),
     readNestedValue(record, ['modules', 'dataEntryMapping', 'generatedJson']),
     readNestedValue(record, ['modules', 'dataEntryMapping']),
+    readNestedValue(record, ['data_entry_mapping', 'config']),
+    readNestedValue(record, ['data_entry_mapping', 'generated_json']),
+    record.data_entry_mapping,
     record.globalMapping,
     record.dataEntryMapping,
     record,
@@ -270,16 +458,41 @@ function collectMappingSources(record: JsonRecord): JsonRecord[] {
   candidates.forEach((candidate) => {
     normalizeMappingSourceCandidates(candidate).forEach((source) => {
       if (!hasMappingColumns(source)) return
-      const signature = [
-        firstNonEmptyString(source.configId, source.id),
-        firstNonEmptyString(source.formType, source.form_type),
-        extractMappingColumnCount(source),
-      ].join(':')
+      const explicitID = firstNonEmptyString(source.configId, source.id)
+      const formType = firstNonEmptyString(source.formType, source.form_type)
+      const signature = explicitID ? `id:${explicitID}:${formType}` : `body:${stableValueSignature(source)}`
       if (sources.some((item) => item.signature === signature)) return
       sources.push({ signature, source })
     })
   })
   return sources.map((item) => item.source)
+}
+
+function formConfigMappingCandidates(record: JsonRecord): unknown[] {
+  const formConfigs = asRecord(record.formConfigs) || asRecord(record.form_configs)
+  if (!formConfigs) return []
+  return Object.entries(formConfigs).flatMap(([formType, raw]) => {
+    const form = asRecord(parseEmbeddedJSON(raw))
+    if (!form) return []
+    const mapping = form.dataEntryMapping ?? form.data_entry_mapping
+    const parsed = parseEmbeddedJSON(mapping)
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => withFormType(item, formType)).filter((item): item is JsonRecord => !!item)
+    }
+    const direct = withFormType(parsed, formType)
+    const wrapper = asRecord(parsed)
+    const config = withFormType(wrapper?.config, formType)
+    const generated = asArray(parseEmbeddedJSON(wrapper?.generatedJson ?? wrapper?.generated_json))
+      .map((item) => withFormType(item, formType))
+      .filter((item): item is JsonRecord => !!item)
+    return [config, direct, ...generated].filter((item): item is JsonRecord => !!item)
+  })
+}
+
+function withFormType(value: unknown, formType: string) {
+  const record = asRecord(parseEmbeddedJSON(value))
+  if (!record) return null
+  return firstNonEmptyString(record.formType, record.form_type) ? record : { ...record, formType }
 }
 
 interface ConfigWorkFormCandidate {
@@ -518,6 +731,7 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
 
   add('packageVersion', '项目包版本', record.packageVersion)
   add('version', '配置版本', record.version)
+  add('schemaVersion', '配置 Schema', record.schema_version)
   add('exportedAt', '导出时间', record.exportedAt)
   add('usageConfig', '项目使用配置', objectSummary(record.usageConfig))
   add('configs', '项目配置块', objectSummary(record.configs))
@@ -529,6 +743,8 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
   add('fillConfigs', '智能填充配置表', arraySummary(record.fillConfigs))
   add('equipmentTypes', '器材类型', arraySummary(record.equipmentTypes))
   add('equipmentConfigs', '器材配置', arraySummary(record.equipmentConfigs))
+  add('configRefs', '网络配置引用', arraySummary(record.configRefs))
+  add('resolvedDistributedConfigs', '已解析网络配置', arraySummary(record.resolvedDistributedConfigs))
   add('modules', '模块配置', objectSummary(record.modules))
 
   const operationSettings = readNestedRecord(record, ['usageConfig', 'operationSettings']) || readNestedRecord(record, ['appSettings'])
@@ -549,7 +765,7 @@ const visibleAppSettingFields: Array<{ key: string; label: string; source: strin
 
 function extractGlobalConfigBasicInfo(record: JsonRecord): ConfigKeyValueItem[] {
   return [
-    { key: 'version', label: '快照版本', value: displayValue(record.version) },
+    { key: 'version', label: '快照版本', value: displayValue(record.version ?? record.schema_version) },
     { key: 'exportedAt', label: '导出时间', value: formatExportedAt(record.exportedAt) },
   ].filter((item) => item.value && item.value !== '-')
 }
@@ -588,22 +804,28 @@ function extractFillConfigs(record: JsonRecord): ConfigFillConfigItem[] {
   const configs = collectFillConfigs(record)
   return configs
     .map((item, index) => {
-    const config = asRecord(item)
-    if (!config) return null
-    const columns = buildFillConfigTableColumns(config)
-    const rows = normalizeRows(asArray(config.rows), columns)
-    return {
-      id: firstNonEmptyString(config.id, config.key) || `fill-${index + 1}`,
-      name: firstNonEmptyString(config.name, config.label, config.title) || `智能填充${index + 1}`,
-      description: firstNonEmptyString(config.description, config.remark),
-      columns,
-      rows,
-      tableColumns: buildDataTableColumns(columns),
-      scrollX: tableScrollX(columns),
-      conditionColumnCount: asArray(config.conditionColumns).length,
-      generateColumnCount: asArray(config.generateColumns).length,
-    }
-  })
+      const source = asRecord(item)
+      const config = source ? normalizeSnakeModule(source, {
+        conditionColumns: 'condition_columns',
+        equalsColumn: 'equals_column',
+        generateColumns: 'generate_columns',
+        columnWidths: 'column_widths',
+      }) : null
+      if (!config) return null
+      const columns = buildFillConfigTableColumns(config)
+      const rows = normalizeRows(asArray(config.rows), columns)
+      return {
+        id: firstNonEmptyString(config.id, config.key) || `fill-${index + 1}`,
+        name: firstNonEmptyString(config.name, config.label, config.title) || `智能填充${index + 1}`,
+        description: firstNonEmptyString(config.description, config.remark),
+        columns,
+        rows,
+        tableColumns: buildDataTableColumns(columns),
+        scrollX: tableScrollX(columns),
+        conditionColumnCount: asArray(config.conditionColumns).length,
+        generateColumnCount: asArray(config.generateColumns).length,
+      }
+    })
     .filter((item): item is ConfigFillConfigItem => !!item)
 }
 
@@ -615,6 +837,7 @@ function collectFillConfigs(record: JsonRecord): unknown[] {
     ...asArray(parseEmbeddedJSON(store?.configs)),
     ...asArray(parseEmbeddedJSON(multiRuleMapping.configs)),
     ...asArray(parseEmbeddedJSON(multiRuleMapping.fillConfigs)),
+    ...collectEmbeddedConfigPayloads(record, new Set(['smart_fill_config', 'smart_fill_config_override'])),
   ])
   const generatedConfigs = uniqueConfigRecords(asArray(parseEmbeddedJSON(multiRuleMapping.generatedJson)))
   const includeGenerated = userConfigs.length === 0 || store?.builtinsSeeded !== true
@@ -624,15 +847,31 @@ function collectFillConfigs(record: JsonRecord): unknown[] {
 function uniqueConfigRecords(values: unknown[]) {
   const seen = new Set<string>()
   const rows: JsonRecord[] = []
-  values.forEach((value, index) => {
+  values.forEach((value) => {
     const record = asRecord(parseEmbeddedJSON(value))
     if (!record) return
-    const signature = firstNonEmptyString(record.id, record.key, record.name, record.label) || `config-${index}`
+    const identity = firstNonEmptyString(record.id, record.key, record.configKey, record.config_key)
+    const signature = identity ? `id:${identity}` : `body:${stableValueSignature(record)}`
     if (seen.has(signature)) return
     seen.add(signature)
     rows.push(record)
   })
   return rows
+}
+
+function collectEmbeddedConfigPayloads(record: JsonRecord, kinds: Set<string>) {
+  const entries = [
+    ...asArray(parseEmbeddedJSON(record.embeddedConfigs)),
+    ...asArray(parseEmbeddedJSON(record.embedded_configs)),
+  ]
+  return entries.flatMap((item) => {
+    const entry = asRecord(parseEmbeddedJSON(item))
+    if (!entry) return []
+    const kind = firstNonEmptyString(entry.kind, entry.object_type).toLowerCase()
+    if (!kinds.has(kind)) return []
+    const payload = asRecord(parseEmbeddedJSON(entry.payload))
+    return payload ? [payload] : []
+  })
 }
 
 function buildFillConfigTableColumns(config: JsonRecord): SnapshotColumnDef[] {
@@ -677,7 +916,7 @@ function extractEquipmentTypes(record: JsonRecord): ConfigEquipmentTypeItem[] {
     add({
       key: firstNonEmptyString(type.key, type.typeKey, type.id),
       name: firstNonEmptyString(type.name, type.label, type.title),
-      source: '内置',
+      source: equipmentSourceLabel(type, '内置'),
       description: firstNonEmptyString(type.description, type.remark),
     })
   })
@@ -690,7 +929,7 @@ function extractEquipmentTypes(record: JsonRecord): ConfigEquipmentTypeItem[] {
       add({
         key: firstNonEmptyString(type.key, type.typeKey, type.id),
         name: firstNonEmptyString(type.name, type.label, type.title),
-        source: '自定义',
+        source: equipmentSourceLabel(type, '自定义'),
         description: firstNonEmptyString(type.description, type.remark),
       })
     })
@@ -703,7 +942,7 @@ function extractEquipmentTypes(record: JsonRecord): ConfigEquipmentTypeItem[] {
           add({
             key: firstNonEmptyString(type.key, key),
             name: firstNonEmptyString(type.name, type.label, type.title),
-            source: '自定义',
+            source: equipmentSourceLabel(type, '自定义'),
             description: firstNonEmptyString(type.description, type.remark),
           })
         } else {
@@ -718,26 +957,43 @@ function extractEquipmentTypes(record: JsonRecord): ConfigEquipmentTypeItem[] {
       .sort()
       .forEach((key) => add({ key, name: stringValue(overrides[key]), source: '名称覆盖', description: '' }))
   }
+
+  collectEmbeddedConfigPayloads(record, new Set(['equipment_config', 'equipment_config_override'])).forEach((payload) => {
+    const type = asRecord(payload.type)
+    if (!type) return
+    add({
+      key: firstNonEmptyString(type.key, type.typeKey, type.id, payload.key),
+      name: firstNonEmptyString(type.name, type.label, type.title, payload.name),
+      source: '网络下发',
+      description: firstNonEmptyString(type.description, type.remark, payload.description),
+    })
+  })
   return rows
+}
+
+function equipmentSourceLabel(type: JsonRecord, fallback: string) {
+  const source = firstNonEmptyString(type.source, type.sourceType, type.source_type).toLowerCase()
+  if (type.builtin === true) return '内置'
+  if (source === 'network') return '网络下发'
+  if (source === 'self_upload') return '本地副本'
+  if (source === 'local') return type.builtin === true ? '内置' : fallback
+  return fallback
 }
 
 function extractEquipmentConfigs(record: JsonRecord, types: ConfigEquipmentTypeItem[]): ConfigEquipmentConfigItem[] {
   const typeNames = new Map(types.map((item) => [item.key, item.name || item.key]))
-  const configs = asRecord(record.equipmentConfigs) || readNestedRecord(record, ['modules', 'equipmentManagement', 'equipmentConfigs'])
-  if (!configs) return []
-  return Object.keys(configs)
-    .sort()
-    .map((typeKey) => {
-      const typeName = typeNames.get(typeKey) || typeKey
-      const config = asRecord(configs[typeKey])
-      if (!config) return null
+  const configs = collectEquipmentConfigSources(record)
+  return configs
+    .sort((left, right) => left.typeKey.localeCompare(right.typeKey))
+    .map(({ typeKey, typeName: sourceTypeName, description, config }) => {
+      const typeName = typeNames.get(typeKey) || sourceTypeName || typeKey
       const columns = extractEquipmentColumns(config)
       const tableColumns = columns.length ? columns : deriveEquipmentColumnsFromRows(asArray(config.rows))
       const rows = normalizeRows(asArray(config.rows), tableColumns)
       return {
         id: typeKey,
         name: typeName,
-        description: '',
+        description,
         typeKey,
         typeName,
         columns: tableColumns,
@@ -747,6 +1003,39 @@ function extractEquipmentConfigs(record: JsonRecord, types: ConfigEquipmentTypeI
       }
     })
     .filter((item): item is ConfigEquipmentConfigItem => !!item)
+}
+
+interface EquipmentConfigSource {
+  typeKey: string
+  typeName: string
+  description: string
+  config: JsonRecord
+}
+
+function collectEquipmentConfigSources(record: JsonRecord): EquipmentConfigSource[] {
+  const rows = new Map<string, EquipmentConfigSource>()
+  const add = (fallbackKey: string, raw: unknown) => {
+    const entry = asRecord(parseEmbeddedJSON(raw))
+    if (!entry) return
+    const type = asRecord(entry.type)
+    const config = asRecord(parseEmbeddedJSON(entry.config)) || entry
+    const typeKey = firstNonEmptyString(fallbackKey, type?.key, type?.typeKey, entry.typeKey, entry.key, entry.id)
+    if (!typeKey || rows.has(typeKey)) return
+    rows.set(typeKey, {
+      typeKey,
+      typeName: firstNonEmptyString(type?.name, type?.label, entry.typeName, entry.name),
+      description: firstNonEmptyString(type?.description, entry.description, entry.remark),
+      config,
+    })
+  }
+
+  const configs = parseEmbeddedJSON(record.equipmentConfigs)
+  if (Array.isArray(configs)) configs.forEach((item) => add('', item))
+  else Object.entries(asRecord(configs) || {}).forEach(([key, value]) => add(key, value))
+
+  collectEmbeddedConfigPayloads(record, new Set(['equipment_config', 'equipment_config_override']))
+    .forEach((payload) => add('', payload))
+  return [...rows.values()]
 }
 
 function extractEquipmentColumns(config: JsonRecord): SnapshotColumnDef[] {
@@ -974,6 +1263,14 @@ function firstNonEmptyString(...values: unknown[]) {
     if (text) return text
   }
   return ''
+}
+
+function stableValueSignature(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableValueSignature(item)).join(',')}]`
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableValueSignature(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? String(value)
 }
 
 function objectSummary(value: unknown) {

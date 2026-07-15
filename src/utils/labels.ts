@@ -74,6 +74,7 @@ export const changeRequestStatusOptions: Array<{ label: string; value: ChangeReq
 export const deviceAuthorizationRequestTypeOptions: Array<{ label: string; value: DeviceAuthorizationRequestType }> = [
   { label: '换机', value: 'device_change' },
   { label: '新增设备', value: 'device_add' },
+  { label: '续期申请', value: 'device_renewal' },
 ]
 
 export const objectTypeOptions: Array<{ label: string; value: FileObjectType }> = [

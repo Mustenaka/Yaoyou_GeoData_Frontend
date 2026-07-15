@@ -28,7 +28,7 @@ export type ProductGrantScope = ProductCode | 'both'
 export type ProductEntitlementState = 'enabled' | 'suspended' | 'revoked'
 export type ProductEntitlementMigrationState = 'needs_review' | 'confirmed'
 export type DeviceBindingState = 'pending' | 'approved' | 'revoked'
-export type DeviceAuthorizationRequestType = 'device_change' | 'device_add'
+export type DeviceAuthorizationRequestType = 'device_change' | 'device_add' | 'device_renewal'
 export type DeviceRiskCategory = 'crack' | 'login_churn' | 'ip_churn' | 'account_churn'
 export type DeviceRiskLevel = 'low' | 'medium' | 'high'
 export type DeviceRiskHandleAction = 'handle' | 'block_user' | 'block_device'
@@ -494,6 +494,76 @@ export interface DeviceBindingItem {
   device_status?: DeviceStatus
   risk_level?: string
   last_seen_at?: string | null
+}
+
+export interface DeviceBindingDetailDevice {
+  id: number
+  company_id?: number | null
+  user_id?: number | null
+  client_type?: 'mobile' | 'win' | string
+  fingerprint_hash?: string
+  fingerprint_payload?: Record<string, string> | null
+  fingerprint_payload_json?: string | null
+  mobile_install_id?: string | null
+  mobile_install_id_hash?: string | null
+  win_mainboard_id_hash?: string | null
+  device_name?: string
+  os_version?: string
+  app_version?: string
+  first_seen_at?: string | null
+  last_seen_at?: string | null
+  status?: DeviceStatus | string
+  risk_level?: string
+  blocked_at?: string | null
+  blocked_reason?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DeviceBindingRequestItem {
+  id: number
+  request_type: DeviceAuthorizationRequestType | string
+  status: ChangeRequestStatus | string
+  reason?: string
+  note?: string
+  user_id?: number | null
+  username?: string
+  real_name?: string
+  company_id?: number | null
+  company_name?: string
+  handled_by?: number | null
+  handled_at?: string | null
+  created_at: string
+  updated_at?: string
+}
+
+export interface DeviceBindingHistoryItem {
+  id: number
+  event_key?: string
+  event_type: string
+  device_binding_id?: number
+  device_fingerprint_id?: number
+  company_id?: number | null
+  owner_user_id?: number | null
+  actor_type?: string
+  summary?: string
+  detail_json?: string | Record<string, unknown> | null
+  actor_user_id?: number | null
+  request_id?: number | null
+  revision?: number | null
+  binding_revision?: number | null
+  occurred_at: string
+  created_at?: string
+  actor_username?: string
+  actor_real_name?: string
+}
+
+export interface DeviceBindingDetail extends DeviceBindingItem {
+  device?: DeviceBindingDetailDevice | null
+  requests?: DeviceBindingRequestItem[]
+  history?: DeviceBindingHistoryItem[]
+  active_session_count?: number
+  latest_session_expires_at?: string | null
 }
 
 export interface DeviceBindingUpdatePayload {

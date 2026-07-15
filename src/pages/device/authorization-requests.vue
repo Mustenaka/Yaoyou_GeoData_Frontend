@@ -3,7 +3,7 @@
     <PageHeader title="授权审批" subtitle="审批后，设备即可在授权期限内使用项目。">
       <n-space>
         <n-button :disabled="checkedRowKeys.length === 0" @click="openBatchAuthorization">
-          批量授权{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+          {{ batchAuthorizationLabel() }}
         </n-button>
         <n-button type="primary" @click="openManualAuthorization">手动授权设备</n-button>
       </n-space>
@@ -31,6 +31,13 @@
         style="width: 220px"
       />
       <n-select v-model:value="filters.status" clearable :options="changeRequestStatusOptions" placeholder="审批状态" style="width: 150px" />
+      <n-select
+        v-model:value="filters.request_type"
+        clearable
+        :options="deviceAuthorizationRequestTypeOptions"
+        placeholder="申请类型"
+        style="width: 150px"
+      />
       <div class="toolbar__spacer" />
       <n-button @click="applyFilters">查询</n-button>
       <n-button quaternary @click="resetFilters">重置</n-button>
@@ -45,16 +52,16 @@
         :pagination="pagination"
         :row-key="(row: DeviceChangeRequest) => row.id"
         :checked-row-keys="checkedRowKeys"
-        :scroll-x="900"
+        :scroll-x="1040"
         @update:checked-row-keys="handleCheckedRows"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
       />
     </div>
 
-    <n-modal v-model:show="authorizeVisible" preset="card" title="授权设备" :mask-closable="false" style="width: min(680px, 92vw)">
+    <n-modal v-model:show="authorizeVisible" preset="card" :title="authorizationModalTitle()" :mask-closable="false" style="width: min(680px, 92vw)">
       <n-alert type="info" :bordered="false" class="modal-note">
-        授权后，该设备可使用项目。
+        {{ authorizationModalNote() }}
       </n-alert>
 
       <n-scrollbar class="request-summary">
@@ -63,7 +70,10 @@
             <strong>{{ requestCompanyLabel(request) }}</strong>
             <span>{{ requestDeviceLabel(request) }}</span>
           </div>
-          <n-tag size="small" round>{{ clientLabel(request.new_client_type) }}</n-tag>
+          <n-space size="small">
+            <n-tag size="small" round>{{ requestTypeLabel(request) }}</n-tag>
+            <n-tag size="small" round>{{ clientLabel(request.new_client_type) }}</n-tag>
+          </n-space>
         </div>
       </n-scrollbar>
 
@@ -86,7 +96,7 @@
         <div class="modal-footer">
           <n-button @click="authorizeVisible = false">取消</n-button>
           <n-button type="primary" :loading="authorizeSubmitting" @click="submitAuthorization">
-            {{ authorizingRequests.length > 1 ? `授权 ${authorizingRequests.length} 台设备` : '授权设备' }}
+            {{ authorizationSubmitLabel() }}
           </n-button>
         </div>
       </template>
@@ -152,8 +162,12 @@ import { deviceApi } from '@/api/device'
 import { ApiError } from '@/api/request'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
-import type { ChangeRequestStatus, DeviceChangeRequest, UserItem } from '@/types/api'
-import { changeRequestStatusOptions } from '@/utils/labels'
+import type { ChangeRequestStatus, DeviceAuthorizationRequestType, DeviceChangeRequest, UserItem } from '@/types/api'
+import {
+  changeRequestStatusOptions,
+  deviceAuthorizationRequestTypeLabel,
+  deviceAuthorizationRequestTypeOptions,
+} from '@/utils/labels'
 import { addMonthsDatePickerValue, datePickerISOString, formatDateTime, shortHash } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
 
@@ -188,6 +202,7 @@ const lastAuthorizedTarget = ref<AuthorizedTarget | null>(null)
 const filters = reactive({
   company_id: null as number | null,
   status: 'pending' as ChangeRequestStatus | null,
+  request_type: null as DeviceAuthorizationRequestType | null,
 })
 
 const authorizeForm = reactive({
@@ -214,12 +229,18 @@ const columns: DataTableColumns<DeviceChangeRequest> = [
   { type: 'selection', disabled: (row) => row.status !== 'pending' },
   { title: '企业', key: 'company_id', minWidth: 180, render: requestCompanyLabel },
   {
+    title: '申请类型',
+    key: 'request_type',
+    width: 120,
+    render: (row) => h(NTag, { type: requestIsRenewal(row) ? 'warning' : 'default', round: true }, { default: () => requestTypeLabel(row) }),
+  },
+  {
     title: '设备',
     key: 'new_device_id',
     minWidth: 260,
     render: (row) => h('div', { class: 'device-cell' }, [
       h('span', { class: 'device-cell__name' }, requestDeviceLabel(row)),
-      h('span', { class: 'device-cell__hash mono', title: row.new_fingerprint_hash }, shortHash(row.new_fingerprint_hash)),
+      h('span', { class: 'device-cell__hash mono' }, shortHash(row.new_fingerprint_hash)),
     ]),
   },
   { title: '客户端', key: 'new_client_type', width: 100, render: (row) => clientLabel(row.new_client_type) },
@@ -231,7 +252,7 @@ const columns: DataTableColumns<DeviceChangeRequest> = [
     fixed: 'right',
     render: (row) => row.status === 'pending'
       ? h('div', { class: 'table-actions' }, [
-          h(NButton, { size: 'small', type: 'primary', onClick: () => openAuthorization([row]) }, { default: () => '授权' }),
+          h(NButton, { size: 'small', type: 'primary', onClick: () => openAuthorization([row]) }, { default: () => requestIsRenewal(row) ? '续期' : '授权' }),
           h(NButton, { size: 'small', type: 'error', ghost: true, onClick: () => rejectRequest(row) }, { default: () => '拒绝' }),
         ])
       : h(NTag, { type: row.status === 'approved' ? 'success' : 'default', round: true }, { default: () => row.status === 'approved' ? '已授权' : '已拒绝' }),
@@ -249,6 +270,40 @@ function requestDeviceLabel(row: DeviceChangeRequest) {
   return row.new_device_name || (row.new_device_id ? `设备 #${row.new_device_id}` : '待登记设备')
 }
 
+function requestIsRenewal(row: DeviceChangeRequest) {
+  return row.request_type === 'device_renewal'
+}
+
+function requestTypeLabel(row: DeviceChangeRequest) {
+  return deviceAuthorizationRequestTypeLabel(row.request_type)
+}
+
+function authorizationRequestsAreRenewals() {
+  return authorizingRequests.value.length > 0 && authorizingRequests.value.every(requestIsRenewal)
+}
+
+function authorizationModalTitle() {
+  return authorizationRequestsAreRenewals() ? '续期设备授权' : '授权设备'
+}
+
+function authorizationModalNote() {
+  return authorizationRequestsAreRenewals()
+    ? '续期后，原设备授权将按新期限恢复或继续生效，不会创建重复设备。'
+    : '授权后，该设备可在分配期限内使用项目。'
+}
+
+function authorizationSubmitLabel() {
+  const action = authorizationRequestsAreRenewals() ? '续期' : '授权'
+  return authorizingRequests.value.length > 1 ? `${action} ${authorizingRequests.value.length} 台设备` : `${action}设备`
+}
+
+function batchAuthorizationLabel() {
+  const selected = new Set(checkedRowKeys.value.map(Number))
+  const requests = rows.value.filter((row) => selected.has(row.id) && row.status === 'pending')
+  const action = requests.length > 0 && requests.every(requestIsRenewal) ? '批量续期' : '批量授权'
+  return `${action}${checkedRowKeys.value.length ? `（${checkedRowKeys.value.length}）` : ''}`
+}
+
 function clientLabel(value?: string) {
   if (value === 'mobile') return 'Mobile'
   if (value === 'win') return 'Win'
@@ -263,6 +318,7 @@ async function fetchRequests() {
       page: pagination.page,
       page_size: pagination.pageSize,
       status: queryValue(filters.status),
+      request_type: queryValue(filters.request_type),
       company_id: queryValue(filters.company_id),
     })
     rows.value = pageList(result.list)
@@ -285,6 +341,7 @@ function applyFilters() {
 function resetFilters() {
   filters.company_id = null
   filters.status = 'pending'
+  filters.request_type = null
   pagination.page = 1
   fetchRequests()
 }
@@ -368,7 +425,8 @@ async function submitAuthorization() {
       device_fingerprint_id: authorizingRequests.value.length === 1 ? first.new_device_id : null,
       client_type: authorizingRequests.value.length === 1 ? first.new_client_type : '',
     }
-    message.success(`已授权 ${authorizingRequests.value.length} 台设备`)
+    const action = authorizationRequestsAreRenewals() ? '续期' : '授权'
+    message.success(`已${action} ${authorizingRequests.value.length} 台设备`)
     authorizeVisible.value = false
     checkedRowKeys.value = []
     await fetchRequests()
@@ -381,8 +439,8 @@ async function submitAuthorization() {
 
 function rejectRequest(row: DeviceChangeRequest) {
   dialog.warning({
-    title: '确认拒绝授权',
-    content: '拒绝后，这台设备不会获得项目使用权限。',
+    title: requestIsRenewal(row) ? '确认拒绝续期' : '确认拒绝授权',
+    content: requestIsRenewal(row) ? '拒绝后，这台设备的原授权期限不会延长。' : '拒绝后，这台设备不会获得项目使用权限。',
     positiveText: '拒绝',
     negativeText: '取消',
     onPositiveClick: async () => {

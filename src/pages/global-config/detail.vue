@@ -121,6 +121,20 @@
                 />
               </div>
             </template>
+            <n-alert
+              v-else-if="structuredConfig.moduleState.isSchema3 && structuredConfig.moduleState.smartFillUsesDefaultRule"
+              type="info"
+              :bordered="false"
+              class="module-empty-state"
+            >
+              <div class="module-empty-state__content">
+                <strong>已保存默认智能填充规则</strong>
+                <span>当前无配置表正文</span>
+                <span v-if="structuredConfig.moduleState.smartFillConfigFileId" class="mono">
+                  配置文件：{{ structuredConfig.moduleState.smartFillConfigFileId }}
+                </span>
+              </div>
+            </n-alert>
             <n-empty v-else description="暂无智能填充配置" />
           </n-tab-pane>
 
@@ -144,6 +158,17 @@
                 />
               </div>
             </template>
+            <n-alert
+              v-else-if="structuredConfig.moduleState.isSchema3 && structuredConfig.moduleState.equipmentIsEmpty"
+              type="info"
+              :bordered="false"
+              class="module-empty-state"
+            >
+              <div class="module-empty-state__content">
+                <strong>已保存默认器材管理配置</strong>
+                <span>当前配置表为空</span>
+              </div>
+            </n-alert>
             <n-empty v-else description="暂无器材配置" />
           </n-tab-pane>
 
@@ -496,6 +521,19 @@ onMounted(loadAll)
 
 .config-table-block:first-of-type {
   margin-top: 0;
+}
+
+.module-empty-state {
+  margin-top: 4px;
+}
+
+.module-empty-state__content {
+  display: grid;
+  gap: 6px;
+}
+
+.module-empty-state__content strong {
+  color: var(--yy-text);
 }
 
 .section-meta {
