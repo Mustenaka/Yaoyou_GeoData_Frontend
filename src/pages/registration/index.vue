@@ -236,6 +236,7 @@ import { NButton, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
 import { registrationApi, type RegistrationCredentialExportAccount } from '@/api/registration'
+import { ApiError } from '@/api/request'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import type {
@@ -777,9 +778,18 @@ async function submitApprove() {
       message.success('已预授权申请设备')
     }
     await fetchList()
+  } catch (error) {
+    message.error(registrationApprovalErrorText(error))
   } finally {
     submittingApprove.value = false
   }
+}
+
+function registrationApprovalErrorText(error: unknown) {
+  if (error instanceof ApiError && error.code === 13002) {
+    return '该设备已归属其他企业，不能同时预授权到新企业'
+  }
+  return error instanceof Error ? error.message : '审批失败，请稍后重试'
 }
 
 function credentialMustChangePassword(item: RegistrationCreatedUserResponse) {
