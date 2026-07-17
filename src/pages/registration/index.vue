@@ -196,7 +196,7 @@
     <n-modal v-model:show="passwordVisible" preset="card" title="审批通过" :style="modalStyle('760px')">
       <n-space v-if="approveResult" vertical>
         <n-alert type="success">账号已创建，临时口令仅本次展示。</n-alert>
-        <n-alert v-if="approvePreauthorizedDeviceMessage" type="success">{{ approvePreauthorizedDeviceMessage }}</n-alert>
+        <n-alert v-if="approveAutoAuthorizedDeviceMessage" type="success">{{ approveAutoAuthorizedDeviceMessage }}</n-alert>
         <n-table :single-line="false" size="small">
           <thead>
             <tr>
@@ -359,9 +359,9 @@ const approveCreatedUsers = computed<RegistrationCreatedUserResponse[]>(() => {
   }
   return []
 })
-const approvePreauthorizedDeviceMessage = computed(() => {
+const approveAutoAuthorizedDeviceMessage = computed(() => {
   const application = approveResult.value?.application
-  return application && registrationHasDevice(application) ? `已预授权申请设备：${registrationDeviceSummary(application)}` : ''
+  return application && registrationHasDevice(application) ? `已自动授权申请设备：${registrationDeviceSummary(application)}` : ''
 })
 
 const columns: DataTableColumns<RegistrationApplication> = [
@@ -452,7 +452,7 @@ function registrationDeviceSummary(row?: RegistrationApplication | null) {
 
 function approveDeviceMessage(row?: RegistrationApplication | null) {
   if (registrationHasDevice(row)) {
-    return `申请已携带${deviceClientLabel(row?.device_client_type)}设备指纹；审批通过后将预授权主账号。${deviceHashLabel(row)}`
+    return `申请已携带${deviceClientLabel(row?.device_client_type)}设备指纹；审批通过后将自动授权主账号对应设备。${deviceHashLabel(row)}`
   }
   return '该申请未携带设备；审批后首登将回落设备授权流程。'
 }
@@ -775,7 +775,7 @@ async function submitApprove() {
     passwordVisible.value = true
     message.success('申请已通过')
     if (registrationHasDevice(approveResult.value.application)) {
-      message.success('已预授权申请设备')
+      message.success('已自动授权申请设备')
     }
     await fetchList()
   } catch (error) {
@@ -787,7 +787,7 @@ async function submitApprove() {
 
 function registrationApprovalErrorText(error: unknown) {
   if (error instanceof ApiError && error.code === 13002) {
-    return '该设备已归属其他企业，不能同时预授权到新企业'
+    return '该设备已归属其他企业，不能自动授权到新企业'
   }
   return error instanceof Error ? error.message : '审批失败，请稍后重试'
 }

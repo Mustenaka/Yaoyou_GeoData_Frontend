@@ -283,6 +283,13 @@ function canActivateMenuRoute(record: RouteRecordRaw) {
 const activeMenuKey = computed(() => {
   if (route.meta.disabled === true) return ''
   if (!route.meta.hideInMenu) return String(route.name || 'dashboard')
+  const explicitActiveMenu = typeof route.meta.activeMenu === 'string' ? route.meta.activeMenu : ''
+  if (explicitActiveMenu) {
+    const explicitRecord = adminChildren.value.find(
+      (record) => String(record.name || '') === explicitActiveMenu && canActivateMenuRoute(record),
+    )
+    if (explicitRecord) return explicitActiveMenu
+  }
   const fallback = adminChildren.value.find((record) => record.meta?.group === route.meta.group && canActivateMenuRoute(record))
   return String(fallback?.name || 'dashboard')
 })

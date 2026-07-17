@@ -12,6 +12,7 @@ declare module 'vue-router' {
     description?: string
     plannedFlow?: string[]
     hideInMenu?: boolean
+    activeMenu?: string
     disabled?: boolean
   }
 }
@@ -155,7 +156,7 @@ const routes: RouteRecordRaw[] = [
         path: 'mobile/global-config/:id',
         name: 'global-config-detail',
         component: () => import('@/pages/global-config/detail.vue'),
-        meta: { title: '全局配置详情', group: '移动端项目与数据', hideInMenu: true, roles: adminRoles },
+        meta: { title: '全局配置详情', group: '移动端项目与数据', hideInMenu: true, activeMenu: 'mobile-global-config', roles: adminRoles },
       },
       {
         path: 'win/sky-projects',
