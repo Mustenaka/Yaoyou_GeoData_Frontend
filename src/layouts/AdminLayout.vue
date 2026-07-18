@@ -236,7 +236,6 @@ const routeIcons: Record<string, unknown> = {
   'win-sky': DocumentTextOutline,
   'win-huaning': DocumentTextOutline,
   'win-logs': FileTrayFullOutline,
-  'win-features': OptionsOutline,
   'sync-files': CloudUploadOutline,
   audit: ListOutline,
   about: InformationCircleOutline,

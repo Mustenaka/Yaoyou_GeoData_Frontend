@@ -179,11 +179,12 @@ const routes: RouteRecordRaw[] = [
         props: { clientType: 'win' },
         meta: { title: 'Win 日志', group: 'Win端项目与数据', roles: adminRoles },
       },
+      // Temporary: hide this entry until the Win feature-control semantics are redesigned.
       {
         path: 'win/features',
         name: 'win-features',
-        component: () => import('@/pages/win-feature/index.vue'),
-        meta: { title: 'Win 功能设置', group: 'Win端项目与数据', roles: ['superadmin', 'admin'] },
+        redirect: { name: 'dashboard' },
+        meta: { title: 'Win 功能设置', group: 'Win端项目与数据', roles: ['superadmin', 'admin'], hideInMenu: true },
       },
       {
         path: 'sync-files',
