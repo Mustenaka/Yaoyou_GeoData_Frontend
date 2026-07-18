@@ -96,7 +96,9 @@ Yaoyou_GeoData_Frontend/
 | 智能填充配置、器械管理配置 | 平台管理员 | 可进入的 ComingSoon 占位页，尚无上传、解析或分发实现 |
 | 协作设置、授权协作 SDK | 平台管理员 | 可进入的 ComingSoon 占位页，历史协作页未挂载 |
 | 移动端日志 `/mobile/logs` | 三类管理员 | 固定 `client_type=mobile`，按运行日志/操作记录及设备/账号分组 |
-| Win 端项目与数据五项 | 三类管理员 | 菜单禁用占位，不可点击，不代表已实现 |
+| Win 端项目与数据 `/win/sky-projects`、`/win/huaning-projects` | 三类管理员 | 只读查看由 `.sky` / `.Huaning` 归集创建的项目及其有界数据源预览；不提供下载、编辑或删除 |
+| Win 日志 `/win/logs` | 三类管理员 | 固定 `client_type=win`，复用客户端日志视图；日志不受 Win 功能开关影响 |
+| Win 功能设置 `/win/features` | 平台管理员 | SKY / Huaning 项目云归集接口的全局与企业级停用策略；最终拒绝由后端执行 |
 | 文件同步中心 `/sync-files` | `superadmin` | 全量文件查询、详情、下载、项目跳转、重解析、删除 |
 | 授权管理 `/licenses` | 三类管理员 | 企业管理员只读；平台管理员可发放、调整、撤销单条授权 |
 | 设备管理 `/devices` | 三类管理员 | Mobile/Win 台账、详情、状态、阻断、撤销本机全部授权；后端负责最终范围/动作校验 |
@@ -112,7 +114,7 @@ Yaoyou_GeoData_Frontend/
 
 - 控制台正式指标来自 `/api/admin/dashboard/*` REST 接口。`src/composables/useMetricsSSE.ts` 虽仍存在，但没有被当前页面引用，不能据此宣称 SSE 已接入。
 - `src/pages/collab/index.vue` 与 `src/api/project.ts` 是未挂入当前正式信息架构的遗留文件，不能视为已上线功能。
-- Win 端菜单全部为 `disabled` 占位；智能填充配置、器械配置、协作设置和协作 SDK 为可点击 ComingSoon 占位。
+- Win 端项目、数据源、日志与功能设置均为只读/策略管理入口；不记录 Win 全局配置，也不提供 Win 数据回写、下载、编辑或删除。智能填充配置、器械配置、协作设置和协作 SDK 仍为可点击 ComingSoon 占位。
 - 项目档案与全局配置记录是云端上行数据的查看、结构化展示和导出入口；当前页面没有配置下发、在线协同或写回客户端链路。
 - 版本更新日志来自构建时打包的 `CHANGELOG.md`；`package.json` 版本经 Vite 注入系统信息页。
 

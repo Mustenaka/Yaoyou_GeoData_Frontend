@@ -39,6 +39,8 @@ export type FileObjectType =
   | 'global_config'
   | 'project_config'
   | 'win_result'
+  | 'win_project'
+  | 'win_data_source'
   | 'client_log'
   | 'operation_record'
 export type ClientLogObjectType = 'client_log' | 'operation_record'
@@ -68,6 +70,7 @@ export interface LoginPolicy {
   min_win_version: string
   risk_block_enabled: boolean
   hide_smart_fill?: boolean
+  win_features: Record<WinFeatureKey, boolean>
 }
 
 export interface TokenAuthorization {
@@ -120,7 +123,7 @@ export type RegistrationAppType = 'enterprise' | 'user'
 /** @deprecated Compatibility value returned by old registration records only. */
 export type RegistrationProduct = 'mobile' | 'win' | 'both'
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
-export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site' | 'mobile_app'
+export type RegistrationSourceChannel = 'admin_apply_page' | 'official_site' | 'mobile_app' | 'win_app'
 
 export interface RegistrationApplicationPayload {
   app_type: RegistrationAppType
@@ -907,6 +910,84 @@ export interface ProjectArchiveItem {
   purge_after?: string | null
   created_at: string
   updated_at: string
+}
+
+export type WinProjectKind = 'sky' | 'huaning'
+export type WinFeatureKey = 'sky_projects' | 'huaning_projects'
+
+export interface WinProjectListItem {
+  project: ProjectArchiveItem
+  project_kind: WinProjectKind
+}
+
+export interface WinSpreadsheetPreviewSheet {
+  name: string
+  row_count: number
+  column_count: number
+  rows_truncated: boolean
+  columns_truncated: boolean
+  rows: string[][]
+}
+
+export interface WinSpreadsheetPreview {
+  schema_version: number
+  format: string
+  sheet_count: number
+  row_count: number
+  column_count: number
+  sheets_truncated: boolean
+  sheets: WinSpreadsheetPreviewSheet[]
+}
+
+export interface WinFileSnapshot {
+  id: number
+  project_cloud_index_id: number
+  project_snapshot_id?: number | null
+  project_uuid: string
+  project_kind: WinProjectKind
+  source_role: string
+  source_file_id: string
+  original_filename: string
+  sheet_count: number
+  row_count: number
+  column_count: number
+  metadata?: Record<string, unknown>
+  preview?: WinSpreadsheetPreview | null
+  source_received_at: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface WinProjectDetail {
+  project: ProjectArchiveItem
+  project_kind: WinProjectKind
+  project_snapshot?: WinFileSnapshot | null
+  data_sources: WinFileSnapshot[]
+}
+
+export interface WinFeatureItem {
+  key: WinFeatureKey
+  label: string
+  global_disabled: boolean
+}
+
+export interface WinFeatureCompany {
+  company_id: number
+  company_name: string
+  disabled: Record<WinFeatureKey, boolean>
+  effective_disabled: Record<WinFeatureKey, boolean>
+}
+
+export interface WinFeaturePolicy {
+  features: WinFeatureItem[]
+  companies: WinFeatureCompany[]
+}
+
+export interface WinFeatureUpdateResponse {
+  feature_key: WinFeatureKey
+  scope_type: 'global' | 'company'
+  scope_id: number
+  disabled: boolean
 }
 
 export interface ArchiveCompanyItem {

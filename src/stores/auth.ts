@@ -10,6 +10,7 @@ const emptyPolicy: LoginPolicy = {
   min_mobile_version: '',
   min_win_version: '',
   risk_block_enabled: false,
+  win_features: { sky_projects: true, huaning_projects: true },
 }
 
 const legacySuperAdminRole = ['system', 'admin'].join('_')
@@ -41,6 +42,10 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'mobile-collab-settings',
       'mobile-collab-sdk',
       'mobile-logs',
+      'win-sky',
+      'win-huaning',
+      'win-logs',
+      'win-features',
       'sync-files',
       'audit',
       'about',
@@ -70,6 +75,10 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
       'mobile-collab-settings',
       'mobile-collab-sdk',
       'mobile-logs',
+      'win-sky',
+      'win-huaning',
+      'win-logs',
+      'win-features',
       'audit',
       'about',
       'release-notes',
@@ -77,7 +86,7 @@ function rolePermissions(roleCode: RoleCode | '' | string) {
     ]
   }
   if (normalizedRoleCode === 'enterprise_admin') {
-    return ['dashboard', 'companies', 'users', 'registration-applications', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'mobile-logs', 'audit', 'about', 'release-notes', 'risks']
+    return ['dashboard', 'companies', 'users', 'registration-applications', 'devices', 'device-risks', 'device-authorization-requests', 'projects', 'mobile-logs', 'win-sky', 'win-huaning', 'win-logs', 'audit', 'about', 'release-notes', 'risks']
   }
   return []
 }

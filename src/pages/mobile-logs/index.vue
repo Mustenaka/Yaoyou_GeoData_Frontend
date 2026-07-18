@@ -1,11 +1,11 @@
 <template>
   <div class="page-shell">
-    <PageHeader title="日志" subtitle="查看移动端上传的运行日志和操作记录，按上传类型、设备与账号分层收纳。" />
+    <PageHeader :title="`${clientLabel}日志`" :subtitle="`查看${clientLabel}上传的运行日志和操作记录，按上传类型、设备与账号分层收纳。`" />
 
     <div class="page-card toolbar log-toolbar">
       <n-select v-if="authStore.isBackOfficeScopeAll" v-model:value="filters.company_id" clearable :options="companyOptions" placeholder="企业" class="filter-select wide" />
       <n-select v-model:value="filters.object_type" clearable :options="clientLogTypeOptions" placeholder="上传类型" class="filter-select" />
-      <n-select v-model:value="filters.client_type" :options="mobileClientOptions" placeholder="客户端" class="filter-select" />
+      <n-select v-model:value="filters.client_type" :options="clientOptions" placeholder="客户端" class="filter-select" disabled />
       <n-input v-model:value="filters.user_id_text" clearable placeholder="用户 ID" class="short-input" @keyup.enter="fetchLogs" />
       <n-input v-model:value="filters.device_id_text" clearable placeholder="设备 ID" class="short-input" @keyup.enter="fetchLogs" />
       <n-date-picker v-model:value="filters.time_range" type="datetimerange" clearable class="date-input" />
@@ -17,14 +17,14 @@
     <section class="page-card log-panel">
       <div class="log-panel__head">
         <div>
-          <strong>移动端上传日志</strong>
+          <strong>{{ clientLabel }}上传日志</strong>
           <span>日志默认不挂项目，按上传类型与设备 / 账号归档。</span>
         </div>
         <n-tag round>{{ pagination.itemCount }} 条</n-tag>
       </div>
 
       <n-spin :show="loading">
-        <n-empty v-if="groupedSections.length === 0" description="暂无移动端日志" />
+        <n-empty v-if="groupedSections.length === 0" :description="`暂无${clientLabel}日志`" />
         <n-collapse v-else v-model:expanded-names="expandedTypes" class="log-collapse">
           <n-collapse-item v-for="section in groupedSections" :key="section.key" :name="section.key">
             <template #header>
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NTag, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -86,6 +86,10 @@ import { saveBlob } from '@/utils/download'
 import { formatBytes, formatDateTime, shortHash } from '@/utils/format'
 import { clientLogTypeLabel, clientLogTypeOptions, clientTypeLabel, parseStatusLabel } from '@/utils/labels'
 import { pageList, queryValue } from '@/utils/query'
+
+const props = withDefaults(defineProps<{ clientType?: Extract<ClientType, 'mobile' | 'win'> }>(), {
+  clientType: 'mobile',
+})
 
 type GroupedLogSection = {
   key: string
@@ -110,12 +114,15 @@ const companyOptions = ref<SelectOption[]>([])
 const expandedTypes = ref<string[]>([])
 const expandedGroups = ref<string[]>([])
 
-const mobileClientOptions: Array<{ label: string; value: ClientType }> = [{ label: 'Mobile', value: 'mobile' }]
+const clientOptions = computed<Array<{ label: string; value: ClientType }>>(() => [
+  { label: props.clientType === 'win' ? 'Win' : 'Mobile', value: props.clientType },
+])
+const clientLabel = computed(() => (props.clientType === 'win' ? 'Win' : '移动端'))
 
 const filters = reactive({
   company_id: null as number | null,
   object_type: null as ClientLogObjectType | null,
-  client_type: 'mobile' as ClientType,
+  client_type: props.clientType as ClientType,
   user_id_text: '',
   device_id_text: '',
   time_range: null as [number, number] | null,
@@ -250,7 +257,7 @@ async function fetchLogs() {
       page_size: pagination.pageSize,
       company_id: queryValue(filters.company_id),
       object_type: queryValue(filters.object_type),
-      client_type: filters.client_type || 'mobile',
+      client_type: props.clientType,
       user_id: numberFilter(filters.user_id_text),
       device_fingerprint_id: numberFilter(filters.device_id_text),
       start_at: timeAt(0),
@@ -268,7 +275,7 @@ async function fetchLogs() {
 function resetFilters() {
   filters.company_id = null
   filters.object_type = null
-  filters.client_type = 'mobile'
+  filters.client_type = props.clientType
   filters.user_id_text = ''
   filters.device_id_text = ''
   filters.time_range = null
@@ -304,6 +311,17 @@ onMounted(() => {
   void loadCompanies()
   void fetchLogs()
 })
+
+watch(
+  () => props.clientType,
+  (clientType) => {
+    filters.client_type = clientType
+    pagination.page = 1
+    expandedTypes.value = []
+    expandedGroups.value = []
+    void fetchLogs()
+  },
+)
 </script>
 
 <style scoped>

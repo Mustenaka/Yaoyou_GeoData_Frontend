@@ -342,6 +342,7 @@ const sourceOptions: Array<{ label: string; value: RegistrationSourceChannel }> 
   { label: '官网首页', value: 'official_site' },
   { label: '后台申请页', value: 'admin_apply_page' },
   { label: '移动端', value: 'mobile_app' },
+  { label: 'Win 端', value: 'win_app' },
 ]
 
 const userRoleOptions: Array<{ label: string; value: RoleCode }> = [
@@ -421,6 +422,7 @@ function appTypeLabel(type?: string) {
 
 function sourceLabel(source?: string) {
   if (source === 'mobile_app') return '移动端'
+  if (source === 'win_app') return 'Win 端'
   if (source === 'official_site') return '官网首页'
   if (source === 'admin_apply_page' || !source) return '后台申请页'
   return source
