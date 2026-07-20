@@ -166,11 +166,25 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'SKY 项目数据记录', group: 'Win端项目与数据', roles: adminRoles },
       },
       {
+        path: 'win/sky-projects/:id/data-sources',
+        name: 'win-sky-data-sources',
+        component: () => import('@/pages/win-project/data-source-preview.vue'),
+        props: (route) => ({ projectKind: 'sky', projectId: Number(route.params.id) }),
+        meta: { title: 'SKY 数据源预览', group: 'Win端项目与数据', hideInMenu: true, activeMenu: 'win-sky', roles: adminRoles },
+      },
+      {
         path: 'win/huaning-projects',
         name: 'win-huaning',
         component: () => import('@/pages/win-project/index.vue'),
         props: { projectKind: 'huaning' },
         meta: { title: 'Huaning 项目数据记录', group: 'Win端项目与数据', roles: adminRoles },
+      },
+      {
+        path: 'win/huaning-projects/:id/data-sources',
+        name: 'win-huaning-data-sources',
+        component: () => import('@/pages/win-project/data-source-preview.vue'),
+        props: (route) => ({ projectKind: 'huaning', projectId: Number(route.params.id) }),
+        meta: { title: 'Huaning 数据源预览', group: 'Win端项目与数据', hideInMenu: true, activeMenu: 'win-huaning', roles: adminRoles },
       },
       {
         path: 'win/logs',

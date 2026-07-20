@@ -965,6 +965,26 @@ export interface WinProjectDetail {
   data_sources: WinFileSnapshot[]
 }
 
+export interface WinWorkbookSheetPage {
+  schema_version: number
+  format: string
+  sheet_names: string[]
+  sheet_index: number
+  sheet_name: string
+  page: number
+  page_size: number
+  row_start: number
+  row_end: number
+  has_more: boolean
+  column_count: number
+  rows: string[][]
+}
+
+export interface WinDataSourceTablePage {
+  source: WinFileSnapshot
+  workbook: WinWorkbookSheetPage
+}
+
 export interface WinFeatureItem {
   key: WinFeatureKey
   label: string

@@ -30,7 +30,7 @@
       <div class="table-head">
         <div>
           <h2>已归集项目</h2>
-          <p>不提供编辑、删除或下载；数据源仅展示有界表格预览，超出部分不会在管理端加载。</p>
+          <p>详情展示解析摘要；“预览数据源”进入完整只读表格，可按数据源单独下载原始 XLSX。</p>
         </div>
         <n-tag round>{{ pagination.itemCount }} 项</n-tag>
       </div>
@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NTag } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
@@ -139,6 +140,7 @@ import { formatDateTime } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
 
 const props = defineProps<{ projectKind: WinProjectKind }>()
+const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -172,9 +174,12 @@ const columns = computed<DataTableColumns<WinProjectListItem>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 96,
+    width: 220,
     fixed: 'right',
-    render: (row) => h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
+    render: (row) => h('div', { style: 'display:flex;gap:8px' }, [
+      h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
+      h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => openDataSourcePreview(row) }, { default: () => '预览数据源' }),
+    ]),
   },
 ])
 
@@ -294,6 +299,13 @@ async function openDetail(row: WinProjectListItem) {
   } finally {
     detailLoading.value = false
   }
+}
+
+function openDataSourcePreview(row: WinProjectListItem) {
+  void router.push({
+    name: props.projectKind === 'sky' ? 'win-sky-data-sources' : 'win-huaning-data-sources',
+    params: { id: row.project.id },
+  })
 }
 
 onMounted(() => {
