@@ -978,6 +978,15 @@ export interface WinWorkbookSheetPage {
   has_more: boolean
   column_count: number
   rows: string[][]
+  merged_cells: WinWorkbookMergedCell[]
+}
+
+export interface WinWorkbookMergedCell {
+  start_row: number
+  start_column: number
+  end_row: number
+  end_column: number
+  value: string
 }
 
 export interface WinDataSourceTablePage {

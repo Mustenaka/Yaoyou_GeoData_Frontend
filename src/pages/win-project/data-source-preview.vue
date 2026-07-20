@@ -70,7 +70,7 @@
         <div>
           <h2>{{ workbook?.sheet_name || '数据源表格' }}</h2>
           <p v-if="workbook?.rows.length">
-            当前显示源表第 {{ workbook.row_start }}–{{ workbook.row_end }} 行，共 {{ workbook.column_count }} 个可见列；可继续翻页直至文件末尾。
+            当前显示源表第 {{ workbook.row_start }}–{{ workbook.row_end }} 行，共 {{ workbook.column_count }} 个可见列；合并单元格按源表范围显示，可继续翻页直至文件末尾。
           </p>
           <p v-else>当前工作表没有数据。</p>
         </div>
@@ -113,12 +113,18 @@ import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { winProjectApi } from '@/api/win-project'
-import type { WinFileSnapshot, WinProjectDetail, WinProjectKind, WinWorkbookSheetPage } from '@/types/api'
+import type { WinFileSnapshot, WinProjectDetail, WinProjectKind, WinWorkbookMergedCell, WinWorkbookSheetPage } from '@/types/api'
 import { ensureXlsxBlob, saveBlob } from '@/utils/download'
 
 interface TableRow {
   rowNumber: number
   cells: string[]
+}
+
+interface VisibleMerge {
+  cell: WinWorkbookMergedCell
+  rowSpan: number
+  colSpan: number
 }
 
 const props = defineProps<{ projectKind: WinProjectKind; projectId: number }>()
@@ -152,6 +158,22 @@ const tableRows = computed<TableRow[]>(() => (workbook.value?.rows || []).map((c
   rowNumber: (workbook.value?.row_start || 1) + index,
   cells,
 })))
+const visibleMergeAnchors = computed(() => {
+  const anchors = new Map<string, VisibleMerge>()
+  const sheet = workbook.value
+  if (!sheet || sheet.row_start < 1 || sheet.row_end < sheet.row_start) return anchors
+  for (const cell of sheet.merged_cells || []) {
+    const visibleStartRow = Math.max(cell.start_row, sheet.row_start)
+    const visibleEndRow = Math.min(cell.end_row, sheet.row_end)
+    if (visibleEndRow < visibleStartRow || cell.end_column < cell.start_column) continue
+    anchors.set(mergeAnchorKey(visibleStartRow, cell.start_column), {
+      cell,
+      rowSpan: visibleEndRow - visibleStartRow + 1,
+      colSpan: cell.end_column - cell.start_column + 1,
+    })
+  }
+  return anchors
+})
 const tableColumns = computed<DataTableColumns<TableRow>>(() => {
   const count = workbook.value?.column_count || 0
   return [
@@ -163,7 +185,18 @@ const tableColumns = computed<DataTableColumns<TableRow>>(() => {
       title: excelColumnName(index + 1),
       key: `column-${index}`,
       width: 160,
-      render: (row: TableRow) => h('div', { class: 'source-cell', title: row.cells[index] || '' }, row.cells[index] || ''),
+      colSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.colSpan || 1,
+      rowSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.rowSpan || 1,
+      render: (row: TableRow) => {
+        const merged = visibleMergeAt(row.rowNumber, index + 1)
+        const value = merged ? merged.cell.value : (row.cells[index] || '')
+        const address = merged ? mergedCellAddress(merged.cell) : ''
+        return h('div', {
+          class: ['source-cell', { 'source-cell--merged': Boolean(merged) }],
+          title: merged ? `${address}\n${value}` : value,
+          'aria-label': merged ? `合并单元格 ${address} ${value}` : undefined,
+        }, value)
+      },
     })),
   ]
 })
@@ -187,6 +220,18 @@ function excelColumnName(value: number) {
     number = Math.floor(number / 26)
   }
   return name
+}
+
+function mergeAnchorKey(row: number, column: number) {
+  return `${row}:${column}`
+}
+
+function visibleMergeAt(row: number, column: number) {
+  return visibleMergeAnchors.value.get(mergeAnchorKey(row, column))
+}
+
+function mergedCellAddress(cell: WinWorkbookMergedCell) {
+  return `${excelColumnName(cell.start_column)}${cell.start_row}:${excelColumnName(cell.end_column)}${cell.end_row}`
 }
 
 function returnToList() {
@@ -372,6 +417,11 @@ onMounted(() => {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.55;
+}
+
+:deep(.source-cell--merged) {
+  min-height: 100%;
+  font-weight: 600;
 }
 
 @media (max-width: 760px) {
