@@ -16,6 +16,15 @@
       <n-button type="primary" @click="applyFilters">查询</n-button>
       <n-button quaternary @click="resetFilters">重置</n-button>
       <div class="toolbar__spacer" />
+      <n-button
+        :type="hideUuid ? 'primary' : 'default'"
+        :secondary="hideUuid"
+        :aria-pressed="hideUuid"
+        title="开启后隐藏列表、详情和项目摘要中的 UUID"
+        @click="hideUuid = !hideUuid"
+      >
+        隐藏UUID
+      </n-button>
       <n-button :loading="loading" @click="fetchProjects">刷新</n-button>
     </div>
 
@@ -41,7 +50,7 @@
         :loading="loading"
         :pagination="pagination"
         :row-key="(row: WinProjectListItem) => row.project.id"
-        :scroll-x="1360"
+        :scroll-x="tableScrollX"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
       >
@@ -58,7 +67,7 @@
             <n-descriptions label-placement="left" :column="1" bordered size="small">
               <n-descriptions-item label="项目名称">{{ detail.project.project_name || '-' }}</n-descriptions-item>
               <n-descriptions-item label="项目编号">{{ detail.project.project_code || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
+              <n-descriptions-item v-if="!hideUuid" label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
               <n-descriptions-item label="委托单位">{{ detail.project.client_name || '-' }}</n-descriptions-item>
               <n-descriptions-item label="创建时间">{{ formatProjectDateTime(detail.created_at) }}</n-descriptions-item>
               <n-descriptions-item label="最新修改时间">{{ formatProjectDateTime(detail.updated_at) }}</n-descriptions-item>
@@ -152,6 +161,7 @@ const companyOptions = ref<SelectOption[]>([])
 const selected = ref<WinProjectListItem | null>(null)
 const detail = ref<WinProjectDetail | null>(null)
 const detailVisible = ref(false)
+const hideUuid = ref(true)
 
 const filters = reactive({
   company_id: null as number | null,
@@ -167,10 +177,11 @@ const pagination = reactive<PaginationProps>({
 
 const kindLabel = computed(() => (props.projectKind === 'sky' ? 'SKY' : 'Huaning'))
 const drawerWidth = computed(() => (window.innerWidth < 860 ? '100%' : '760px'))
+const tableScrollX = computed(() => (hideUuid.value ? 1110 : 1360))
 const columns = computed<DataTableColumns<WinProjectListItem>>(() => [
   { title: '项目名称', key: 'project_name', minWidth: 180, render: (row) => row.project.project_name || '-' },
   { title: '项目编号', key: 'project_code', width: 150, render: (row) => row.project.project_code || '-' },
-  { title: '项目 UUID', key: 'project_uuid', minWidth: 250, ellipsis: { tooltip: true }, render: (row) => h('span', { class: 'mono' }, row.project.project_uuid) },
+  ...(hideUuid.value ? [] : [{ title: '项目 UUID', key: 'project_uuid', minWidth: 250, ellipsis: { tooltip: true }, render: (row: WinProjectListItem) => h('span', { class: 'mono' }, row.project.project_uuid) }]),
   { title: '委托单位', key: 'client_name', minWidth: 180, render: (row) => row.project.client_name || '-' },
   { title: '创建时间', key: 'created_at', width: 178, render: (row) => formatProjectDateTime(row.created_at) },
   { title: '最新修改时间', key: 'updated_at', width: 178, render: (row) => formatProjectDateTime(row.updated_at) },
@@ -198,6 +209,7 @@ function sourceRoleLabel(role: string) {
 function metadataEntries(metadata?: Record<string, unknown>) {
   if (!metadata) return []
   return Object.entries(metadata)
+    .filter(([key]) => !hideUuid.value || key !== 'project_uuid')
     .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
     .map(([key, value]) => ({ key: metadataLabel(key), value: metadataValue(value, key) }))
 }

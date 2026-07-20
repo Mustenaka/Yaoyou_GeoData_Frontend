@@ -4,6 +4,15 @@
       <n-space>
         <n-button @click="returnToList">返回列表</n-button>
         <n-button
+          :type="hideUuid ? 'primary' : 'default'"
+          :secondary="hideUuid"
+          :aria-pressed="hideUuid"
+          title="开启后隐藏项目 UUID"
+          @click="hideUuid = !hideUuid"
+        >
+          隐藏UUID
+        </n-button>
+        <n-button
           type="primary"
           :disabled="!selectedSource"
           :loading="downloading"
@@ -27,7 +36,7 @@
         <n-descriptions bordered label-placement="left" :column="summaryColumns" size="small">
           <n-descriptions-item label="项目编号">{{ detail.project.project_code || '-' }}</n-descriptions-item>
           <n-descriptions-item label="项目名称">{{ detail.project.project_name || '-' }}</n-descriptions-item>
-          <n-descriptions-item label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
+          <n-descriptions-item v-if="!hideUuid" label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
           <n-descriptions-item label="只读状态"><n-tag type="success" size="small">不可编辑</n-tag></n-descriptions-item>
         </n-descriptions>
 
@@ -70,11 +79,12 @@
         <div>
           <h2>{{ workbook?.sheet_name || '数据源表格' }}</h2>
           <p v-if="workbook?.rows.length">
-            当前显示源表第 {{ workbook.row_start }}–{{ workbook.row_end }} 行，共 {{ workbook.column_count }} 个可见列；合并单元格按源表范围显示，可继续翻页直至文件末尾。
+            当前显示源表第 {{ workbook.row_start }}–{{ workbook.row_end }} 行，共 {{ workbook.column_count }} 个可见列；所有单元格均显示网格线，蓝色外框表示源表合并区域。
           </p>
           <p v-else>当前工作表没有数据。</p>
         </div>
         <n-space>
+          <n-tag type="info" round>蓝色外框为合并单元格</n-tag>
           <n-tag round>{{ selectedSource.original_filename }}</n-tag>
           <n-tag type="success" round>只读</n-tag>
         </n-space>
@@ -82,12 +92,15 @@
 
       <n-spin :show="tableLoading">
         <n-data-table
+          class="source-grid-table"
           :columns="tableColumns"
           :data="tableRows"
           :pagination="false"
           :row-key="(row: TableRow) => row.rowNumber"
           :scroll-x="tableScrollX"
           :max-height="620"
+          bordered
+          :single-line="false"
           striped
         >
           <template #empty>
@@ -134,6 +147,7 @@ const loading = ref(false)
 const tableLoading = ref(false)
 const downloading = ref(false)
 const errorText = ref('')
+const hideUuid = ref(true)
 const detail = ref<WinProjectDetail | null>(null)
 const selectedSourceId = ref<number | null>(null)
 const workbook = ref<WinWorkbookSheetPage | null>(null)
@@ -187,6 +201,13 @@ const tableColumns = computed<DataTableColumns<TableRow>>(() => {
       width: 160,
       colSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.colSpan || 1,
       rowSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.rowSpan || 1,
+      cellProps: (row: TableRow) => {
+        const merged = visibleMergeAt(row.rowNumber, index + 1)
+        return {
+          class: ['source-grid-cell', { 'source-grid-cell--merged': Boolean(merged) }],
+          'data-merged-range': merged ? mergedCellAddress(merged.cell) : undefined,
+        }
+      },
       render: (row: TableRow) => {
         const merged = visibleMergeAt(row.rowNumber, index + 1)
         const value = merged ? merged.cell.value : (row.cells[index] || '')
@@ -417,6 +438,22 @@ onMounted(() => {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.55;
+}
+
+:deep(.source-grid-table) {
+  --n-merged-border-color: var(--yy-border-strong) !important;
+}
+
+:deep(.source-grid-table .n-data-table-th),
+:deep(.source-grid-table .n-data-table-td) {
+  border-color: var(--yy-border-strong) !important;
+}
+
+:deep(.source-grid-table .source-grid-cell--merged) {
+  position: relative;
+  z-index: 1;
+  background: color-mix(in srgb, var(--yy-primary) 8%, transparent) !important;
+  box-shadow: inset 0 0 0 2px var(--yy-primary);
 }
 
 :deep(.source-cell--merged) {
