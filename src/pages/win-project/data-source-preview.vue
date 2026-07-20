@@ -84,6 +84,13 @@
           <p v-else>当前工作表没有数据。</p>
         </div>
         <n-space>
+          <div class="zoom-control" role="group" aria-label="表格缩放">
+            <n-button size="small" :disabled="zoomPercent <= minZoom" @click="changeZoom(-zoomStep)">缩小</n-button>
+            <n-button size="small" quaternary :disabled="zoomPercent === 100" title="恢复为 100%" @click="resetZoom">
+              {{ zoomPercent }}%
+            </n-button>
+            <n-button size="small" :disabled="zoomPercent >= maxZoom" @click="changeZoom(zoomStep)">放大</n-button>
+          </div>
           <n-tag type="info" round>蓝色外框为合并单元格</n-tag>
           <n-tag round>{{ selectedSource.original_filename }}</n-tag>
           <n-tag type="success" round>只读</n-tag>
@@ -99,6 +106,7 @@
           :row-key="(row: TableRow) => row.rowNumber"
           :scroll-x="tableScrollX"
           :max-height="620"
+          :style="{ '--source-grid-zoom': String(zoomScale) }"
           bordered
           :single-line="false"
           striped
@@ -154,8 +162,16 @@ const workbook = ref<WinWorkbookSheetPage | null>(null)
 const sheetIndex = ref(0)
 const page = ref(1)
 const pageSize = ref(50)
+const zoomPercent = ref(100)
+
+const minZoom = 50
+const maxZoom = 200
+const zoomStep = 10
 
 const kindLabel = computed(() => (props.projectKind === 'sky' ? 'SKY' : 'Huaning'))
+const zoomScale = computed(() => zoomPercent.value / 100)
+const sourceColumnWidth = computed(() => Math.round(160 * zoomScale.value))
+const rowNumberWidth = computed(() => Math.max(56, Math.round(72 * zoomScale.value)))
 const summaryColumns = computed(() => (window.innerWidth < 760 ? 1 : 2))
 const selectedSource = computed(() => detail.value?.data_sources.find((item) => item.id === selectedSourceId.value) || null)
 const sourceOptions = computed<SelectOption[]>(() => (detail.value?.data_sources || []).map((source) => ({
@@ -192,13 +208,13 @@ const tableColumns = computed<DataTableColumns<TableRow>>(() => {
   const count = workbook.value?.column_count || 0
   return [
     {
-      title: '行号', key: 'rowNumber', width: 72, fixed: 'left',
+      title: '行号', key: 'rowNumber', width: rowNumberWidth.value, fixed: 'left',
       render: (row) => h('span', { class: 'row-number' }, String(row.rowNumber)),
     },
     ...Array.from({ length: count }, (_, index) => ({
       title: excelColumnName(index + 1),
       key: `column-${index}`,
-      width: 160,
+      width: sourceColumnWidth.value,
       colSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.colSpan || 1,
       rowSpan: (row: TableRow) => visibleMergeAt(row.rowNumber, index + 1)?.rowSpan || 1,
       cellProps: (row: TableRow) => {
@@ -221,7 +237,7 @@ const tableColumns = computed<DataTableColumns<TableRow>>(() => {
     })),
   ]
 })
-const tableScrollX = computed(() => Math.max(720, 72 + (workbook.value?.column_count || 0) * 160))
+const tableScrollX = computed(() => Math.max(720, rowNumberWidth.value + (workbook.value?.column_count || 0) * sourceColumnWidth.value))
 
 function sourceRoleLabel(role: string) {
   const labels: Record<string, string> = {
@@ -253,6 +269,14 @@ function visibleMergeAt(row: number, column: number) {
 
 function mergedCellAddress(cell: WinWorkbookMergedCell) {
   return `${excelColumnName(cell.start_column)}${cell.start_row}:${excelColumnName(cell.end_column)}${cell.end_row}`
+}
+
+function changeZoom(delta: number) {
+  zoomPercent.value = Math.min(maxZoom, Math.max(minZoom, zoomPercent.value + delta))
+}
+
+function resetZoom() {
+  zoomPercent.value = 100
 }
 
 function returnToList() {
@@ -427,13 +451,22 @@ onMounted(() => {
   width: 132px;
 }
 
+.zoom-control {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--yy-border);
+  border-radius: 7px;
+  background: var(--yy-bg-muted);
+}
+
 :deep(.row-number) {
   color: var(--yy-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
 :deep(.source-cell) {
-  max-height: 120px;
+  max-height: calc(120px * var(--source-grid-zoom));
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -447,6 +480,8 @@ onMounted(() => {
 :deep(.source-grid-table .n-data-table-th),
 :deep(.source-grid-table .n-data-table-td) {
   border-color: var(--yy-border-strong) !important;
+  font-size: calc(14px * var(--source-grid-zoom));
+  transition: border-color 0.2s ease, font-size 0.15s ease;
 }
 
 :deep(.source-grid-table .source-grid-cell--merged) {
