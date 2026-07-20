@@ -41,7 +41,7 @@
         :loading="loading"
         :pagination="pagination"
         :row-key="(row: WinProjectListItem) => row.project.id"
-        :scroll-x="1180"
+        :scroll-x="1360"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
       >
@@ -56,10 +56,12 @@
         <n-spin :show="detailLoading">
           <template v-if="detail">
             <n-descriptions label-placement="left" :column="1" bordered size="small">
-              <n-descriptions-item label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
-              <n-descriptions-item label="项目编号">{{ detail.project.project_code || '-' }}</n-descriptions-item>
               <n-descriptions-item label="项目名称">{{ detail.project.project_name || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="项目编号">{{ detail.project.project_code || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="项目 UUID"><span class="mono">{{ detail.project.project_uuid }}</span></n-descriptions-item>
               <n-descriptions-item label="委托单位">{{ detail.project.client_name || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="创建时间">{{ formatProjectDateTime(detail.created_at) }}</n-descriptions-item>
+              <n-descriptions-item label="最新修改时间">{{ formatProjectDateTime(detail.updated_at) }}</n-descriptions-item>
               <n-descriptions-item label="项目负责人">{{ detail.project.project_lead || '-' }}</n-descriptions-item>
               <n-descriptions-item label="最近归集">{{ formatDateTime(detail.project.last_uploaded_at) }}</n-descriptions-item>
             </n-descriptions>
@@ -166,11 +168,12 @@ const pagination = reactive<PaginationProps>({
 const kindLabel = computed(() => (props.projectKind === 'sky' ? 'SKY' : 'Huaning'))
 const drawerWidth = computed(() => (window.innerWidth < 860 ? '100%' : '760px'))
 const columns = computed<DataTableColumns<WinProjectListItem>>(() => [
-  { title: '项目编号', key: 'project_code', width: 150, render: (row) => row.project.project_code || '-' },
   { title: '项目名称', key: 'project_name', minWidth: 180, render: (row) => row.project.project_name || '-' },
-  { title: '委托单位', key: 'client_name', minWidth: 180, render: (row) => row.project.client_name || '-' },
+  { title: '项目编号', key: 'project_code', width: 150, render: (row) => row.project.project_code || '-' },
   { title: '项目 UUID', key: 'project_uuid', minWidth: 250, ellipsis: { tooltip: true }, render: (row) => h('span', { class: 'mono' }, row.project.project_uuid) },
-  { title: '最近归集', key: 'last_uploaded_at', width: 178, render: (row) => formatDateTime(row.project.last_uploaded_at) },
+  { title: '委托单位', key: 'client_name', minWidth: 180, render: (row) => row.project.client_name || '-' },
+  { title: '创建时间', key: 'created_at', width: 178, render: (row) => formatProjectDateTime(row.created_at) },
+  { title: '最新修改时间', key: 'updated_at', width: 178, render: (row) => formatProjectDateTime(row.updated_at) },
   {
     title: '操作',
     key: 'actions',
@@ -196,7 +199,7 @@ function metadataEntries(metadata?: Record<string, unknown>) {
   if (!metadata) return []
   return Object.entries(metadata)
     .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
-    .map(([key, value]) => ({ key: metadataLabel(key), value: metadataValue(value) }))
+    .map(([key, value]) => ({ key: metadataLabel(key), value: metadataValue(value, key) }))
 }
 
 function metadataLabel(key: string) {
@@ -214,12 +217,17 @@ function metadataLabel(key: string) {
     test_lead: '试验负责人',
     start_date: '开始日期',
     report_date: '报告日期',
+    created_at: '创建时间',
+    updated_at: '最新修改时间',
     declared_data_sources: '声明的数据源',
   }
   return labels[key] || key
 }
 
-function metadataValue(value: unknown) {
+function metadataValue(value: unknown, key = '') {
+  if ((key === 'created_at' || key === 'updated_at') && typeof value === 'string') {
+    return formatProjectDateTime(value)
+  }
   if (Array.isArray(value)) {
     return value
       .map((item) => {
@@ -233,6 +241,12 @@ function metadataValue(value: unknown) {
   }
   if (value && typeof value === 'object') return JSON.stringify(value)
   return String(value)
+}
+
+function formatProjectDateTime(value?: string | null) {
+  if (!value) return '-'
+  const formatted = formatDateTime(value)
+  return formatted === '-' ? value : formatted
 }
 
 function previewTruncated(preview: WinSpreadsheetPreview) {

@@ -918,6 +918,8 @@ export type WinFeatureKey = 'sky_projects' | 'huaning_projects'
 export interface WinProjectListItem {
   project: ProjectArchiveItem
   project_kind: WinProjectKind
+  created_at?: string
+  updated_at?: string
 }
 
 export interface WinSpreadsheetPreviewSheet {
@@ -961,6 +963,8 @@ export interface WinFileSnapshot {
 export interface WinProjectDetail {
   project: ProjectArchiveItem
   project_kind: WinProjectKind
+  created_at?: string
+  updated_at?: string
   project_snapshot?: WinFileSnapshot | null
   data_sources: WinFileSnapshot[]
 }
