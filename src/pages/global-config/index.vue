@@ -103,7 +103,7 @@ const companyColumns: DataTableColumns<ArchiveCompanyItem> = [
 ]
 
 const deviceColumns: DataTableColumns<ArchiveDeviceItem> = [
-  { title: '设备', key: 'device_name', minWidth: 180, render: (row) => row.device_name || '-' },
+  { title: '设备', key: 'device_name', minWidth: 180, render: deviceDisplayName },
   { title: '端', key: 'client_type', width: 90, render: (row) => clientTypeLabel(row.client_type) },
   {
     title: '指纹',
@@ -188,7 +188,7 @@ async function openDevice(row: ArchiveDeviceItem, event?: MouseEvent) {
       params: { id: latest?.id || 0 },
       query: {
         device_id: String(row.device_fingerprint_id),
-        device_name: row.device_name || '',
+        device_name: deviceDisplayName(row),
         fingerprint: row.fingerprint_hash_masked || '',
         company_id: selectedCompany.value?.company_id === null ? 'null' : String(selectedCompany.value?.company_id || ''),
         company_name: selectedCompany.value?.company_name || '',
@@ -204,6 +204,13 @@ async function openDevice(row: ArchiveDeviceItem, event?: MouseEvent) {
 function openCompany(row: ArchiveCompanyItem, event?: MouseEvent) {
   event?.stopPropagation()
   selectCompany(row)
+}
+
+function deviceDisplayName(row: ArchiveDeviceItem) {
+  if (row.device_alias) {
+    return row.device_name ? `${row.device_alias}（${row.device_name}）` : row.device_alias
+  }
+  return row.device_name || row.fingerprint_hash_masked || `设备 #${row.device_fingerprint_id}`
 }
 
 function refreshCurrent() {

@@ -141,9 +141,10 @@
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
-import { NButton, NTag } from 'naive-ui'
+import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
+import { deviceApi } from '@/api/device'
 import { winProjectApi } from '@/api/win-project'
 import { useAuthStore } from '@/stores/auth'
 import type { WinFileSnapshot, WinProjectDetail, WinProjectKind, WinProjectListItem, WinSpreadsheetPreview } from '@/types/api'
@@ -153,7 +154,10 @@ import { pageList, queryValue } from '@/utils/query'
 const props = defineProps<{ projectKind: WinProjectKind }>()
 const router = useRouter()
 const authStore = useAuthStore()
+const dialog = useDialog()
+const message = useMessage()
 const loading = ref(false)
+const deletingDeviceId = ref<number | null>(null)
 const detailLoading = ref(false)
 const errorText = ref('')
 const rows = ref<WinProjectListItem[]>([])
@@ -177,22 +181,31 @@ const pagination = reactive<PaginationProps>({
 
 const kindLabel = computed(() => (props.projectKind === 'sky' ? 'SKY' : 'Huaning'))
 const drawerWidth = computed(() => (window.innerWidth < 860 ? '100%' : '760px'))
-const tableScrollX = computed(() => (hideUuid.value ? 1110 : 1360))
+const tableScrollX = computed(() => (hideUuid.value ? 1310 : 1560))
 const columns = computed<DataTableColumns<WinProjectListItem>>(() => [
   { title: '项目名称', key: 'project_name', minWidth: 180, render: (row) => row.project.project_name || '-' },
   { title: '项目编号', key: 'project_code', width: 150, render: (row) => row.project.project_code || '-' },
   ...(hideUuid.value ? [] : [{ title: '项目 UUID', key: 'project_uuid', minWidth: 250, ellipsis: { tooltip: true }, render: (row: WinProjectListItem) => h('span', { class: 'mono' }, row.project.project_uuid) }]),
   { title: '委托单位', key: 'client_name', minWidth: 180, render: (row) => row.project.client_name || '-' },
+  { title: '来源设备', key: 'device_name', minWidth: 180, render: deviceDisplayName },
   { title: '创建时间', key: 'created_at', width: 178, render: (row) => formatProjectDateTime(row.created_at) },
   { title: '最新修改时间', key: 'updated_at', width: 178, render: (row) => formatProjectDateTime(row.updated_at) },
   {
     title: '操作',
     key: 'actions',
-    width: 220,
+    width: 330,
     fixed: 'right',
     render: (row) => h('div', { style: 'display:flex;gap:8px' }, [
       h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
       h(NButton, { size: 'small', type: 'primary', ghost: true, onClick: () => openDataSourcePreview(row) }, { default: () => '预览数据源' }),
+      h(NButton, {
+        size: 'small',
+        type: 'error',
+        disabled: !row.device_fingerprint_id,
+        title: row.device_fingerprint_id ? '永久删除来源设备及全部关联云端数据' : '旧项目记录未关联可删除的来源设备',
+        loading: !!row.device_fingerprint_id && deletingDeviceId.value === row.device_fingerprint_id,
+        onClick: () => confirmDeleteDevice(row),
+      }, { default: () => '删除设备' }),
     ]),
   },
 ])
@@ -265,6 +278,13 @@ function previewTruncated(preview: WinSpreadsheetPreview) {
   return preview.sheets_truncated || preview.sheets.some((sheet) => sheet.rows_truncated || sheet.columns_truncated)
 }
 
+function deviceDisplayName(row: WinProjectListItem) {
+  if (row.device_alias) {
+    return row.device_name ? `${row.device_alias}（${row.device_name}）` : row.device_alias
+  }
+  return row.device_name || (row.device_fingerprint_id ? `设备 #${row.device_fingerprint_id}` : '未关联')
+}
+
 async function loadCompanies() {
   if (!authStore.isBackOfficeScopeAll) return
   const result = await companyApi.list({ page: 1, page_size: 200 })
@@ -331,6 +351,36 @@ function openDataSourcePreview(row: WinProjectListItem) {
   void router.push({
     name: props.projectKind === 'sky' ? 'win-sky-data-sources' : 'win-huaning-data-sources',
     params: { id: row.project.id },
+  })
+}
+
+function confirmDeleteDevice(row: WinProjectListItem) {
+  if (!row.device_fingerprint_id) return
+  const deviceId = row.device_fingerprint_id
+  dialog.error({
+    title: '永久删除设备及关联数据',
+    content: `将永久删除“${deviceDisplayName(row)}”，自动取消授权，并清除其关联的 SKY/Huaning、Mobile 项目、数据、配置、日志和文件。共同使用过的关联项目也会整项删除，且不可恢复。`,
+    positiveText: '确认永久删除',
+    negativeText: '取消',
+    async onPositiveClick() {
+      deletingDeviceId.value = deviceId
+      try {
+        const result = await deviceApi.remove(deviceId)
+        message.success(`设备已删除，共清理 ${result.projects_deleted} 个项目、${result.files_deleted} 个文件记录`)
+        if (selected.value?.device_fingerprint_id === deviceId) {
+          selected.value = null
+          detail.value = null
+          detailVisible.value = false
+        }
+        await fetchProjects()
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '设备删除失败')
+        return false
+      } finally {
+        deletingDeviceId.value = null
+      }
+      return true
+    },
   })
 }
 

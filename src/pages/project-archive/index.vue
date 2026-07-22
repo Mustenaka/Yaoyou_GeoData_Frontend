@@ -27,7 +27,7 @@
           设备：{{ companyDisplayName(selectedCompany) }}
         </n-breadcrumb-item>
         <n-breadcrumb-item v-if="selectedDevice && !searchMode">
-          项目：{{ selectedDevice.device_name || selectedDevice.fingerprint_hash_masked || selectedDevice.device_fingerprint_id }}
+          项目：{{ deviceDisplayName(selectedDevice) }}
         </n-breadcrumb-item>
         <n-breadcrumb-item v-if="searchMode">关键词：{{ normalizedKeyword }}</n-breadcrumb-item>
       </n-breadcrumb>
@@ -94,6 +94,7 @@
         :loading="loading"
         :pagination="false"
         :row-key="(row: ArchiveDeviceItem) => row.device_fingerprint_id"
+        :scroll-x="1470"
         :row-props="deviceRowProps"
       >
         <template #empty>
@@ -105,7 +106,7 @@
     <div v-else class="page-card">
       <div class="panel-head">
         <div>
-          <div class="panel-title">{{ selectedDevice?.device_name || selectedDevice?.fingerprint_hash_masked || '-' }} / 项目</div>
+          <div class="panel-title">{{ selectedDevice ? deviceDisplayName(selectedDevice) : '-' }} / 项目</div>
           <div class="panel-subtitle">按设备上行文件关联到项目档案，点击项目进入详情。</div>
         </div>
         <n-tag round>{{ projectPagination.itemCount || 0 }} 项</n-tag>
@@ -133,9 +134,10 @@
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { NButton, NTag } from 'naive-ui'
+import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
+import { deviceApi } from '@/api/device'
 import type { ArchiveCompanyItem, ArchiveDeviceItem, ArchiveDeviceProjectItem, ProjectArchiveItem } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 import { pageList, queryValue } from '@/utils/query'
@@ -152,7 +154,10 @@ type TagType = 'default' | 'success' | 'warning' | 'error' | 'info'
 
 const route = useRoute()
 const router = useRouter()
+const dialog = useDialog()
+const message = useMessage()
 const loading = ref(false)
+const deletingDeviceId = ref<number | null>(null)
 const errorText = ref('')
 const keyword = ref('')
 const searchMode = ref(false)
@@ -198,7 +203,7 @@ const companyColumns: DataTableColumns<ArchiveCompanyItem> = [
 ]
 
 const deviceColumns: DataTableColumns<ArchiveDeviceItem> = [
-  { title: '设备', key: 'device_name', minWidth: 180, render: (row) => row.device_name || '-' },
+  { title: '设备', key: 'device_name', minWidth: 180, render: deviceDisplayName },
   { title: '端', key: 'client_type', width: 90, render: (row) => clientTypeLabel(row.client_type) },
   {
     title: '指纹',
@@ -225,9 +230,17 @@ const deviceColumns: DataTableColumns<ArchiveDeviceItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 110,
+    width: 210,
     fixed: 'right',
-    render: (row) => h(NButton, { size: 'small', onClick: (event: MouseEvent) => openDevice(row, event) }, { default: () => '查看项目' }),
+    render: (row) => h('div', { class: 'table-actions' }, [
+      h(NButton, { size: 'small', onClick: (event: MouseEvent) => openDevice(row, event) }, { default: () => '查看项目' }),
+      h(NButton, {
+        size: 'small',
+        type: 'error',
+        loading: deletingDeviceId.value === row.device_fingerprint_id,
+        onClick: (event: MouseEvent) => confirmDeleteDevice(row, event),
+      }, { default: () => '删除设备' }),
+    ]),
   },
 ]
 
@@ -443,6 +456,37 @@ function openCompany(row: ArchiveCompanyItem, event?: MouseEvent) {
 function openDevice(row: ArchiveDeviceItem, event?: MouseEvent) {
   event?.stopPropagation()
   selectDevice(row)
+}
+
+function deviceDisplayName(row: ArchiveDeviceItem) {
+  if (row.device_alias) {
+    return row.device_name ? `${row.device_alias}（${row.device_name}）` : row.device_alias
+  }
+  return row.device_name || row.fingerprint_hash_masked || `设备 #${row.device_fingerprint_id}`
+}
+
+function confirmDeleteDevice(row: ArchiveDeviceItem, event?: MouseEvent) {
+  event?.stopPropagation()
+  dialog.error({
+    title: '永久删除设备及关联数据',
+    content: `将永久删除“${deviceDisplayName(row)}”，自动取消授权，并清除关联的 Mobile/Win 项目、数据、配置、日志和文件。共同使用过的关联项目也会整项删除，且不可恢复。`,
+    positiveText: '确认永久删除',
+    negativeText: '取消',
+    async onPositiveClick() {
+      deletingDeviceId.value = row.device_fingerprint_id
+      try {
+        const result = await deviceApi.remove(row.device_fingerprint_id)
+        message.success(`设备已删除，共清理 ${result.projects_deleted} 个项目、${result.files_deleted} 个文件记录`)
+        await loadDevices()
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '设备删除失败')
+        return false
+      } finally {
+        deletingDeviceId.value = null
+      }
+      return true
+    },
+  })
 }
 
 function openDetail(row: ProjectArchiveItem, event?: MouseEvent) {

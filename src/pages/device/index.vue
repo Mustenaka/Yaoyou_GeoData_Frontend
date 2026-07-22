@@ -35,7 +35,7 @@
         :loading="loading"
         :pagination="pagination"
         :row-key="(row: DeviceBindingItem) => row.id"
-        :scroll-x="1040"
+        :scroll-x="1480"
         :row-props="bindingRowProps"
         @update:page="handlePage"
         @update:page-size="handlePageSize"
@@ -99,6 +99,8 @@
             </div>
             <n-descriptions v-if="detailBinding.device" bordered :column="detailDescriptionColumns" label-placement="left" class="detail-descriptions">
               <n-descriptions-item label="设备">{{ detailDeviceLabel(detailBinding) }}</n-descriptions-item>
+              <n-descriptions-item label="设备别名">{{ detailBinding.device.device_alias || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="系统设备名">{{ detailBinding.device.device_name || '-' }}</n-descriptions-item>
               <n-descriptions-item label="设备记录">#{{ detailBinding.device.id }}</n-descriptions-item>
               <n-descriptions-item label="设备指纹">
                 <span class="mono">{{ maskedIdentifier(detailBinding.device.fingerprint_hash || detailBinding.fingerprint_hash) }}</span>
@@ -224,6 +226,17 @@
       </n-drawer-content>
     </n-drawer>
 
+    <n-modal v-model:show="aliasVisible" preset="card" title="修改设备别名" style="width: min(480px, 92vw)">
+      <n-form-item label="别名">
+        <n-input v-model:value="aliasValue" maxlength="128" show-count clearable placeholder="例如：财务室 Win 主机；留空可清除别名" />
+      </n-form-item>
+      <n-text depth="3">别名仅用于后台辨认设备，不会改写客户端上报的系统设备名。</n-text>
+      <div class="drawer-footer">
+        <n-button @click="aliasVisible = false">取消</n-button>
+        <n-button type="primary" :loading="aliasSaving" @click="submitAlias">保存</n-button>
+      </div>
+    </n-modal>
+
     <n-modal v-model:show="revokeVisible" preset="card" title="取消设备授权" style="width: min(520px, 92vw)">
       <n-alert type="warning" :bordered="false" class="modal-note">
         取消后，这台设备将不能继续使用项目；同企业的其他设备不受影响。
@@ -246,6 +259,7 @@ import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
 import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { deviceBindingApi } from '@/api/authorization'
+import { deviceApi } from '@/api/device'
 import { useAuthStore } from '@/stores/auth'
 import type {
   AuthorizationCapabilities,
@@ -272,6 +286,8 @@ const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const revokeSaving = ref(false)
+const aliasSaving = ref(false)
+const deletingDeviceId = ref<number | null>(null)
 const errorText = ref('')
 const bindings = ref<DeviceBindingItem[]>([])
 const detailVisible = ref(false)
@@ -281,9 +297,12 @@ const detailBinding = ref<DeviceBindingDetail | null>(null)
 const detailBindingId = ref<number | null>(null)
 const validityVisible = ref(false)
 const revokeVisible = ref(false)
+const aliasVisible = ref(false)
 const editingBinding = ref<DeviceBindingItem | null>(null)
 const revokingBinding = ref<DeviceBindingItem | null>(null)
+const aliasBinding = ref<DeviceBindingItem | null>(null)
 const revokeReason = ref('')
+const aliasValue = ref('')
 const companyOptions = ref<SelectOption[]>([])
 const companyOptionsLoading = ref(false)
 const pageCapabilities = ref<AuthorizationCapabilities>({})
@@ -348,16 +367,23 @@ const columns: DataTableColumns<DeviceBindingItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 285,
+    width: 430,
     fixed: 'right',
     render: (row) => h('div', { class: 'table-actions' }, [
       h(NButton, { size: 'small', secondary: true, onClick: () => openDetail(row) }, { default: () => '详情' }),
+      h(NButton, { size: 'small', onClick: () => openAlias(row) }, { default: () => '修改别名' }),
       rowCanUpdate(row)
         ? h(NButton, { size: 'small', onClick: () => openValidity(row) }, { default: () => '修改期限' })
         : null,
       rowCanRevoke(row)
         ? h(NButton, { size: 'small', type: 'error', ghost: true, onClick: () => openRevoke(row) }, { default: () => '取消授权' })
         : null,
+      h(NButton, {
+        size: 'small',
+        type: 'error',
+        loading: deletingDeviceId.value === row.device_fingerprint_id,
+        onClick: () => confirmDeleteDevice(row),
+      }, { default: () => '删除' }),
     ]),
   },
 ]
@@ -378,7 +404,7 @@ function companyLabel(row: DeviceBindingItem) {
 }
 
 function deviceLabel(row: DeviceBindingItem) {
-  return row.device_name || `设备 #${row.device_fingerprint_id}`
+  return row.device_alias || row.device_name || `设备 #${row.device_fingerprint_id}`
 }
 
 function detailDrawerTitle() {
@@ -386,7 +412,7 @@ function detailDrawerTitle() {
 }
 
 function detailDeviceLabel(row: DeviceBindingDetail) {
-  return row.device?.device_name || row.device_name || `设备 #${row.device?.id || row.device_fingerprint_id}`
+  return row.device?.device_alias || row.device_alias || row.device?.device_name || row.device_name || `设备 #${row.device?.id || row.device_fingerprint_id}`
 }
 
 function bindingOwnerLabel(row: DeviceBindingDetail) {
@@ -773,6 +799,57 @@ async function submitValidity() {
   } finally {
     saving.value = false
   }
+}
+
+function openAlias(row: DeviceBindingItem) {
+  aliasBinding.value = row
+  aliasValue.value = row.device_alias || ''
+  aliasVisible.value = true
+}
+
+async function submitAlias() {
+  const row = aliasBinding.value
+  if (!row) return
+  aliasSaving.value = true
+  try {
+    await deviceApi.updateAlias(row.device_fingerprint_id, aliasValue.value.trim())
+    message.success('设备别名已更新')
+    aliasVisible.value = false
+    await fetchBindings()
+    if (detailVisible.value && detailBindingId.value === row.id) await reloadDetail()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '设备别名更新失败')
+  } finally {
+    aliasSaving.value = false
+  }
+}
+
+function confirmDeleteDevice(row: DeviceBindingItem) {
+  dialog.error({
+    title: '永久删除设备及关联数据',
+    content: `将永久删除“${deviceLabel(row)}”的后台设备记录，自动取消授权，并删除其关联的 Mobile/Win 项目、数据、配置、日志和文件。共同使用过的关联项目也会整项删除，且不可恢复。`,
+    positiveText: '确认永久删除',
+    negativeText: '取消',
+    async onPositiveClick() {
+      deletingDeviceId.value = row.device_fingerprint_id
+      try {
+        const result = await deviceApi.remove(row.device_fingerprint_id)
+        message.success(`设备已删除，共清理 ${result.projects_deleted} 个项目、${result.files_deleted} 个文件记录`)
+        if (detailBindingId.value === row.id) {
+          detailVisible.value = false
+          detailBinding.value = null
+          detailBindingId.value = null
+        }
+        await fetchBindings()
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '设备删除失败')
+        return false
+      } finally {
+        deletingDeviceId.value = null
+      }
+      return true
+    },
+  })
 }
 
 function openRevoke(row: DeviceBindingItem) {

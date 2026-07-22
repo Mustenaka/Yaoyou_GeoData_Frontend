@@ -6,6 +6,7 @@ import type {
   DeviceAuthorizationBatchApproveResponse,
   DeviceAuthorizationDecisionPayload,
   DeviceDetail,
+  DeviceDeleteResult,
   DeviceExportAuthorizePayload,
   DeviceExportAuthorizeResponse,
   DeviceItem,
@@ -24,6 +25,12 @@ export const deviceApi = {
   },
   detail(id: number) {
     return request.get<DeviceDetail, DeviceDetail>(`/admin/devices/${id}`)
+  },
+  updateAlias(id: number, alias: string) {
+    return request.put<DeviceDetail, DeviceDetail>(`/admin/devices/${id}/alias`, { alias })
+  },
+  remove(id: number) {
+    return request.delete<DeviceDeleteResult, DeviceDeleteResult>(`/admin/devices/${id}`)
   },
   risks(params: DeviceRiskListParams) {
     return request.get<PageResult<DeviceRiskItem>, PageResult<DeviceRiskItem>>('/admin/devices/risks', { params })

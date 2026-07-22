@@ -493,6 +493,7 @@ export interface DeviceBindingItem {
   source_of_truth?: string
   capabilities?: AuthorizationCapabilities
   device_name?: string
+  device_alias?: string
   fingerprint_hash?: string
   device_status?: DeviceStatus
   risk_level?: string
@@ -511,6 +512,7 @@ export interface DeviceBindingDetailDevice {
   mobile_install_id_hash?: string | null
   win_mainboard_id_hash?: string | null
   device_name?: string
+  device_alias?: string
   os_version?: string
   app_version?: string
   first_seen_at?: string | null
@@ -603,6 +605,7 @@ export interface DeviceItem {
   client_type: 'mobile' | 'win'
   fingerprint_hash: string
   device_name: string
+  device_alias?: string
   os_version: string
   app_version: string
   status: DeviceStatus
@@ -628,6 +631,7 @@ export interface DeviceDetail {
   mobile_install_id?: string
   win_mainboard_id_hash?: string
   device_name?: string
+  device_alias?: string
   os_version?: string
   app_version?: string
   first_seen_at?: string
@@ -920,6 +924,9 @@ export interface WinProjectListItem {
   project_kind: WinProjectKind
   created_at?: string
   updated_at?: string
+  device_fingerprint_id?: number | null
+  device_name?: string
+  device_alias?: string
 }
 
 export interface WinSpreadsheetPreviewSheet {
@@ -1035,6 +1042,7 @@ export interface ArchiveDeviceItem {
   device_fingerprint_id: number
   company_id?: number | null
   device_name: string
+  device_alias?: string
   client_type: ClientType | string
   fingerprint_hash_masked: string
   status: DeviceStatus | string
@@ -1043,6 +1051,22 @@ export interface ArchiveDeviceItem {
   last_seen_at: string
   project_count: number
   last_uploaded_at?: string | null
+}
+
+export interface DeviceDeleteResult {
+  device_fingerprint_id: number
+  bindings_deleted: number
+  authorizations_deleted: number
+  requests_deleted: number
+  sessions_deleted: number
+  projects_deleted: number
+  files_deleted: number
+  form_snapshots_deleted: number
+  config_snapshots_deleted: number
+  win_snapshots_deleted: number
+  risk_records_deleted: number
+  audit_records_deleted: number
+  storage_objects_deleted: number
 }
 
 export interface ArchiveDeviceProjectItem extends ProjectArchiveItem {
