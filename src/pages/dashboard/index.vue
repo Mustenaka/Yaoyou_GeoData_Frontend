@@ -666,7 +666,7 @@ watch([serverPanelVisible, serverMetricsMode], ([visible, mode]) => {
   if (!visible) return
   void loadServerMetrics(true)
   if (mode === 'live') connectServerMetricsStream()
-})
+}, { immediate: true })
 
 watch(currentStreamMetric, (metric) => {
   if (!metric || serverMetricsMode.value !== 'live' || !serverPanelVisible.value || !serverMetrics.value) return
