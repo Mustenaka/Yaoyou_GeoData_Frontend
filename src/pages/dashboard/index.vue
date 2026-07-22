@@ -292,7 +292,7 @@ type EventRow = {
 const panelDefinitions: Record<PanelId, PanelDefinition> = {
   summary: { id: 'summary', title: '概览统计', description: '服务、用户、上传和风险摘要', defaultItem: { i: 'summary', x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 } },
   server: { id: 'server', title: '服务器性能', description: '实时流、30 天历史与 TXT 导出', backOfficeOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 5, minW: 5, minH: 5 } },
-  storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', superOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
+  storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', backOfficeOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
   message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 7, w: 6, h: 4, minW: 4, minH: 3 } },
   expiry: { id: 'expiry', title: '到期提醒', description: '设备和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 7, w: 6, h: 4, minW: 4, minH: 3 } },
   failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 11, w: 4, h: 4, minW: 3, minH: 3 } },
@@ -302,7 +302,7 @@ const panelDefinitions: Record<PanelId, PanelDefinition> = {
   business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 15, w: 6, h: 4, minW: 4, minH: 3 } },
 }
 
-const dashboardLayoutVersion = 'v5'
+const dashboardLayoutVersion = 'v6'
 const gridBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 520, xxs: 0 }
 const gridCols = { lg: 12, md: 12, sm: 6, xs: 2, xxs: 1 }
 
@@ -840,9 +840,9 @@ function runPanelAction(id: PanelId) {
 }
 
 async function loadStorage() {
-  if (!authStore.isSuperAdmin) {
+  if (!authStore.isBackOfficeScopeAll) {
     storage.value = null
-    storageHiddenReason.value = '容量信息仅 superadmin 可见'
+    storageHiddenReason.value = '容量信息仅平台管理员可见'
     return
   }
   try {
@@ -851,7 +851,7 @@ async function loadStorage() {
   } catch (error) {
     storage.value = null
     if (error instanceof ApiError && error.code === 12001) {
-      storageHiddenReason.value = '容量信息仅 superadmin 可见'
+      storageHiddenReason.value = '容量信息仅平台管理员可见'
       return
     }
     storageHiddenReason.value = error instanceof Error ? error.message : '容量统计加载失败'
