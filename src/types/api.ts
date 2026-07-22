@@ -1315,6 +1315,10 @@ export interface DashboardServerMetrics {
   runtime_history_limit: number
   runtime_history_count: number
   runtime_history_updated?: string | null
+  runtime_history_start?: string | null
+  runtime_history_end?: string | null
+  runtime_history_truncated: boolean
+  retention_days: number
 }
 
 export interface DashboardFileEvent {

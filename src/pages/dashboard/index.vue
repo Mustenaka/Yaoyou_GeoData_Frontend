@@ -110,6 +110,26 @@
 
               <template v-else-if="item.i === 'server'">
                 <div v-if="serverMetrics" class="server-metrics">
+                  <div class="server-metrics__toolbar">
+                    <n-radio-group v-model:value="serverMetricsMode" size="small">
+                      <n-radio-button value="live">最新流式</n-radio-button>
+                      <n-radio-button value="history">按日期</n-radio-button>
+                    </n-radio-group>
+                    <n-date-picker
+                      v-if="serverMetricsMode === 'history'"
+                      v-model:value="serverMetricDateRange"
+                      class="server-metrics__date"
+                      type="daterange"
+                      size="small"
+                      clearable
+                      :is-date-disabled="isServerMetricDateDisabled"
+                    />
+                    <n-button v-if="serverMetricsMode === 'history'" size="small" secondary :loading="serverMetricsLoading" @click="applyServerMetricDateRange">查询</n-button>
+                    <n-button size="small" secondary :loading="serverMetricsExporting" @click="exportServerMetricsTXT">导出 TXT</n-button>
+                    <n-tag size="small" :type="serverMetricsMode === 'live' && serverMetricsStreamConnected ? 'success' : 'default'" :bordered="false">
+                      {{ serverMetricsRangeText }}
+                    </n-tag>
+                  </div>
                   <div class="server-metrics__top">
                     <div>
                       <span>服务状态</span>
@@ -121,7 +141,7 @@
                     </div>
                     <div>
                       <span>Goroutine</span>
-                      <strong>{{ serverMetrics.goroutine_num }}</strong>
+                      <strong>{{ serverDisplayGoroutines }}</strong>
                     </div>
                   </div>
                   <div class="server-bars">
@@ -219,11 +239,13 @@ import { useMessage } from 'naive-ui'
 import VChart from 'vue-echarts'
 import { useRouter } from 'vue-router'
 import { auditApi } from '@/api/audit'
-import { opsApi } from '@/api/ops'
+import { opsApi, type ServerMetricHistoryParams } from '@/api/ops'
 import { ApiError } from '@/api/request'
+import { useMetricsSSE } from '@/composables/useMetricsSSE'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
-import type { DashboardRecentEvents, DashboardRiskEvent, DashboardServerMetrics, DashboardStorage, DashboardSummary, OperationAuditEvent } from '@/types/api'
+import type { DashboardRecentEvents, DashboardRiskEvent, DashboardServerMetricSample, DashboardServerMetrics, DashboardStorage, DashboardSummary, OperationAuditEvent } from '@/types/api'
+import { saveBlob } from '@/utils/download'
 import { formatBytes, formatDateTime, formatPercent } from '@/utils/format'
 import { auditResultLabel, clientTypeLabel, objectTypeLabel, riskLevelLabel, roleLabel } from '@/utils/labels'
 import DashboardEventList from './components/DashboardEventList.vue'
@@ -232,6 +254,7 @@ import DashboardPanel from './components/DashboardPanel.vue'
 use([CanvasRenderer, GaugeChart, LineChart, GridComponent, LegendComponent, TooltipComponent])
 
 type PanelId = 'summary' | 'server' | 'storage' | 'message' | 'expiry' | 'failed' | 'risks' | 'sync' | 'audit' | 'business'
+type ServerMetricsMode = 'live' | 'history'
 
 type DashboardLayoutItem = LayoutItem & {
   i: PanelId
@@ -268,18 +291,18 @@ type EventRow = {
 
 const panelDefinitions: Record<PanelId, PanelDefinition> = {
   summary: { id: 'summary', title: '概览统计', description: '服务、用户、上传和风险摘要', defaultItem: { i: 'summary', x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 } },
-  server: { id: 'server', title: '服务器性能', description: '真实 CPU、内存、磁盘与运行趋势', backOfficeOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 4, minW: 5, minH: 4 } },
+  server: { id: 'server', title: '服务器性能', description: '实时流、30 天历史与 TXT 导出', backOfficeOnly: true, defaultItem: { i: 'server', x: 0, y: 2, w: 8, h: 5, minW: 5, minH: 5 } },
   storage: { id: 'storage', title: '存储容量', description: '真实容量占用与阈值状态', superOnly: true, defaultItem: { i: 'storage', x: 8, y: 2, w: 4, h: 4, minW: 4, minH: 4 } },
-  message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
-  expiry: { id: 'expiry', title: '到期提醒', description: '设备和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 6, w: 6, h: 4, minW: 4, minH: 3 } },
-  failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
-  risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', defaultItem: { i: 'risks', x: 4, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
-  sync: { id: 'sync', title: '最近同步', description: '最近完成的上传同步', superOnly: true, defaultItem: { i: 'sync', x: 8, y: 10, w: 4, h: 4, minW: 3, minH: 3 } },
-  audit: { id: 'audit', title: '操作记录', description: '最近后台操作', defaultItem: { i: 'audit', x: 0, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
-  business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 14, w: 6, h: 4, minW: 4, minH: 3 } },
+  message: { id: 'message', title: '消息板', description: '聚合现有事件的只读信息流', defaultItem: { i: 'message', x: 0, y: 7, w: 6, h: 4, minW: 4, minH: 3 } },
+  expiry: { id: 'expiry', title: '到期提醒', description: '设备和临时账号到期项', defaultItem: { i: 'expiry', x: 6, y: 7, w: 6, h: 4, minW: 4, minH: 3 } },
+  failed: { id: 'failed', title: '最近失败上传', description: '文件同步失败记录', superOnly: true, defaultItem: { i: 'failed', x: 0, y: 11, w: 4, h: 4, minW: 3, minH: 3 } },
+  risks: { id: 'risks', title: '最近高风险', description: '待关注安全风险', defaultItem: { i: 'risks', x: 4, y: 11, w: 4, h: 4, minW: 3, minH: 3 } },
+  sync: { id: 'sync', title: '最近同步', description: '最近完成的上传同步', superOnly: true, defaultItem: { i: 'sync', x: 8, y: 11, w: 4, h: 4, minW: 3, minH: 3 } },
+  audit: { id: 'audit', title: '操作记录', description: '最近后台操作', defaultItem: { i: 'audit', x: 0, y: 15, w: 6, h: 4, minW: 4, minH: 3 } },
+  business: { id: 'business', title: '企业与用户', description: '角色范围内的基础运营指标', defaultItem: { i: 'business', x: 6, y: 15, w: 6, h: 4, minW: 4, minH: 3 } },
 }
 
-const dashboardLayoutVersion = 'v4'
+const dashboardLayoutVersion = 'v5'
 const gridBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 520, xxs: 0 }
 const gridCols = { lg: 12, md: 12, sm: 6, xs: 2, xxs: 1 }
 
@@ -296,6 +319,10 @@ const recentErrorText = ref('')
 const auditErrorText = ref('')
 const storageHiddenReason = ref('')
 const serverMetricsError = ref('')
+const serverMetricsLoading = ref(false)
+const serverMetricsExporting = ref(false)
+const serverMetricsMode = ref<ServerMetricsMode>('live')
+const serverMetricDateRange = ref<[number, number] | null>(defaultServerMetricDateRange())
 const summary = ref<DashboardSummary | null>(null)
 const storage = ref<DashboardStorage | null>(null)
 const serverMetrics = ref<DashboardServerMetrics | null>(null)
@@ -305,8 +332,13 @@ const layout = ref<DashboardLayoutItem[]>([])
 const lastPersistedLayoutSignature = ref('')
 const pendingUserLayoutCommit = ref(false)
 const sessionRedirecting = ref(false)
+const {
+  connected: serverMetricsStreamConnected,
+  current: currentStreamMetric,
+  connect: connectServerMetricsStream,
+  close: closeServerMetricsStream,
+} = useMetricsSSE()
 let refreshTimer = 0
-let serverMetricsTimer = 0
 
 function themeColor(name: string) {
   const themeIsDark = themeStore.isDark
@@ -406,12 +438,28 @@ const metricCards = computed<MetricCard[]>(() => {
   ]
 })
 
+const serverDisplaySample = computed<DashboardServerMetricSample | null>(() => {
+  if (serverMetricsMode.value !== 'history') return null
+  const history = serverMetrics.value?.runtime_history || []
+  return history.length ? history[history.length - 1] : null
+})
+
+const serverDisplayGoroutines = computed(() => serverDisplaySample.value?.goroutine_num ?? serverMetrics.value?.goroutine_num ?? 0)
+
+const serverMetricsRangeText = computed(() => {
+  if (serverMetricsMode.value === 'live') return serverMetricsStreamConnected.value ? '实时流已连接 · 5 秒更新' : '实时流连接中'
+  if (!serverMetrics.value) return '历史数据加载中'
+  const count = serverMetrics.value.runtime_history_count
+  return `保留 ${serverMetrics.value.retention_days || 30} 天 · ${count} 个采样${serverMetrics.value.runtime_history_truncated ? '（已截断）' : ''}`
+})
+
 const serverBars = computed(() => {
   if (!serverMetrics.value) return []
+  const sample = serverDisplaySample.value
   return [
-    { key: 'cpu', label: 'CPU', value: serverMetrics.value.cpu_usage, percent: clampPercent(serverMetrics.value.cpu_usage), color: metricColor(serverMetrics.value.cpu_usage) },
-    { key: 'memory', label: '内存', value: serverMetrics.value.memory_usage, percent: clampPercent(serverMetrics.value.memory_usage), color: metricColor(serverMetrics.value.memory_usage) },
-    { key: 'disk', label: '磁盘', value: serverMetrics.value.disk_usage, percent: clampPercent(serverMetrics.value.disk_usage), color: metricColor(serverMetrics.value.disk_usage) },
+    { key: 'cpu', label: 'CPU', value: sample?.cpu_usage ?? serverMetrics.value.cpu_usage, percent: clampPercent(sample?.cpu_usage ?? serverMetrics.value.cpu_usage), color: metricColor(sample?.cpu_usage ?? serverMetrics.value.cpu_usage) },
+    { key: 'memory', label: '内存', value: sample?.memory_usage ?? serverMetrics.value.memory_usage, percent: clampPercent(sample?.memory_usage ?? serverMetrics.value.memory_usage), color: metricColor(sample?.memory_usage ?? serverMetrics.value.memory_usage) },
+    { key: 'disk', label: '磁盘', value: sample?.disk_usage ?? serverMetrics.value.disk_usage, percent: clampPercent(sample?.disk_usage ?? serverMetrics.value.disk_usage), color: metricColor(sample?.disk_usage ?? serverMetrics.value.disk_usage) },
   ]
 })
 
@@ -435,7 +483,7 @@ const serverTrendOption = computed(() => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: history.map((item) => formatShortTime(item.created_at)),
+      data: history.map((item) => formatMetricAxisTime(item.created_at)),
       axisLine: { lineStyle: { color: axisColor } },
       axisLabel: { color: labelColor, fontSize: 11 },
     },
@@ -613,13 +661,41 @@ watch(
   { immediate: true },
 )
 
-watch(serverPanelVisible, (visible) => {
-  stopServerMetricsPolling()
-  if (visible) {
-    void loadServerMetrics(true)
-    serverMetricsTimer = window.setInterval(() => {
-      void loadServerMetrics(true)
-    }, 8_000)
+watch([serverPanelVisible, serverMetricsMode], ([visible, mode]) => {
+  closeServerMetricsStream()
+  if (!visible) return
+  void loadServerMetrics(true)
+  if (mode === 'live') connectServerMetricsStream()
+})
+
+watch(currentStreamMetric, (metric) => {
+  if (!metric || serverMetricsMode.value !== 'live' || !serverPanelVisible.value || !serverMetrics.value) return
+  const createdAt = new Date(metric.timestamp).toISOString()
+  const sample: DashboardServerMetricSample = {
+    id: -metric.timestamp,
+    cpu_usage: metric.cpu_usage,
+    memory_usage: metric.memory_usage ?? metric.mem_usage ?? 0,
+    disk_usage: metric.disk_usage,
+    goroutine_num: metric.goroutines,
+    active_ws: metric.active_ws,
+    storage_used_bytes: serverMetrics.value.storage_used_bytes,
+    upload_failed_count: 0,
+    high_risk_count: 0,
+    expiring_count: 0,
+    created_at: createdAt,
+  }
+  const history = [...serverMetrics.value.runtime_history.filter((item) => item.created_at !== createdAt), sample].slice(-120)
+  serverMetrics.value = {
+    ...serverMetrics.value,
+    generated_at: createdAt,
+    cpu_usage: sample.cpu_usage,
+    memory_usage: sample.memory_usage,
+    disk_usage: sample.disk_usage,
+    goroutine_num: sample.goroutine_num,
+    active_ws: sample.active_ws,
+    runtime_history: history,
+    runtime_history_count: history.length,
+    runtime_history_updated: createdAt,
   }
 })
 
@@ -739,7 +815,11 @@ function panelTitle(id: PanelId) {
 
 function panelSubtitle(id: PanelId) {
   if (id === 'storage' && storage.value) return `${storage.value.provider || 'local'} / ${storageLevelText.value}`
-  if (id === 'server' && serverMetrics.value) return `快照 ${formatDateTime(serverMetrics.value.generated_at)}`
+  if (id === 'server' && serverMetrics.value) {
+    return serverMetricsMode.value === 'live'
+      ? `实时快照 ${formatDateTime(serverMetrics.value.generated_at)}`
+      : `历史范围 ${formatDateTime(serverMetrics.value.runtime_history_start)} 至 ${formatDateTime(serverMetrics.value.runtime_history_end)}`
+  }
   return panelDefinitions[id].description
 }
 
@@ -784,17 +864,84 @@ async function loadServerMetrics(silent = false) {
     serverMetricsError.value = '服务器指标仅平台管理员可见'
     return
   }
+  const params = serverMetricRequestParams()
+  if (!params) return
+  serverMetricsLoading.value = true
   try {
-    serverMetrics.value = await opsApi.serverMetrics(80)
+    serverMetrics.value = await opsApi.serverMetrics(params)
     serverMetricsError.value = ''
   } catch (error) {
     serverMetrics.value = null
     if (error instanceof ApiError && error.code === 12001) {
-      serverMetricsError.value = '服务器指标仅 superadmin 可见'
+      serverMetricsError.value = '服务器指标仅平台管理员可见'
       return
     }
     serverMetricsError.value = error instanceof Error ? error.message : '服务器指标加载失败'
     if (!silent) errorText.value = serverMetricsError.value
+  } finally {
+    serverMetricsLoading.value = false
+  }
+}
+
+function serverMetricRequestParams(forExport = false): ServerMetricHistoryParams | null {
+  if (serverMetricsMode.value === 'live') return { limit: 80 }
+  if (!serverMetricDateRange.value) return null
+  const [startValue, endValue] = serverMetricDateRange.value
+  const startAt = new Date(startValue)
+  startAt.setHours(0, 0, 0, 0)
+  const endAt = new Date(endValue)
+  endAt.setHours(23, 59, 59, 999)
+  const now = new Date()
+  if (endAt.getTime() > now.getTime()) endAt.setTime(now.getTime())
+  return {
+    ...(forExport ? {} : { limit: 1000 }),
+    start_at: startAt.toISOString(),
+    end_at: endAt.toISOString(),
+  }
+}
+
+function defaultServerMetricDateRange(): [number, number] {
+  const endAt = new Date()
+  const startAt = new Date(endAt)
+  startAt.setHours(0, 0, 0, 0)
+  startAt.setDate(startAt.getDate() - 6)
+  return [startAt.getTime(), endAt.getTime()]
+}
+
+function isServerMetricDateDisabled(timestamp: number) {
+  const day = new Date(timestamp)
+  day.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const earliest = new Date(today)
+  earliest.setDate(earliest.getDate() - 29)
+  return day.getTime() < earliest.getTime() || day.getTime() > today.getTime()
+}
+
+async function applyServerMetricDateRange() {
+  if (!serverMetricDateRange.value) {
+    message.warning('请选择最近 30 天内的日期范围')
+    return
+  }
+  await loadServerMetrics()
+}
+
+async function exportServerMetricsTXT() {
+  const params = serverMetricRequestParams(true)
+  if (!params) {
+    message.warning('请先选择导出日期范围')
+    return
+  }
+  serverMetricsExporting.value = true
+  try {
+    const blob = await opsApi.exportServerMetrics(params)
+    const timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)
+    saveBlob(blob, `yaoyou-server-metrics-${timestamp}.txt`)
+    message.success('服务器性能 TXT 已导出')
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '服务器性能导出失败')
+  } finally {
+    serverMetricsExporting.value = false
   }
 }
 
@@ -867,13 +1014,6 @@ function goRiskDetail(id: number) {
   router.push({ name: 'risks', query: { event_id: String(id) } })
 }
 
-function stopServerMetricsPolling() {
-  if (serverMetricsTimer) {
-    window.clearInterval(serverMetricsTimer)
-    serverMetricsTimer = 0
-  }
-}
-
 function isDashboardSessionError(error: unknown) {
   return error instanceof ApiError && [10002, 11002, 11003, 12001].includes(error.code)
 }
@@ -918,10 +1058,13 @@ function formatMetricPercent(value: number) {
   return formatPercent(value)
 }
 
-function formatShortTime(value?: string | null) {
+function formatMetricAxisTime(value?: string | null) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
+  if (serverMetricsMode.value === 'history') {
+    return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour12: false, hour: '2-digit', minute: '2-digit' })
+  }
   return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
 }
 
@@ -949,7 +1092,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearInterval(refreshTimer)
-  stopServerMetricsPolling()
+  closeServerMetricsStream()
 })
 </script>
 
@@ -1095,6 +1238,17 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.server-metrics__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.server-metrics__date {
+  width: min(310px, 100%);
+}
+
 .server-metrics__top {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1213,6 +1367,14 @@ onBeforeUnmount(() => {
   .storage-layout,
   .business-grid {
     grid-template-columns: 1fr;
+  }
+
+  .server-metrics__toolbar {
+    align-items: stretch;
+  }
+
+  .server-metrics__date {
+    width: 100%;
   }
 
   .metric-card {

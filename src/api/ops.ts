@@ -1,4 +1,4 @@
-import request from './request'
+import request, { downloadBlob } from './request'
 import type {
   DashboardRecentEvents,
   DashboardServerMetrics,
@@ -10,6 +10,12 @@ import type {
   SystemSettingsPayload,
 } from '@/types/api'
 
+export interface ServerMetricHistoryParams {
+  limit?: number
+  start_at?: string
+  end_at?: string
+}
+
 export const opsApi = {
   summary() {
     return request.get<DashboardSummary, DashboardSummary>('/admin/dashboard/summary')
@@ -17,8 +23,11 @@ export const opsApi = {
   storage() {
     return request.get<DashboardStorage, DashboardStorage>('/admin/dashboard/storage')
   },
-  serverMetrics(limit = 60) {
-    return request.get<DashboardServerMetrics, DashboardServerMetrics>('/admin/dashboard/server-metrics', { params: { limit } })
+  serverMetrics(params: ServerMetricHistoryParams = { limit: 60 }) {
+	return request.get<DashboardServerMetrics, DashboardServerMetrics>('/admin/dashboard/server-metrics', { params })
+  },
+  exportServerMetrics(params: ServerMetricHistoryParams = {}) {
+	return downloadBlob('/admin/dashboard/server-metrics/export', params as Record<string, unknown>)
   },
   recentEvents() {
     return request.get<DashboardRecentEvents, DashboardRecentEvents>('/admin/dashboard/recent-events')
