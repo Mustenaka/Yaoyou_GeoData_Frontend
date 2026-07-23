@@ -167,7 +167,7 @@ const server = await createServer({
 })
 
 try {
-  const { parseStructuredConfig } = await server.ssrLoadModule('/src/utils/archive-config.ts')
+  const { parseFormSnapshot, parseStructuredConfig } = await server.ssrLoadModule('/src/utils/archive-config.ts')
   const parse = (fixture) => parseStructuredConfig(JSON.stringify(fixture))
 
   const v2 = parse(fixtures.v2)
@@ -226,10 +226,23 @@ try {
     assert.equal(damaged.moduleState.equipmentIsEmpty, false)
   }
 
+  const permeabilitySnapshot = parseFormSnapshot(JSON.stringify({
+    formType: 'permeability-variable',
+    columns: [
+      { key: 'seq', label: '序号' },
+      { key: 'sampleCode', label: '孔号样号' },
+    ],
+    rows: [{ seq: 1, sampleCode: 'K-BS-01' }],
+  }))
+  assert.equal(permeabilitySnapshot.formLabel, '渗透（变水头）')
+  assert.deepEqual(permeabilitySnapshot.tableColumns.map((column) => column.title), ['序号', '孔号样号'])
+  assert.equal(permeabilitySnapshot.rows[0]?.sampleCode, 'K-BS-01')
+
   const devicePage = await readFile(new URL('../pages/device/index.vue', import.meta.url), 'utf8')
   const requestPage = await readFile(new URL('../pages/device/authorization-requests.vue', import.meta.url), 'utf8')
   const globalConfigPage = await readFile(new URL('../pages/global-config/detail.vue', import.meta.url), 'utf8')
   const authorizationApi = await readFile(new URL('../api/authorization.ts', import.meta.url), 'utf8')
+  const projectArchiveDetailPage = await readFile(new URL('../pages/project-archive/detail.vue', import.meta.url), 'utf8')
   assert.match(devicePage, /deviceBindingApi\.detail\(id\)/)
   assert.match(devicePage, /操作历史/)
   assert.match(devicePage, /sensitiveDetailKey/)
@@ -241,6 +254,8 @@ try {
   assert.match(globalConfigPage, /已保存默认器材管理配置/)
   assert.match(globalConfigPage, /当前配置表为空/)
   assert.match(authorizationApi, /request\.get<DeviceBindingDetail, DeviceBindingDetail>/)
+  assert.match(projectArchiveDetailPage, /暂无工作表单数据填充快照/)
+  assert.match(projectArchiveDetailPage, /seenFormTypes/)
 
   console.log('archive-config and device authorization regression checks passed')
 } finally {

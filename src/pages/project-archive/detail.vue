@@ -150,12 +150,12 @@
               <n-alert v-if="formSnapshotError" type="warning" class="block-alert">
                 {{ formSnapshotError }}
               </n-alert>
-              <n-empty v-if="!visibleFormSnapshotViews.length" description="暂无开土记录数据填充快照" />
+              <n-empty v-if="!visibleFormSnapshotViews.length" description="暂无工作表单数据填充快照" />
               <n-tabs v-else v-model:value="activeFormTab" type="card" size="small" animated>
                 <n-tab-pane
                   v-for="view in visibleFormSnapshotViews"
                   :key="view.item.id"
-                  :name="view.item.form_type || 'unknown'"
+                  :name="view.item.form_type || `unknown-${view.item.id}`"
                   :tab="view.parsed.formLabel || formTypeLabel(view.item.form_type)"
                 >
                   <div class="form-snapshot">
@@ -351,8 +351,14 @@ const ruleDetailTitle = computed(() => {
 })
 const selectedRuleDetailSegments = computed(() => splitRuleDetail(selectedRule.value?.detail))
 const visibleFormSnapshotViews = computed(() => {
-  const latestExcavation = formSnapshotViews.value.find((view) => view.item.form_type === 'excavation-record')
-  return latestExcavation ? [latestExcavation] : []
+  const seenFormTypes = new Set<string>()
+  return formSnapshotViews.value.filter((view) => {
+    const formType = view.item.form_type?.trim()
+    if (!formType) return true
+    if (seenFormTypes.has(formType)) return false
+    seenFormTypes.add(formType)
+    return true
+  })
 })
 const projectBaseFields = computed(() => {
   const project = detail.value

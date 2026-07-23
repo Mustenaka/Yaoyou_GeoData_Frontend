@@ -120,6 +120,7 @@ export const configTypeOptions = [
 
 export const formTypeOptions = [
   { label: '开土记录', value: 'excavation-record' },
+  { label: '渗透（变水头）', value: 'permeability-variable' },
 ]
 
 export const projectLifecycleOptions: Array<{ label: string; value: ProjectLifecycleStatus }> = [
