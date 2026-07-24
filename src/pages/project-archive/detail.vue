@@ -97,31 +97,73 @@
                   {{ structuredConfig.error }}
                 </n-alert>
 
-                <div class="section-title">映射列</div>
-                <n-data-table
-                  :columns="mappingPreviewColumns"
-                  :data="structuredConfig.mappingColumns"
-                  :pagination="{ pageSize: 20 }"
-                  :row-key="(row: ConfigMappingColumn) => row.key"
-                  :scroll-x="720"
+                <n-tabs
+                  v-if="structuredConfig.workForms.length"
+                  type="card"
+                  size="small"
+                  animated
+                  class="config-form-tabs"
                 >
-                  <template #empty>
-                    <n-empty description="配置中未找到工作表单映射列" />
-                  </template>
-                </n-data-table>
+                  <n-tab-pane
+                    v-for="(form, index) in structuredConfig.workForms"
+                    :key="`${form.id}:${form.formType}:${index}`"
+                    :name="`${form.id}:${form.formType}:${index}`"
+                    :tab="form.formTitle"
+                  >
+                    <div class="config-form-snapshot">
+                      <div class="section-toolbar">
+                        <div>
+                          <div class="section-title section-title--compact">{{ form.formTitle }}</div>
+                          <div class="section-subtitle">
+                            {{ form.formTitle }} -&gt; {{ form.formType }} ·
+                            {{ form.columns.length }} 个映射列 · {{ form.rules.length }} 条规则
+                          </div>
+                        </div>
+                      </div>
 
-                <div class="section-title">规则明细</div>
-                <n-data-table
-                  :columns="mappingRuleColumns"
-                  :data="structuredConfig.mappingRules"
-                  :pagination="{ pageSize: 20 }"
-                  :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
-                  :scroll-x="1500"
-                >
-                  <template #empty>
-                    <n-empty description="配置中未找到具体规则" />
-                  </template>
-                </n-data-table>
+                      <div class="data-section">
+                        <div class="data-section__header">
+                          <div>
+                            <div class="data-section__title">映射列</div>
+                            <div class="section-subtitle">{{ form.formTitle }} · {{ form.columns.length }} 列</div>
+                          </div>
+                        </div>
+                        <n-data-table
+                          :columns="mappingPreviewColumns"
+                          :data="form.columns"
+                          :pagination="{ pageSize: 20 }"
+                          :row-key="(row: ConfigMappingColumn) => row.key"
+                          :scroll-x="720"
+                        >
+                          <template #empty>
+                            <n-empty description="该工作表单未找到映射列" />
+                          </template>
+                        </n-data-table>
+                      </div>
+
+                      <div class="data-section">
+                        <div class="data-section__header">
+                          <div>
+                            <div class="data-section__title">规则明细</div>
+                            <div class="section-subtitle">{{ form.formTitle }} · {{ form.rules.length }} 条规则</div>
+                          </div>
+                        </div>
+                        <n-data-table
+                          :columns="mappingRuleColumns"
+                          :data="form.rules"
+                          :pagination="{ pageSize: 20 }"
+                          :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
+                          :scroll-x="1500"
+                        >
+                          <template #empty>
+                            <n-empty description="该工作表单未找到具体规则" />
+                          </template>
+                        </n-data-table>
+                      </div>
+                    </div>
+                  </n-tab-pane>
+                </n-tabs>
+                <n-empty v-else description="配置中未找到工作表单配置" />
 
                 <div class="section-title">关键配置项</div>
                 <n-data-table
@@ -762,6 +804,14 @@ onMounted(loadDetail)
 .form-snapshot {
   padding: 16px 0;
   border-bottom: 1px solid var(--yy-border);
+}
+
+.config-form-tabs {
+  margin-top: 16px;
+}
+
+.config-form-snapshot {
+  padding: 16px 0 2px;
 }
 
 .form-snapshot:last-child {

@@ -143,6 +143,15 @@ const fixtures = {
           },
         },
       },
+      'permeability-variable': {
+        dataEntryMapping: {
+          config: {
+            ...mapping('mapping-permeability', '渗透系数'),
+            formType: 'permeability-variable',
+            formTitle: '渗透（变水头）',
+          },
+        },
+      },
     },
   },
   schema3NullModules: {
@@ -211,6 +220,10 @@ try {
   assert.match(network.configItems.find((item) => item.key === 'resolvedDistributedConfigs')?.value || '', /2 项/)
 
   const projectState = parse(fixtures.projectModuleState)
+  assert.equal(projectState.workForms.length, 2)
+  assert.deepEqual(projectState.workForms.map((form) => form.formTitle), ['开土记录', '渗透（变水头）'])
+  assert.equal(projectState.workForms[0]?.rules[0]?.id, 'mapping-project-default:sequence')
+  assert.equal(projectState.workForms[1]?.rules[0]?.id, 'mapping-permeability:sequence')
   assert.equal(projectState.moduleState.isSchema3, true)
   assert.equal(projectState.moduleState.dataEntryDefaultApplied, true)
   assert.equal(projectState.moduleState.smartFillUsesDefaultRule, true)
@@ -256,6 +269,9 @@ try {
   assert.match(authorizationApi, /request\.get<DeviceBindingDetail, DeviceBindingDetail>/)
   assert.match(projectArchiveDetailPage, /暂无工作表单数据填充快照/)
   assert.match(projectArchiveDetailPage, /seenFormTypes/)
+  assert.match(projectArchiveDetailPage, /structuredConfig\.workForms/)
+  assert.match(projectArchiveDetailPage, /:data="form\.columns"/)
+  assert.match(projectArchiveDetailPage, /:data="form\.rules"/)
 
   console.log('archive-config and device authorization regression checks passed')
 } finally {
