@@ -69,18 +69,26 @@
           </n-tab-pane>
 
           <n-tab-pane name="mapping" tab="工作表单">
-            <template v-if="structuredConfig.workForms.length">
-              <div v-for="form in structuredConfig.workForms" :key="form.id" class="config-table-block">
-                <div class="section-title">{{ form.formTitle }}</div>
+            <template v-if="activeWorkForm">
+              <div class="work-form-picker">
+                <span class="work-form-picker__label">选择工作表单</span>
+                <n-select
+                  v-model:value="selectedWorkFormId"
+                  :options="workFormOptions"
+                  placeholder="选择工作表单"
+                />
+              </div>
+              <div class="config-table-block">
+                <div class="section-title">{{ activeWorkForm.formTitle }}</div>
                 <div class="section-meta">
-                  {{ form.formType }} · {{ form.columns.length }} 列 / {{ form.rules.length }} 条规则
+                  {{ activeWorkForm.formType }} · {{ activeWorkForm.columns.length }} 列 / {{ activeWorkForm.rules.length }} 条规则
                 </div>
                 <n-data-table
-                  :columns="form.tableColumns"
-                  :data="form.rows"
+                  :columns="activeWorkForm.tableColumns"
+                  :data="activeWorkForm.rows"
                   :pagination="false"
                   :row-key="(row: SnapshotTableRow) => row.__rowKey"
-                  :scroll-x="form.scrollX"
+                  :scroll-x="activeWorkForm.scrollX"
                   :max-height="420"
                 />
               </div>
@@ -90,7 +98,7 @@
             <div class="section-title">映射规则明细</div>
             <n-data-table
               :columns="mappingRuleColumns"
-              :data="structuredConfig.mappingRules"
+              :data="activeWorkForm?.rules || []"
               :pagination="{ pageSize: 20 }"
               :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
               :scroll-x="1180"
@@ -261,6 +269,7 @@ const rawDownloading = ref(false)
 const markingLatest = ref(false)
 const errorText = ref('')
 const activeTab = ref('basic')
+const selectedWorkFormId = ref<string | null>(null)
 const detail = ref<ConfigSnapshotItem | null>(null)
 const versions = ref<ConfigSnapshotItem[]>([])
 const selectedVersionId = ref<number | null>(null)
@@ -270,6 +279,16 @@ const selectedRule = ref<ConfigMappingRule | null>(null)
 const configId = computed(() => Number(route.params.id || 0))
 const deviceId = computed(() => Number(route.query.device_id || 0))
 const structuredConfig = computed<StructuredConfig | null>(() => (detail.value ? parseStructuredConfig(detail.value.snapshot_json) : null))
+const workFormOptions = computed<SelectOption[]>(() =>
+  (structuredConfig.value?.workForms || []).map((form) => ({
+    label: `${form.formTitle}（${form.formType}）`,
+    value: form.id,
+  })),
+)
+const activeWorkForm = computed(() => {
+  const forms = structuredConfig.value?.workForms || []
+  return forms.find((form) => form.id === selectedWorkFormId.value) || forms[0] || null
+})
 const detailTitle = computed(() => (detail.value ? `全局配置详情 · 版本 ${detail.value.config_version || '-'}` : '全局配置详情'))
 const companyDisplay = computed(() => {
   const name = stringQuery('company_name')
@@ -462,6 +481,17 @@ function stringQuery(key: string) {
 }
 
 watch(
+  () => (structuredConfig.value?.workForms || []).map((form) => form.id).join('|'),
+  () => {
+    const forms = structuredConfig.value?.workForms || []
+    if (!forms.some((form) => form.id === selectedWorkFormId.value)) {
+      selectedWorkFormId.value = forms[0]?.id || null
+    }
+  },
+  { immediate: true },
+)
+
+watch(
   () => route.params.id,
   async () => {
     if (!loading.value) {
@@ -517,6 +547,19 @@ onMounted(loadAll)
 
 .config-table-block {
   margin-top: 16px;
+}
+
+.work-form-picker {
+  display: grid;
+  grid-template-columns: 120px minmax(240px, 420px);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.work-form-picker__label {
+  color: var(--yy-text-secondary);
+  font-size: 13px;
 }
 
 .config-table-block:first-of-type {
@@ -607,6 +650,10 @@ onMounted(loadAll)
 
 @media (max-width: 900px) {
   .detail-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .work-form-picker {
     grid-template-columns: 1fr;
   }
 }

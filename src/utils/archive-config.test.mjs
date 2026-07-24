@@ -47,8 +47,34 @@ const fixtures = {
   schema3Default: {
     schema_version: 3,
     app_settings: { bluetoothReconnect: true },
-    global_project_config: { excavationFormPageSize: 50 },
+    global_project_config: {
+      jumpEnabled: true,
+      formulaDecimalLimitEnabled: true,
+      formulaDecimalLimitPlaces: 8,
+    },
     data_entry_mapping: mapping('mapping-default'),
+    form_configs: {
+      'excavation-record': {
+        form_title: '开土记录',
+        data_entry_mapping: mapping('mapping-default'),
+      },
+      'permeability-variable': {
+        form_title: '渗透（变水头）',
+        data_entry_mapping: {
+          ...mapping('mapping-permeability-global', '渗透系数'),
+          formType: 'permeability-variable',
+          formTitle: '渗透（变水头）',
+        },
+      },
+      custom: {
+        form_title: '自定义模块',
+        data_entry_mapping: {
+          ...mapping('mapping-custom-global', '自定义字段'),
+          formType: 'custom',
+          formTitle: '自定义模块',
+        },
+      },
+    },
     multi_rule_mapping: { global_rule: { configFileId: 'builtin:default-fill' }, configs: [] },
     equipment_management: {
       custom_types: [],
@@ -187,6 +213,7 @@ try {
   assert.equal(v2.moduleState.isSchema3, false)
 
   const defaultConfig = parse(fixtures.schema3Default)
+  assert.deepEqual(defaultConfig.workForms.map((form) => form.formTitle), ['开土记录', '渗透（变水头）', '自定义模块'])
   assert.equal(defaultConfig.workForms[0]?.formTitle, '开土记录')
   assert.equal(defaultConfig.workForms[0]?.columns[0]?.label, '试样编号')
   assert.equal(defaultConfig.fillConfigs.length, 0)
@@ -205,6 +232,8 @@ try {
   assert.equal(defaultConfig.moduleState.equipmentBodyCount, 0)
   assert.equal(defaultConfig.moduleState.equipmentDistributedRefCount, 0)
   assert.equal(defaultConfig.moduleState.equipmentIsEmpty, true)
+  assert.equal(defaultConfig.operationSettings.find((item) => item.key === 'formulaDecimalLimitEnabled')?.value, '开启')
+  assert.equal(defaultConfig.operationSettings.find((item) => item.key === 'formulaDecimalLimitPlaces')?.value, '8 位')
 
   const modified = parse(fixtures.schema3Modified)
   assert.equal(modified.workForms[0]?.columns[0]?.label, '自定义试样号')
@@ -266,6 +295,8 @@ try {
   assert.match(globalConfigPage, /当前无配置表正文/)
   assert.match(globalConfigPage, /已保存默认器材管理配置/)
   assert.match(globalConfigPage, /当前配置表为空/)
+  assert.match(globalConfigPage, /selectedWorkFormId/)
+  assert.match(globalConfigPage, /选择工作表单/)
   assert.match(authorizationApi, /request\.get<DeviceBindingDetail, DeviceBindingDetail>/)
   assert.match(projectArchiveDetailPage, /暂无工作表单数据填充快照/)
   assert.match(projectArchiveDetailPage, /seenFormTypes/)

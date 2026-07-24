@@ -121,6 +121,7 @@ export const configTypeOptions = [
 export const formTypeOptions = [
   { label: '开土记录', value: 'excavation-record' },
   { label: '渗透（变水头）', value: 'permeability-variable' },
+  { label: '自定义模块', value: 'custom' },
 ]
 
 export const projectLifecycleOptions: Array<{ label: string; value: ProjectLifecycleStatus }> = [

@@ -278,6 +278,7 @@ function normalizeStructuredConfigRecord(record: JsonRecord): JsonRecord {
   setAlias(normalized, 'version', record.schema_version)
   setAlias(normalized, 'appSettings', record.app_settings)
   setAlias(normalized, 'globalProjectConfig', record.global_project_config)
+  setAlias(normalized, 'formConfigs', record.form_configs)
   setAlias(normalized, 'embeddedConfigs', record.embedded_configs)
   setAlias(normalized, 'configRefs', record.distributed_config_refs)
   setAlias(normalized, 'resolvedDistributedConfigs', record.resolved_distributed_configs)
@@ -754,13 +755,21 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
   return items
 }
 
-const visibleAppSettingFields: Array<{ key: string; label: string; source: string }> = [
-  { key: 'bluetoothReconnect', label: '蓝牙自动重连', source: '软件设置' },
-  { key: 'bluetoothReconnectIntervalSec', label: '蓝牙重连间隔（秒）', source: '软件设置' },
-  { key: 'cursorColorRules', label: '光标色卡', source: '光标色卡' },
-  { key: 'longPressDeleteMs', label: '长按删除时长（毫秒）', source: '交互配置' },
-  { key: 'longPressCopyMs', label: '长按复制时长（毫秒）', source: '交互配置' },
-  { key: 'excavationFormPageSize', label: '开土记录每页行数', source: '交互配置' },
+const visibleOperationSettingFields: Array<{ key: string; label: string; source: string; scope: 'app' | 'global' }> = [
+  { key: 'jumpEnabled', label: '启动跳转', source: '全局操作设置', scope: 'global' },
+  { key: 'manualTextEnterMove', label: '自由输入回车移动', source: '全局操作设置', scope: 'global' },
+  { key: 'autoFillOverwriteInput', label: '填充覆盖', source: '全局操作设置', scope: 'global' },
+  { key: 'equipmentManagementShuffle', label: '器材乱序', source: '全局操作设置', scope: 'global' },
+  { key: 'scannerSingleRowEntry', label: '扫码成组', source: '全局操作设置', scope: 'global' },
+  { key: 'nianZhanEquivalent', label: '黏粘同等', source: '全局操作设置', scope: 'global' },
+  { key: 'formulaDecimalLimitEnabled', label: '公式小数限位', source: '全局操作设置', scope: 'global' },
+  { key: 'formulaDecimalLimitPlaces', label: '默认保留小数位', source: '全局操作设置', scope: 'global' },
+  { key: 'bluetoothReconnect', label: '蓝牙自动重连', source: '软件设置', scope: 'app' },
+  { key: 'bluetoothReconnectIntervalSec', label: '蓝牙重连间隔（秒）', source: '软件设置', scope: 'app' },
+  { key: 'cursorColorRules', label: '光标色卡', source: '光标色卡', scope: 'app' },
+  { key: 'longPressDeleteMs', label: '长按删除时长（毫秒）', source: '交互配置', scope: 'app' },
+  { key: 'longPressCopyMs', label: '长按复制时长（毫秒）', source: '交互配置', scope: 'app' },
+  { key: 'excavationFormPageSize', label: '开土记录每页行数', source: '交互配置', scope: 'app' },
 ]
 
 function extractGlobalConfigBasicInfo(record: JsonRecord): ConfigKeyValueItem[] {
@@ -771,11 +780,12 @@ function extractGlobalConfigBasicInfo(record: JsonRecord): ConfigKeyValueItem[] 
 }
 
 function extractOperationSettings(record: JsonRecord): ConfigSectionItem[] {
-  const config = asRecord(record.appSettings)
-  if (!config) return []
-  return visibleAppSettingFields
-    .filter((item) => Object.prototype.hasOwnProperty.call(config, item.key))
-    .map((item) => ({
+  const appConfig = asRecord(record.appSettings) || {}
+  const globalConfig = asRecord(record.globalProjectConfig) || {}
+  return visibleOperationSettingFields
+    .map((item) => ({ item, config: item.scope === 'global' ? globalConfig : appConfig }))
+    .filter(({ item, config }) => Object.prototype.hasOwnProperty.call(config, item.key))
+    .map(({ item, config }) => ({
       source: item.source,
       key: item.key,
       label: item.label,
@@ -784,7 +794,17 @@ function extractOperationSettings(record: JsonRecord): ConfigSectionItem[] {
 }
 
 function formatAppSettingValue(key: string, value: unknown) {
-  if (key === 'bluetoothReconnect') return value === true ? '开启' : '关闭'
+  if ([
+    'bluetoothReconnect',
+    'jumpEnabled',
+    'manualTextEnterMove',
+    'autoFillOverwriteInput',
+    'equipmentManagementShuffle',
+    'scannerSingleRowEntry',
+    'nianZhanEquivalent',
+    'formulaDecimalLimitEnabled',
+  ].includes(key)) return value === true ? '开启' : '关闭'
+  if (key === 'formulaDecimalLimitPlaces') return `${displayValue(value)} 位`
   if (key === 'cursorColorRules') {
     const rules = asArray(value)
     if (!rules.length) return '-'
