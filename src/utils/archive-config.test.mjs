@@ -28,6 +28,25 @@ const equipmentConfig = (code) => ({
   rows: [{ code, name: '电子天平' }],
 })
 
+const specialTestForms = [
+  ['permeability-variable', '渗透（变水头）'],
+  ['permeability-consolidation', '渗透（固结换算）'],
+  ['ucs', '无侧限抗压强度'],
+  ['at-rest-pressure', '静止侧压力系数'],
+  ['ignition-loss', '烧矢量'],
+  ['foundation-bed', '基床系数（固结换算）'],
+  ['angle-of-repose', '休止角'],
+]
+
+const specialFormConfig = (formType, formTitle, scope) => ({
+  form_title: formTitle,
+  data_entry_mapping: {
+    ...mapping(`mapping-${formType}-${scope}`, '孔号样号'),
+    formType,
+    formTitle,
+  },
+})
+
 const v2Mapping = mapping('mapping-v2')
 const v2Fill = fill('fill-v2', 'V2 智能填充')
 const fixtures = {
@@ -58,14 +77,10 @@ const fixtures = {
         form_title: '开土记录',
         data_entry_mapping: mapping('mapping-default'),
       },
-      'permeability-variable': {
-        form_title: '渗透（变水头）',
-        data_entry_mapping: {
-          ...mapping('mapping-permeability-global', '渗透系数'),
-          formType: 'permeability-variable',
-          formTitle: '渗透（变水头）',
-        },
-      },
+      ...Object.fromEntries(specialTestForms.map(([formType, formTitle]) => [
+        formType,
+        specialFormConfig(formType, formTitle, 'global'),
+      ])),
       custom: {
         form_title: '自定义模块',
         data_entry_mapping: {
@@ -169,15 +184,14 @@ const fixtures = {
           },
         },
       },
-      'permeability-variable': {
-        dataEntryMapping: {
-          config: {
-            ...mapping('mapping-permeability', '渗透系数'),
-            formType: 'permeability-variable',
-            formTitle: '渗透（变水头）',
+      ...Object.fromEntries(specialTestForms.map(([formType, formTitle]) => [
+        formType,
+        {
+          dataEntryMapping: {
+            config: specialFormConfig(formType, formTitle, 'project').data_entry_mapping,
           },
         },
-      },
+      ])),
     },
   },
   schema3NullModules: {
@@ -213,7 +227,10 @@ try {
   assert.equal(v2.moduleState.isSchema3, false)
 
   const defaultConfig = parse(fixtures.schema3Default)
-  assert.deepEqual(defaultConfig.workForms.map((form) => form.formTitle), ['开土记录', '渗透（变水头）', '自定义模块'])
+  assert.deepEqual(
+    defaultConfig.workForms.map((form) => form.formTitle),
+    ['开土记录', ...specialTestForms.map(([, formTitle]) => formTitle), '自定义模块'],
+  )
   assert.equal(defaultConfig.workForms[0]?.formTitle, '开土记录')
   assert.equal(defaultConfig.workForms[0]?.columns[0]?.label, '试样编号')
   assert.equal(defaultConfig.fillConfigs.length, 0)
@@ -249,10 +266,13 @@ try {
   assert.match(network.configItems.find((item) => item.key === 'resolvedDistributedConfigs')?.value || '', /2 项/)
 
   const projectState = parse(fixtures.projectModuleState)
-  assert.equal(projectState.workForms.length, 2)
-  assert.deepEqual(projectState.workForms.map((form) => form.formTitle), ['开土记录', '渗透（变水头）'])
+  assert.equal(projectState.workForms.length, 8)
+  assert.deepEqual(
+    projectState.workForms.map((form) => form.formTitle),
+    ['开土记录', ...specialTestForms.map(([, formTitle]) => formTitle)],
+  )
   assert.equal(projectState.workForms[0]?.rules[0]?.id, 'mapping-project-default:sequence')
-  assert.equal(projectState.workForms[1]?.rules[0]?.id, 'mapping-permeability:sequence')
+  assert.equal(projectState.workForms[1]?.rules[0]?.id, 'mapping-permeability-variable-project:sequence')
   assert.equal(projectState.moduleState.isSchema3, true)
   assert.equal(projectState.moduleState.dataEntryDefaultApplied, true)
   assert.equal(projectState.moduleState.smartFillUsesDefaultRule, true)
@@ -268,17 +288,19 @@ try {
     assert.equal(damaged.moduleState.equipmentIsEmpty, false)
   }
 
-  const permeabilitySnapshot = parseFormSnapshot(JSON.stringify({
-    formType: 'permeability-variable',
-    columns: [
-      { key: 'seq', label: '序号' },
-      { key: 'sampleCode', label: '孔号样号' },
-    ],
-    rows: [{ seq: 1, sampleCode: 'K-BS-01' }],
-  }))
-  assert.equal(permeabilitySnapshot.formLabel, '渗透（变水头）')
-  assert.deepEqual(permeabilitySnapshot.tableColumns.map((column) => column.title), ['序号', '孔号样号'])
-  assert.equal(permeabilitySnapshot.rows[0]?.sampleCode, 'K-BS-01')
+  specialTestForms.forEach(([formType, formTitle], index) => {
+    const snapshot = parseFormSnapshot(JSON.stringify({
+      formType,
+      columns: [
+        { key: 'seq', label: '序号' },
+        { key: 'sampleCode', label: '孔号样号' },
+      ],
+      rows: [{ seq: 1, sampleCode: `SPECIAL-${index + 1}` }],
+    }))
+    assert.equal(snapshot.formLabel, formTitle)
+    assert.deepEqual(snapshot.tableColumns.map((column) => column.title), ['序号', '孔号样号'])
+    assert.equal(snapshot.rows[0]?.sampleCode, `SPECIAL-${index + 1}`)
+  })
 
   const devicePage = await readFile(new URL('../pages/device/index.vue', import.meta.url), 'utf8')
   const requestPage = await readFile(new URL('../pages/device/authorization-requests.vue', import.meta.url), 'utf8')
@@ -303,6 +325,8 @@ try {
   assert.match(projectArchiveDetailPage, /structuredConfig\.workForms/)
   assert.match(projectArchiveDetailPage, /:data="form\.columns"/)
   assert.match(projectArchiveDetailPage, /:data="form\.rules"/)
+  const projectArchivePage = await readFile(new URL('../pages/project-archive/index.vue', import.meta.url), 'utf8')
+  assert.match(projectArchivePage, /formTypes\.map\(\(formType\) => formTypeLabel\(formType\)\)/)
 
   console.log('archive-config and device authorization regression checks passed')
 } finally {

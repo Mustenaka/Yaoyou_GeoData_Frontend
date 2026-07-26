@@ -145,6 +145,7 @@ import {
   authStatusLabel,
   clientTypeLabel,
   deviceStatusLabel,
+  formTypeLabel,
   projectLifecycleDisplayText,
   projectLifecycleTagType,
 } from '@/utils/labels'
@@ -508,7 +509,7 @@ function companyRowKey(row: ArchiveCompanyItem) {
 }
 
 function formTypesText(formTypes: string[]) {
-  return formTypes.length ? formTypes.join(', ') : '-'
+  return formTypes.length ? formTypes.map((formType) => formTypeLabel(formType)).join('、') : '-'
 }
 
 function renderProjectLifecycleTag(row: ProjectArchiveItem) {

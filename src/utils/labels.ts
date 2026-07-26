@@ -121,6 +121,12 @@ export const configTypeOptions = [
 export const formTypeOptions = [
   { label: '开土记录', value: 'excavation-record' },
   { label: '渗透（变水头）', value: 'permeability-variable' },
+  { label: '渗透（固结换算）', value: 'permeability-consolidation' },
+  { label: '无侧限抗压强度', value: 'ucs' },
+  { label: '静止侧压力系数', value: 'at-rest-pressure' },
+  { label: '烧矢量', value: 'ignition-loss' },
+  { label: '基床系数（固结换算）', value: 'foundation-bed' },
+  { label: '休止角', value: 'angle-of-repose' },
   { label: '自定义模块', value: 'custom' },
 ]
 
