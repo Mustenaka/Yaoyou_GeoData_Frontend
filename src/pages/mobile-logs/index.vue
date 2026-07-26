@@ -76,7 +76,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
-import { NButton, NTag, useMessage } from 'naive-ui'
+import { NButton, NSpace, NTag, useDialog, useMessage } from 'naive-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import { companyApi } from '@/api/company'
 import { logApi } from '@/api/log'
@@ -106,9 +106,11 @@ type GroupedLogBucket = {
 }
 
 const authStore = useAuthStore()
+const dialog = useDialog()
 const message = useMessage()
 const loading = ref(false)
 const downloadingId = ref<number | null>(null)
+const deletingId = ref<number | null>(null)
 const rows = ref<ClientLogItem[]>([])
 const companyOptions = ref<SelectOption[]>([])
 const expandedTypes = ref<string[]>([])
@@ -154,13 +156,34 @@ const columns: DataTableColumns<ClientLogItem> = [
   {
     title: '操作',
     key: 'actions',
-    width: 90,
+    width: 150,
     fixed: 'right',
     render: (row) =>
       h(
-        NButton,
-        { size: 'small', loading: downloadingId.value === row.id, onClick: () => downloadLog(row) },
-        { default: () => '下载' },
+        NSpace,
+        { size: 8, wrap: false },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', loading: downloadingId.value === row.id, disabled: deletingId.value === row.id, onClick: () => downloadLog(row) },
+              { default: () => '下载' },
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: 'error',
+                secondary: true,
+                loading: deletingId.value === row.id,
+                disabled: downloadingId.value === row.id || !canDeleteLog(row),
+                title: canDeleteLog(row) ? '永久删除日志' : '日志仍在上传或解析',
+                onClick: () => confirmDeleteLog(row),
+              },
+              { default: () => '删除' },
+            ),
+          ],
+        },
       ),
   },
 ]
@@ -243,6 +266,10 @@ function parseTagType(status?: string): 'success' | 'error' | 'default' | 'warni
   return 'warning'
 }
 
+function canDeleteLog(row: ClientLogItem) {
+  return row.upload_status === 'failed' || row.parse_status === 'parsed' || row.parse_status === 'failed'
+}
+
 async function loadCompanies() {
   if (!authStore.isBackOfficeScopeAll) return
   const result = await companyApi.list({ page: 1, page_size: 200 })
@@ -304,6 +331,35 @@ async function downloadLog(row: ClientLogItem) {
     message.error(error instanceof Error ? error.message : '下载失败')
   } finally {
     downloadingId.value = null
+  }
+}
+
+function confirmDeleteLog(row: ClientLogItem) {
+  const typeLabel = clientLogTypeLabel(row.object_type)
+  dialog.error({
+    title: `永久删除${typeLabel}`,
+    content: `将永久删除“${fileName(row)}”及其对应的存储文件和解析产生的审计事件。此操作不可恢复。`,
+    positiveText: '确认永久删除',
+    negativeText: '取消',
+    onPositiveClick: () => deleteLog(row),
+  })
+}
+
+async function deleteLog(row: ClientLogItem) {
+  deletingId.value = row.id
+  try {
+    await logApi.clientDelete(row.id)
+    message.success('日志已永久删除')
+    if (rows.value.length === 1 && (pagination.page || 1) > 1) {
+      pagination.page = (pagination.page || 1) - 1
+    }
+    await fetchLogs()
+    return true
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : '删除失败')
+    return false
+  } finally {
+    deletingId.value = null
   }
 }
 

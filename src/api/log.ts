@@ -11,4 +11,7 @@ export const logApi = {
   clientDownload(id: number) {
     return downloadBlob(`/admin/logs/client/${id}/download`)
   },
+  clientDelete(id: number) {
+    return request.delete<{ deleted: boolean }, { deleted: boolean }>(`/admin/logs/client/${id}`)
+  },
 }
