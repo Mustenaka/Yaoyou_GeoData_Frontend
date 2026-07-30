@@ -136,6 +136,7 @@ import {
   PeopleOutline,
   PhonePortraitOutline,
   SettingsOutline,
+  ShieldCheckmarkOutline,
   SunnyOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
@@ -244,6 +245,7 @@ const routeIcons: Record<string, unknown> = {
   'mail-settings': MailOutline,
   'system-logs': FileTrayFullOutline,
   risks: AlertCircleOutline,
+  'ip-security': ShieldCheckmarkOutline,
   'server-time': TimeOutline,
 }
 

@@ -1205,6 +1205,72 @@ export interface ServerTimeLogParams {
   end_at?: string | null
 }
 
+export type IPBlockScope = 'win' | 'mobile' | 'both'
+export type IPBlockRuleStatus = 'active' | 'disabled'
+export type RemovalOrderStatus =
+  | 'armed'
+  | 'delete_required'
+  | 'executing'
+  | 'pending_reboot'
+  | 'completed'
+  | 'failed'
+  | 'revoked'
+
+export interface IPBlockRule {
+  id: number
+  canonical_ip: string
+  client_scope: IPBlockScope
+  status: IPBlockRuleStatus
+  reason: string
+  expires_at?: string | null
+  created_by: number
+  updated_by: number
+  revision: number
+  created_at: string
+  updated_at: string
+}
+
+export interface DeviceIPObservation {
+  id: number
+  device_fingerprint_id?: number | null
+  fingerprint_hash: string
+  canonical_ip: string
+  client_type: 'win' | 'mobile'
+  install_instance_id: string
+  first_seen_at: string
+  last_seen_at: string
+  last_allowed_at?: string | null
+  allowed_success_count: number
+  last_app_version: string
+}
+
+export interface WinRemovalOrder {
+  order_id: string
+  ip_block_rule_id: number
+  fingerprint_hash: string
+  device_fingerprint_id?: number | null
+  install_instance_id: string
+  first_startup_id: string
+  status: RemovalOrderStatus
+  revision: number
+  first_blocked_at: string
+  delete_dispatched_at?: string | null
+  completed_at?: string | null
+  revoked_at?: string | null
+  revoked_by?: number | null
+  revoke_reason: string
+  last_failure_code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface IPSecurityStats {
+  active_rules: number
+  unusual_ip_last_24h: number
+  active_orders: number
+  completed_orders: number
+}
+
 export interface SystemLog {
   id: number
   log_type: string

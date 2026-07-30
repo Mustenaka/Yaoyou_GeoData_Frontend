@@ -294,6 +294,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '安全风险', group: '系统设置', roles: adminRoles },
       },
       {
+        path: 'settings/ip-security',
+        name: 'ip-security',
+        component: () => import('@/pages/settings/ip-security.vue'),
+        meta: { title: '平台安全管理', group: '系统设置', roles: contentRoles },
+      },
+      {
         path: 'settings/server-time',
         name: 'server-time',
         component: () => import('@/pages/settings/server-time.vue'),
