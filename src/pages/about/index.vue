@@ -154,7 +154,7 @@ onMounted(loadSystemInfo)
   height: 54px;
   border-radius: 8px;
   background: var(--yy-primary);
-  color: white;
+  color: var(--yy-on-primary);
   font-size: 18px;
   font-weight: 700;
 }

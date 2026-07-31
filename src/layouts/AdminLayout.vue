@@ -500,7 +500,7 @@ watch(
   height: 38px;
   border-radius: 8px;
   background: var(--yy-primary);
-  color: white;
+  color: var(--yy-on-primary);
   font-weight: 700;
   letter-spacing: 0;
 }

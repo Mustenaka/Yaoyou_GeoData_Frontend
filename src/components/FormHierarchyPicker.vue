@@ -229,6 +229,10 @@ function selectItem(key: string) {
   box-shadow: inset 3px 0 0 var(--yy-primary);
 }
 
+.form-hierarchy__item--active span {
+  color: var(--yy-primary);
+}
+
 .form-hierarchy__item span {
   overflow: hidden;
   font-size: 13px;

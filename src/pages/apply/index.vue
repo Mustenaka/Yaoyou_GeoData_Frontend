@@ -261,7 +261,7 @@ async function submit() {
   place-items: center;
   border-radius: var(--radius-md);
   background: var(--yy-primary);
-  color: white;
+  color: var(--yy-on-primary);
   font-size: 18px;
   font-weight: 700;
 }

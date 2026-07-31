@@ -20,10 +20,10 @@ const naiveTheme = computed(() => (themeStore.isDark ? darkTheme : null))
 
 const themeOverrides = computed<GlobalThemeOverrides>(() => ({
   common: {
-    primaryColor: '#1f4e79',
-    primaryColorHover: '#286196',
-    primaryColorPressed: '#173a5a',
-    primaryColorSuppl: '#2f855a',
+    primaryColor: themeStore.isDark ? '#62b3ff' : '#1f4e79',
+    primaryColorHover: themeStore.isDark ? '#86c8ff' : '#286196',
+    primaryColorPressed: themeStore.isDark ? '#3b82f6' : '#173a5a',
+    primaryColorSuppl: themeStore.isDark ? '#62b3ff' : '#2f855a',
     borderRadius: '8px',
     borderRadiusSmall: '4px',
     fontFamily: '"Noto Sans SC", "Microsoft YaHei", sans-serif',
@@ -32,6 +32,14 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => ({
     textColorBase: themeStore.isDark ? '#e8edf4' : '#17212f',
     borderColor: themeStore.isDark ? '#2a3441' : '#d9e0e7',
   },
+  Button: themeStore.isDark
+    ? {
+        textColorPrimary: '#08131f',
+        textColorHoverPrimary: '#08131f',
+        textColorPressedPrimary: '#08131f',
+        textColorFocusPrimary: '#08131f',
+      }
+    : {},
   Card: {
     color: themeStore.isDark ? '#171c22' : '#ffffff',
     borderColor: themeStore.isDark ? '#2a3441' : '#d9e0e7',
