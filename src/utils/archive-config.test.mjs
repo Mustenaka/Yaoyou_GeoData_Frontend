@@ -28,17 +28,34 @@ const equipmentConfig = (code) => ({
   rows: [{ code, name: '电子天平' }],
 })
 
+const fieldRecordForms = [
+  ['field-reserve-1', '预留1'],
+  ['field-reserve-2', '预留2'],
+  ['field-reserve-3', '预留3'],
+]
+
 const specialTestForms = [
   ['permeability-variable', '渗透（变水头）'],
   ['permeability-consolidation', '渗透（固结换算）'],
   ['ucs', '无侧限抗压强度'],
   ['at-rest-pressure', '静止侧压力系数'],
   ['ignition-loss', '烧矢量'],
-  ['foundation-bed', '基床系数（固结换算）'],
+  ['water-soil-simple-analysis', '水土简分析'],
   ['angle-of-repose', '休止角'],
+  ['uu', 'UU'],
+  ['cu', 'CU'],
+  ['cd', 'CD'],
+  ['special-backup-1', '备用1'],
+  ['special-backup-2', '备用2'],
 ]
 
-const specialFormConfig = (formType, formTitle, scope) => ({
+const projectWorkForms = [
+  ...fieldRecordForms,
+  ['excavation-record', '开土记录'],
+  ...specialTestForms,
+]
+
+const formConfig = (formType, formTitle, scope) => ({
   form_title: formTitle,
   data_entry_mapping: {
     ...mapping(`mapping-${formType}-${scope}`, '孔号样号'),
@@ -73,13 +90,17 @@ const fixtures = {
     },
     data_entry_mapping: mapping('mapping-default'),
     form_configs: {
+      ...Object.fromEntries(fieldRecordForms.map(([formType, formTitle]) => [
+        formType,
+        formConfig(formType, formTitle, 'global'),
+      ])),
       'excavation-record': {
         form_title: '开土记录',
         data_entry_mapping: mapping('mapping-default'),
       },
       ...Object.fromEntries(specialTestForms.map(([formType, formTitle]) => [
         formType,
-        specialFormConfig(formType, formTitle, 'global'),
+        formConfig(formType, formTitle, 'global'),
       ])),
       custom: {
         form_title: '自定义模块',
@@ -164,6 +185,14 @@ const fixtures = {
   projectModuleState: {
     packageVersion: 3,
     formConfigs: {
+      ...Object.fromEntries(fieldRecordForms.map(([formType, formTitle]) => [
+        formType,
+        {
+          dataEntryMapping: {
+            config: formConfig(formType, formTitle, 'project').data_entry_mapping,
+          },
+        },
+      ])),
       'excavation-record': {
         dataEntryMapping: { source: 'generated-default', config: mapping('mapping-project-default') },
         multiRuleMapping: { rule: { configFileId: 'builtin:project-default-fill' } },
@@ -188,7 +217,7 @@ const fixtures = {
         formType,
         {
           dataEntryMapping: {
-            config: specialFormConfig(formType, formTitle, 'project').data_entry_mapping,
+            config: formConfig(formType, formTitle, 'project').data_entry_mapping,
           },
         },
       ])),
@@ -217,6 +246,7 @@ const server = await createServer({
 
 try {
   const { parseFormSnapshot, parseStructuredConfig } = await server.ssrLoadModule('/src/utils/archive-config.ts')
+  const { buildFormHierarchy, sortFormHierarchyItems } = await server.ssrLoadModule('/src/utils/form-taxonomy.ts')
   const parse = (fixture) => parseStructuredConfig(JSON.stringify(fixture))
 
   const v2 = parse(fixtures.v2)
@@ -229,10 +259,10 @@ try {
   const defaultConfig = parse(fixtures.schema3Default)
   assert.deepEqual(
     defaultConfig.workForms.map((form) => form.formTitle),
-    ['开土记录', ...specialTestForms.map(([, formTitle]) => formTitle), '自定义模块'],
+    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...specialTestForms.map(([, formTitle]) => formTitle), '自定义模块'],
   )
-  assert.equal(defaultConfig.workForms[0]?.formTitle, '开土记录')
-  assert.equal(defaultConfig.workForms[0]?.columns[0]?.label, '试样编号')
+  assert.equal(defaultConfig.workForms[3]?.formTitle, '开土记录')
+  assert.equal(defaultConfig.workForms[3]?.columns[0]?.label, '试样编号')
   assert.equal(defaultConfig.fillConfigs.length, 0)
   assert.equal(defaultConfig.equipmentConfigs.length, 0)
   assert.equal(defaultConfig.moduleState.isSchema3, true)
@@ -266,13 +296,13 @@ try {
   assert.match(network.configItems.find((item) => item.key === 'resolvedDistributedConfigs')?.value || '', /2 项/)
 
   const projectState = parse(fixtures.projectModuleState)
-  assert.equal(projectState.workForms.length, 8)
+  assert.equal(projectState.workForms.length, 16)
   assert.deepEqual(
     projectState.workForms.map((form) => form.formTitle),
-    ['开土记录', ...specialTestForms.map(([, formTitle]) => formTitle)],
+    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...specialTestForms.map(([, formTitle]) => formTitle)],
   )
-  assert.equal(projectState.workForms[0]?.rules[0]?.id, 'mapping-project-default:sequence')
-  assert.equal(projectState.workForms[1]?.rules[0]?.id, 'mapping-permeability-variable-project:sequence')
+  assert.equal(projectState.workForms[3]?.rules[0]?.id, 'mapping-project-default:sequence')
+  assert.equal(projectState.workForms[4]?.rules[0]?.id, 'mapping-permeability-variable-project:sequence')
   assert.equal(projectState.moduleState.isSchema3, true)
   assert.equal(projectState.moduleState.dataEntryDefaultApplied, true)
   assert.equal(projectState.moduleState.smartFillUsesDefaultRule, true)
@@ -288,7 +318,7 @@ try {
     assert.equal(damaged.moduleState.equipmentIsEmpty, false)
   }
 
-  specialTestForms.forEach(([formType, formTitle], index) => {
+  projectWorkForms.forEach(([formType, formTitle], index) => {
     const snapshot = parseFormSnapshot(JSON.stringify({
       formType,
       columns: [
@@ -302,9 +332,31 @@ try {
     assert.equal(snapshot.rows[0]?.sampleCode, `SPECIAL-${index + 1}`)
   })
 
+  const legacySnapshot = parseFormSnapshot(JSON.stringify({
+    formType: 'foundation-bed',
+    formTitle: '基床系数（固结换算）',
+    rows: [],
+  }))
+  assert.equal(legacySnapshot.formLabel, '水土简分析')
+
+  const hierarchyItems = [
+    ...projectWorkForms.map(([formType, label]) => ({ key: formType, formType, label })),
+    { key: 'custom', formType: 'custom', label: '自定义模块' },
+  ]
+  const hierarchy = buildFormHierarchy(hierarchyItems)
+  assert.deepEqual(hierarchy.map((section) => section.label), ['野外记录', '勘察记录', '土工试验', '其他配置'])
+  assert.deepEqual(hierarchy.map((section) => section.count), [3, 0, 13, 1])
+  assert.deepEqual(hierarchy[2].subgroups.map((group) => [group.label, group.items.length]), [
+    ['常规试验', 1],
+    ['特殊试验', 12],
+  ])
+  assert.equal(sortFormHierarchyItems(hierarchyItems)[0]?.formType, 'field-reserve-1')
+
   const devicePage = await readFile(new URL('../pages/device/index.vue', import.meta.url), 'utf8')
   const requestPage = await readFile(new URL('../pages/device/authorization-requests.vue', import.meta.url), 'utf8')
   const globalConfigPage = await readFile(new URL('../pages/global-config/detail.vue', import.meta.url), 'utf8')
+  const formHierarchyPicker = await readFile(new URL('../components/FormHierarchyPicker.vue', import.meta.url), 'utf8')
+  const formTaxonomySource = await readFile(new URL('./form-taxonomy.ts', import.meta.url), 'utf8')
   const authorizationApi = await readFile(new URL('../api/authorization.ts', import.meta.url), 'utf8')
   const projectArchiveDetailPage = await readFile(new URL('../pages/project-archive/detail.vue', import.meta.url), 'utf8')
   assert.match(devicePage, /deviceBindingApi\.detail\(id\)/)
@@ -318,13 +370,20 @@ try {
   assert.match(globalConfigPage, /已保存默认器材管理配置/)
   assert.match(globalConfigPage, /当前配置表为空/)
   assert.match(globalConfigPage, /selectedWorkFormId/)
-  assert.match(globalConfigPage, /选择工作表单/)
+  assert.match(globalConfigPage, /FormHierarchyPicker/)
+  assert.match(formHierarchyPicker, /buildFormHierarchy/)
+  assert.match(formTaxonomySource, /野外记录/)
+  assert.match(formTaxonomySource, /勘察记录/)
+  assert.match(formTaxonomySource, /土工试验/)
+  assert.match(formTaxonomySource, /常规试验/)
+  assert.match(formTaxonomySource, /特殊试验/)
   assert.match(authorizationApi, /request\.get<DeviceBindingDetail, DeviceBindingDetail>/)
   assert.match(projectArchiveDetailPage, /暂无工作表单数据填充快照/)
   assert.match(projectArchiveDetailPage, /seenFormTypes/)
-  assert.match(projectArchiveDetailPage, /structuredConfig\.workForms/)
-  assert.match(projectArchiveDetailPage, /:data="form\.columns"/)
-  assert.match(projectArchiveDetailPage, /:data="form\.rules"/)
+  assert.match(projectArchiveDetailPage, /configFormPickerItems/)
+  assert.match(projectArchiveDetailPage, /:data="activeConfigForm\.columns"/)
+  assert.match(projectArchiveDetailPage, /:data="activeConfigForm\.rules"/)
+  assert.match(projectArchiveDetailPage, /formSnapshotPickerItems/)
   const projectArchivePage = await readFile(new URL('../pages/project-archive/index.vue', import.meta.url), 'utf8')
   assert.match(projectArchivePage, /formTypes\.map\(\(formType\) => formTypeLabel\(formType\)\)/)
 

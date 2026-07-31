@@ -70,14 +70,11 @@
 
           <n-tab-pane name="mapping" tab="工作表单">
             <template v-if="activeWorkForm">
-              <div class="work-form-picker">
-                <span class="work-form-picker__label">选择工作表单</span>
-                <n-select
-                  v-model:value="selectedWorkFormId"
-                  :options="workFormOptions"
-                  placeholder="选择工作表单"
-                />
-              </div>
+              <FormHierarchyPicker
+                v-model="selectedWorkFormId"
+                :items="workFormPickerItems"
+                aria-label="全局配置工作表单分类选择"
+              />
               <div class="config-table-block">
                 <div class="section-title">{{ activeWorkForm.formTitle }}</div>
                 <div class="section-meta">
@@ -242,6 +239,7 @@ import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { NButton, NTag, useMessage } from 'naive-ui'
+import FormHierarchyPicker from '@/components/FormHierarchyPicker.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
 import type { ConfigSnapshotItem } from '@/types/api'
@@ -249,6 +247,7 @@ import { formatDateTime } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { configTypeLabel } from '@/utils/labels'
 import { pageList } from '@/utils/query'
+import { sortFormHierarchyItems } from '@/utils/form-taxonomy'
 import {
   parseStructuredConfig,
   type ConfigKeyValueItem,
@@ -279,11 +278,12 @@ const selectedRule = ref<ConfigMappingRule | null>(null)
 const configId = computed(() => Number(route.params.id || 0))
 const deviceId = computed(() => Number(route.query.device_id || 0))
 const structuredConfig = computed<StructuredConfig | null>(() => (detail.value ? parseStructuredConfig(detail.value.snapshot_json) : null))
-const workFormOptions = computed<SelectOption[]>(() =>
-  (structuredConfig.value?.workForms || []).map((form) => ({
-    label: `${form.formTitle}（${form.formType}）`,
-    value: form.id,
-  })),
+const workFormPickerItems = computed(() =>
+  sortFormHierarchyItems((structuredConfig.value?.workForms || []).map((form) => ({
+    key: form.id,
+    formType: form.formType,
+    label: form.formTitle,
+  }))),
 )
 const activeWorkForm = computed(() => {
   const forms = structuredConfig.value?.workForms || []
@@ -485,7 +485,7 @@ watch(
   () => {
     const forms = structuredConfig.value?.workForms || []
     if (!forms.some((form) => form.id === selectedWorkFormId.value)) {
-      selectedWorkFormId.value = forms[0]?.id || null
+      selectedWorkFormId.value = workFormPickerItems.value[0]?.key || null
     }
   },
   { immediate: true },
@@ -547,19 +547,6 @@ onMounted(loadAll)
 
 .config-table-block {
   margin-top: 16px;
-}
-
-.work-form-picker {
-  display: grid;
-  grid-template-columns: 120px minmax(240px, 420px);
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.work-form-picker__label {
-  color: var(--yy-text-secondary);
-  font-size: 13px;
 }
 
 .config-table-block:first-of-type {
@@ -653,8 +640,5 @@ onMounted(loadAll)
     grid-template-columns: 1fr;
   }
 
-  .work-form-picker {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

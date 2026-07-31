@@ -1,5 +1,5 @@
 import type { DataTableColumns } from 'naive-ui'
-import { formSnapshotColumnLabel, formSnapshotTableLabel, formTypeLabel } from './labels'
+import { formSnapshotColumnLabel, formSnapshotTableLabel, formTypeDisplayLabel } from './labels'
 
 export type JsonRecord = Record<string, unknown>
 export type SnapshotCell = string | number | boolean | null
@@ -337,7 +337,8 @@ export function parseFormSnapshot(raw?: string | null): ParsedFormSnapshot {
 
   const labels = asRecord(parsed.record.labels)
   const formType = stringValue(parsed.record.formType) || stringValue(parsed.record.form_type)
-  const formLabel = firstNonEmptyString(parsed.record.formLabel, parsed.record.formTitle, labels?.form, formTypeLabel(formType))
+  const sourceLabel = firstNonEmptyString(parsed.record.formLabel, parsed.record.formTitle, labels?.form)
+  const formLabel = formTypeDisplayLabel(formType, sourceLabel)
   const sampleMetaLabel = firstNonEmptyString(parsed.record.sampleMetaLabel, labels?.sampleMeta, formSnapshotTableLabel('sampleMeta'))
   const rowsRaw = asArray(parsed.record.rows)
   const columns = normalizeColumns(asArray(parsed.record.columns), rowsRaw, {
@@ -419,7 +420,8 @@ function extractWorkForms(record: JsonRecord): ConfigWorkForm[] {
     const columns = extractMappingColumns(source)
     const rules = columns.flatMap((column) => column.rules)
     const formType = firstNonEmptyString(source.formType, source.form_type, source.type) || `form-${index + 1}`
-    const formTitle = firstNonEmptyString(source.formTitle, source.title, source.name, formTypeLabel(formType), `工作表单${index + 1}`)
+    const sourceTitle = firstNonEmptyString(source.formTitle, source.title, source.name)
+    const formTitle = formTypeDisplayLabel(formType, sourceTitle || `工作表单${index + 1}`)
     const previewColumns = mappingPreviewSnapshotColumns(columns)
     return {
       id: firstNonEmptyString(source.configId, source.id, formType) || `work-form-${index + 1}`,

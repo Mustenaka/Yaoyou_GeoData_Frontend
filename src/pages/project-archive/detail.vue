@@ -97,72 +97,64 @@
                   {{ structuredConfig.error }}
                 </n-alert>
 
-                <n-tabs
-                  v-if="structuredConfig.workForms.length"
-                  type="card"
-                  size="small"
-                  animated
-                  class="config-form-tabs"
-                >
-                  <n-tab-pane
-                    v-for="(form, index) in structuredConfig.workForms"
-                    :key="`${form.id}:${form.formType}:${index}`"
-                    :name="`${form.id}:${form.formType}:${index}`"
-                    :tab="form.formTitle"
-                  >
-                    <div class="config-form-snapshot">
-                      <div class="section-toolbar">
-                        <div>
-                          <div class="section-title section-title--compact">{{ form.formTitle }}</div>
-                          <div class="section-subtitle">
-                            {{ form.formTitle }} -&gt; {{ form.formType }} ·
-                            {{ form.columns.length }} 个映射列 · {{ form.rules.length }} 条规则
-                          </div>
+                <template v-if="activeConfigForm">
+                  <FormHierarchyPicker
+                    v-model="activeConfigFormKey"
+                    :items="configFormPickerItems"
+                    aria-label="项目配置工作表单分类选择"
+                  />
+                  <div class="config-form-snapshot">
+                    <div class="section-toolbar">
+                      <div>
+                        <div class="section-title section-title--compact">{{ activeConfigForm.formTitle }}</div>
+                        <div class="section-subtitle">
+                          {{ activeConfigForm.formTitle }} -&gt; {{ activeConfigForm.formType }} ·
+                          {{ activeConfigForm.columns.length }} 个映射列 · {{ activeConfigForm.rules.length }} 条规则
                         </div>
-                      </div>
-
-                      <div class="data-section">
-                        <div class="data-section__header">
-                          <div>
-                            <div class="data-section__title">映射列</div>
-                            <div class="section-subtitle">{{ form.formTitle }} · {{ form.columns.length }} 列</div>
-                          </div>
-                        </div>
-                        <n-data-table
-                          :columns="mappingPreviewColumns"
-                          :data="form.columns"
-                          :pagination="{ pageSize: 20 }"
-                          :row-key="(row: ConfigMappingColumn) => row.key"
-                          :scroll-x="720"
-                        >
-                          <template #empty>
-                            <n-empty description="该工作表单未找到映射列" />
-                          </template>
-                        </n-data-table>
-                      </div>
-
-                      <div class="data-section">
-                        <div class="data-section__header">
-                          <div>
-                            <div class="data-section__title">规则明细</div>
-                            <div class="section-subtitle">{{ form.formTitle }} · {{ form.rules.length }} 条规则</div>
-                          </div>
-                        </div>
-                        <n-data-table
-                          :columns="mappingRuleColumns"
-                          :data="form.rules"
-                          :pagination="{ pageSize: 20 }"
-                          :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
-                          :scroll-x="1500"
-                        >
-                          <template #empty>
-                            <n-empty description="该工作表单未找到具体规则" />
-                          </template>
-                        </n-data-table>
                       </div>
                     </div>
-                  </n-tab-pane>
-                </n-tabs>
+
+                    <div class="data-section">
+                      <div class="data-section__header">
+                        <div>
+                          <div class="data-section__title">映射列</div>
+                          <div class="section-subtitle">{{ activeConfigForm.formTitle }} · {{ activeConfigForm.columns.length }} 列</div>
+                        </div>
+                      </div>
+                      <n-data-table
+                        :columns="mappingPreviewColumns"
+                        :data="activeConfigForm.columns"
+                        :pagination="{ pageSize: 20 }"
+                        :row-key="(row: ConfigMappingColumn) => row.key"
+                        :scroll-x="720"
+                      >
+                        <template #empty>
+                          <n-empty description="该工作表单未找到映射列" />
+                        </template>
+                      </n-data-table>
+                    </div>
+
+                    <div class="data-section">
+                      <div class="data-section__header">
+                        <div>
+                          <div class="data-section__title">规则明细</div>
+                          <div class="section-subtitle">{{ activeConfigForm.formTitle }} · {{ activeConfigForm.rules.length }} 条规则</div>
+                        </div>
+                      </div>
+                      <n-data-table
+                        :columns="mappingRuleColumns"
+                        :data="activeConfigForm.rules"
+                        :pagination="{ pageSize: 20 }"
+                        :row-key="(row: ConfigMappingRule) => `${row.columnKey}:${row.id}`"
+                        :scroll-x="1500"
+                      >
+                        <template #empty>
+                          <n-empty description="该工作表单未找到具体规则" />
+                        </template>
+                      </n-data-table>
+                    </div>
+                  </div>
+                </template>
                 <n-empty v-else description="配置中未找到工作表单配置" />
 
                 <div class="section-title">关键配置项</div>
@@ -193,49 +185,48 @@
                 {{ formSnapshotError }}
               </n-alert>
               <n-empty v-if="!visibleFormSnapshotViews.length" description="暂无工作表单数据填充快照" />
-              <n-tabs v-else v-model:value="activeFormTab" type="card" size="small" animated>
-                <n-tab-pane
-                  v-for="view in visibleFormSnapshotViews"
-                  :key="view.item.id"
-                  :name="view.item.form_type || `unknown-${view.item.id}`"
-                  :tab="view.parsed.formLabel || formTypeLabel(view.item.form_type)"
-                >
-                  <div class="form-snapshot">
+              <template v-else-if="activeFormView">
+                <FormHierarchyPicker
+                  v-model="activeFormTab"
+                  :items="formSnapshotPickerItems"
+                  aria-label="项目数据工作表单分类选择"
+                />
+                <div class="form-snapshot">
                     <div class="section-toolbar">
                       <div>
-                        <div class="section-title section-title--compact">{{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }}</div>
+                        <div class="section-title section-title--compact">{{ activeFormView.parsed.formLabel || formTypeLabel(activeFormView.item.form_type) }}</div>
                         <div class="section-subtitle">
-                          {{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }} -&gt; {{ view.item.form_type || '-' }} ·
-                          {{ formatDateTime(view.item.created_at) }}
+                          {{ activeFormView.parsed.formLabel || formTypeLabel(activeFormView.item.form_type) }} -&gt; {{ activeFormView.item.form_type || '-' }} ·
+                          {{ formatDateTime(activeFormView.item.created_at) }}
                         </div>
                       </div>
                       <n-space>
-                        <n-button :loading="isTableExporting(view.item.form_type, 'data')" @click="downloadProjectTable(view.item.form_type, 'data')">
+                        <n-button :loading="isTableExporting(activeFormView.item.form_type, 'data')" @click="downloadProjectTable(activeFormView.item.form_type, 'data')">
                           下载 xlsx
                         </n-button>
-                        <n-button :loading="isTableExporting(view.item.form_type, 'sample')" @click="downloadProjectTable(view.item.form_type, 'sample')">
+                        <n-button :loading="isTableExporting(activeFormView.item.form_type, 'sample')" @click="downloadProjectTable(activeFormView.item.form_type, 'sample')">
                           下载录入日期/试验员
                         </n-button>
                       </n-space>
                     </div>
 
-                    <n-alert v-if="view.parsed.error" type="warning" class="block-alert">
-                      {{ view.parsed.error }}
+                    <n-alert v-if="activeFormView.parsed.error" type="warning" class="block-alert">
+                      {{ activeFormView.parsed.error }}
                     </n-alert>
 
                     <div class="data-section">
                       <div class="data-section__header">
                         <div>
-                          <div class="data-section__title">{{ view.parsed.formLabel || formTypeLabel(view.item.form_type) }}</div>
-                          <div class="section-subtitle">数据填充结果 · {{ view.item.row_count }} 行</div>
+                          <div class="data-section__title">{{ activeFormView.parsed.formLabel || formTypeLabel(activeFormView.item.form_type) }}</div>
+                          <div class="section-subtitle">数据填充结果 · {{ activeFormView.item.row_count }} 行</div>
                         </div>
                       </div>
                       <n-data-table
-                        :columns="view.parsed.tableColumns"
-                        :data="view.parsed.rows"
+                        :columns="activeFormView.parsed.tableColumns"
+                        :data="activeFormView.parsed.rows"
                         :pagination="{ pageSize: 50 }"
                         :row-key="(row: SnapshotTableRow) => row.__rowKey"
-                        :scroll-x="view.parsed.scrollX"
+                        :scroll-x="activeFormView.parsed.scrollX"
                         :max-height="520"
                       >
                         <template #empty>
@@ -247,17 +238,17 @@
                     <div class="data-section">
                       <div class="data-section__header">
                         <div>
-                          <div class="data-section__title">{{ view.parsed.sampleMetaLabel || '录入日期/试验员' }}</div>
-                          <div class="section-subtitle">样品元数据 · {{ view.item.sample_count }} 条</div>
+                          <div class="data-section__title">{{ activeFormView.parsed.sampleMetaLabel || '录入日期/试验员' }}</div>
+                          <div class="section-subtitle">样品元数据 · {{ activeFormView.item.sample_count }} 条</div>
                         </div>
                       </div>
                       <n-data-table
-                        v-if="view.parsed.sampleTableColumns.length"
-                        :columns="view.parsed.sampleTableColumns"
-                        :data="view.parsed.sampleRows"
+                        v-if="activeFormView.parsed.sampleTableColumns.length"
+                        :columns="activeFormView.parsed.sampleTableColumns"
+                        :data="activeFormView.parsed.sampleRows"
                         :pagination="{ pageSize: 50 }"
                         :row-key="(row: SnapshotTableRow) => row.__rowKey"
-                        :scroll-x="view.parsed.sampleScrollX"
+                        :scroll-x="activeFormView.parsed.sampleScrollX"
                         :max-height="360"
                       >
                         <template #empty>
@@ -268,13 +259,12 @@
                     </div>
 
                     <n-collapse class="raw-collapse">
-                      <n-collapse-item title="原始快照 JSON" :name="`form-json-${view.item.id}`">
-                        <pre class="json-preview">{{ view.parsed.rawText }}</pre>
+                      <n-collapse-item title="原始快照 JSON" :name="`form-json-${activeFormView.item.id}`">
+                        <pre class="json-preview">{{ activeFormView.parsed.rawText }}</pre>
                       </n-collapse-item>
                     </n-collapse>
-                  </div>
-                </n-tab-pane>
-              </n-tabs>
+                </div>
+              </template>
             </n-spin>
           </n-tab-pane>
         </n-tabs>
@@ -320,6 +310,7 @@ import { computed, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton, NTag, useDialog, useMessage } from 'naive-ui'
+import FormHierarchyPicker from '@/components/FormHierarchyPicker.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { archiveApi } from '@/api/archive'
 import { useAuthStore } from '@/stores/auth'
@@ -328,6 +319,7 @@ import { formatDateTime } from '@/utils/format'
 import { saveBlob } from '@/utils/download'
 import { pageList } from '@/utils/query'
 import { configTypeLabel, formTypeLabel, projectLifecycleDisplayText, projectLifecycleTagType } from '@/utils/labels'
+import { sortFormHierarchyItems } from '@/utils/form-taxonomy'
 import {
   emptyParsedFormSnapshot,
   parseFormSnapshot,
@@ -361,6 +353,7 @@ const errorText = ref('')
 const configError = ref('')
 const formSnapshotError = ref('')
 const activeTab = ref('base')
+const activeConfigFormKey = ref<string | null>(null)
 const activeFormTab = ref('excavation-record')
 const ruleDetailVisible = ref(false)
 const detail = ref<ProjectArchiveItem | null>(null)
@@ -387,6 +380,17 @@ const latestConfig = computed(() => {
   return [...configs.value].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''))[0] || null
 })
 const structuredConfig = computed<StructuredConfig | null>(() => (latestConfigDetail.value ? parseStructuredConfig(latestConfigDetail.value.snapshot_json) : null))
+const configFormPickerItems = computed(() =>
+  sortFormHierarchyItems((structuredConfig.value?.workForms || []).map((form, index) => ({
+    key: configFormSelectionKey(form.id, form.formType, index),
+    formType: form.formType,
+    label: form.formTitle,
+  }))),
+)
+const activeConfigForm = computed(() => {
+  const forms = structuredConfig.value?.workForms || []
+  return forms.find((form, index) => configFormSelectionKey(form.id, form.formType, index) === activeConfigFormKey.value) || null
+})
 const ruleDetailTitle = computed(() => {
   const rule = selectedRule.value
   return rule ? `${rule.columnLabel} · ${rule.typeLabel}` : '规则详情'
@@ -402,6 +406,16 @@ const visibleFormSnapshotViews = computed(() => {
     return true
   })
 })
+const formSnapshotPickerItems = computed(() =>
+  sortFormHierarchyItems(visibleFormSnapshotViews.value.map((view) => ({
+    key: formSnapshotSelectionKey(view),
+    formType: view.item.form_type || view.parsed.formType,
+    label: view.parsed.formLabel || formTypeLabel(view.item.form_type),
+  }))),
+)
+const activeFormView = computed(() =>
+  visibleFormSnapshotViews.value.find((view) => formSnapshotSelectionKey(view) === activeFormTab.value) || null,
+)
 const projectBaseFields = computed(() => {
   const project = detail.value
   if (!project) return []
@@ -491,6 +505,14 @@ function splitRuleDetail(detail?: string) {
     .filter(Boolean)
 }
 
+function configFormSelectionKey(id: string, formType: string, index: number) {
+  return `${id}:${formType}:${index}`
+}
+
+function formSnapshotSelectionKey(view: FormSnapshotView) {
+  return view.item.form_type?.trim() || view.parsed.formType?.trim() || `unknown-${view.item.id}`
+}
+
 function cancelProjectPurge() {
   const project = detail.value
   if (!project || !canCancelProjectPurge.value) return
@@ -555,9 +577,12 @@ async function loadFormSnapshotDetails(items: FormDataSnapshot[]) {
       }
     })
     formSnapshotViews.value = views
-    activeFormTab.value = views.some((view) => view.item.form_type === 'excavation-record')
-      ? 'excavation-record'
-      : (views[0]?.item.form_type || 'excavation-record')
+    const pickerItems = sortFormHierarchyItems(views.map((view) => ({
+      key: formSnapshotSelectionKey(view),
+      formType: view.item.form_type || view.parsed.formType,
+      label: view.parsed.formLabel || formTypeLabel(view.item.form_type),
+    })))
+    activeFormTab.value = pickerItems[0]?.key || 'excavation-record'
     formSnapshotError.value = errors.join('；')
   } finally {
     formSnapshotLoading.value = false
@@ -678,6 +703,26 @@ function safeFilenamePart(value: string) {
   const safe = value.trim().replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '')
   return safe || 'project'
 }
+
+watch(
+  () => configFormPickerItems.value.map((item) => item.key).join('|'),
+  () => {
+    if (!configFormPickerItems.value.some((item) => item.key === activeConfigFormKey.value)) {
+      activeConfigFormKey.value = configFormPickerItems.value[0]?.key || null
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => formSnapshotPickerItems.value.map((item) => item.key).join('|'),
+  () => {
+    if (!formSnapshotPickerItems.value.some((item) => item.key === activeFormTab.value)) {
+      activeFormTab.value = formSnapshotPickerItems.value[0]?.key || 'excavation-record'
+    }
+  },
+  { immediate: true },
+)
 
 watch(
   () => route.params.id,
@@ -804,10 +849,6 @@ onMounted(loadDetail)
 .form-snapshot {
   padding: 16px 0;
   border-bottom: 1px solid var(--yy-border);
-}
-
-.config-form-tabs {
-  margin-top: 16px;
 }
 
 .config-form-snapshot {

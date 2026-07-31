@@ -119,15 +119,24 @@ export const configTypeOptions = [
 ]
 
 export const formTypeOptions = [
+  { label: '预留1', value: 'field-reserve-1' },
+  { label: '预留2', value: 'field-reserve-2' },
+  { label: '预留3', value: 'field-reserve-3' },
   { label: '开土记录', value: 'excavation-record' },
   { label: '渗透（变水头）', value: 'permeability-variable' },
   { label: '渗透（固结换算）', value: 'permeability-consolidation' },
   { label: '无侧限抗压强度', value: 'ucs' },
   { label: '静止侧压力系数', value: 'at-rest-pressure' },
   { label: '烧矢量', value: 'ignition-loss' },
-  { label: '基床系数（固结换算）', value: 'foundation-bed' },
+  { label: '水土简分析', value: 'water-soil-simple-analysis' },
   { label: '休止角', value: 'angle-of-repose' },
+  { label: 'UU', value: 'uu' },
+  { label: 'CU', value: 'cu' },
+  { label: 'CD', value: 'cd' },
+  { label: '备用1', value: 'special-backup-1' },
+  { label: '备用2', value: 'special-backup-2' },
   { label: '自定义模块', value: 'custom' },
+  { label: '水土简分析', value: 'foundation-bed' },
 ]
 
 export const projectLifecycleOptions: Array<{ label: string; value: ProjectLifecycleStatus }> = [
@@ -401,6 +410,11 @@ export function configTypeLabel(type?: string) {
 
 export function formTypeLabel(type?: string) {
   return formTypeOptions.find((item) => item.value === type)?.label || type || '-'
+}
+
+export function formTypeDisplayLabel(type?: string, sourceLabel?: string) {
+  const known = formTypeOptions.find((item) => item.value === type)
+  return known?.label || sourceLabel?.trim() || type || '-'
 }
 
 export function projectLifecycleLabel(status?: string) {
