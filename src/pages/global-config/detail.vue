@@ -190,6 +190,20 @@
               </template>
             </n-data-table>
           </n-tab-pane>
+
+          <n-tab-pane name="personnel" tab="人员名单">
+            <n-data-table
+              :columns="personnelColumns"
+              :data="structuredConfig.personnelRoster"
+              :pagination="{ pageSize: 30 }"
+              :row-key="(row: PersonnelRosterEntry) => row.id"
+              :scroll-x="560"
+            >
+              <template #empty>
+                <n-empty description="暂无人员名单" />
+              </template>
+            </n-data-table>
+          </n-tab-pane>
         </n-tabs>
 
         <n-collapse class="raw-collapse">
@@ -253,6 +267,7 @@ import {
   type ConfigKeyValueItem,
   type ConfigMappingRule,
   type ConfigSectionItem,
+  type PersonnelRosterEntry,
   type SnapshotTableRow,
   type StructuredConfig,
 } from '@/utils/archive-config'
@@ -335,6 +350,11 @@ const operationColumns: DataTableColumns<ConfigSectionItem> = [
   { title: '键', key: 'key', width: 220, render: (row) => h('span', { class: 'mono' }, row.key) },
   { title: '中文标签', key: 'label', width: 220 },
   { title: '值', key: 'value', minWidth: 260, render: (row) => h('div', { class: 'cell-wrap' }, row.value || '-') },
+]
+
+const personnelColumns: DataTableColumns<PersonnelRosterEntry> = [
+  { title: '序号', key: 'sequence', width: 100, align: 'center' },
+  { title: '人员姓名', key: 'name', minWidth: 260, render: (row) => h('div', { class: 'cell-wrap' }, row.name || '-') },
 ]
 
 const mappingRuleColumns: DataTableColumns<ConfigMappingRule> = [

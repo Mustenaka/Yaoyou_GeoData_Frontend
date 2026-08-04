@@ -49,6 +49,29 @@ const specialTestForms = [
   ['special-backup-2', '备用2'],
 ]
 
+const normalizedSpecialTestTitles = [
+  '渗透（变水头）',
+  '渗透（固结换算）',
+  '无侧限抗压强度',
+  '静止侧压力系数',
+  '烧矢量',
+  '水土简分析',
+  '休止角',
+  '三轴UU/CU/CD',
+  '备用1',
+  '备用2',
+  '备用3',
+  '备用4',
+]
+
+const normalizedFormTitleOverrides = {
+  uu: '三轴UU/CU/CD',
+  cu: '备用1',
+  cd: '备用2',
+  'special-backup-1': '备用3',
+  'special-backup-2': '备用4',
+}
+
 const projectWorkForms = [
   ...fieldRecordForms,
   ['excavation-record', '开土记录'],
@@ -74,10 +97,12 @@ const fixtures = {
     fillConfigs: [v2Fill],
     equipmentTypes: [equipmentType('balance-v2', 'V2 天平', { builtin: true })],
     equipmentConfigs: { 'balance-v2': equipmentConfig('V2-1') },
+    personnelRoster: [{ id: 'v2-person', name: '王五' }],
     modules: {
       dataEntryMapping: { config: v2Mapping },
       multiRuleMapping: { configs: [v2Fill] },
       equipmentManagement: { configs: { 'balance-v2': equipmentConfig('V2-1') } },
+      personnelRoster: { rows: [{ id: 'v2-person', name: '王五' }] },
     },
   },
   schema3Default: {
@@ -116,6 +141,13 @@ const fixtures = {
       custom_types: [],
       type_name_overrides: {},
       configs: {},
+    },
+    personnel_roster: {
+      version: 1,
+      rows: [
+        { id: 'person-a', name: '张三' },
+        { id: 'person-b', name: '李四' },
+      ],
     },
     distributed_config_refs: [],
     module_state: {
@@ -254,17 +286,20 @@ try {
   assert.equal(v2.workForms.length, 1, 'v2 duplicate mapping aliases must collapse')
   assert.equal(v2.fillConfigs.length, 1, 'v2 duplicate fill aliases must collapse')
   assert.equal(v2.equipmentConfigs.length, 1)
+  assert.deepEqual(v2.personnelRoster, [{ id: 'v2-person', name: '王五', sequence: 1 }])
   assert.equal(v2.moduleState.isSchema3, false)
 
   const defaultConfig = parse(fixtures.schema3Default)
   assert.deepEqual(
     defaultConfig.workForms.map((form) => form.formTitle),
-    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...specialTestForms.map(([, formTitle]) => formTitle), '自定义模块'],
+    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...normalizedSpecialTestTitles, '自定义模块'],
   )
   assert.equal(defaultConfig.workForms[3]?.formTitle, '开土记录')
   assert.equal(defaultConfig.workForms[3]?.columns[0]?.label, '试样编号')
   assert.equal(defaultConfig.fillConfigs.length, 0)
   assert.equal(defaultConfig.equipmentConfigs.length, 0)
+  assert.deepEqual(defaultConfig.personnelRoster.map((item) => item.name), ['张三', '李四'])
+  assert.match(defaultConfig.configItems.find((item) => item.key === 'personnelRoster')?.value || '', /2/)
   assert.equal(defaultConfig.moduleState.isSchema3, true)
   assert.equal(defaultConfig.moduleState.dataEntrySource, 'generated-default')
   assert.equal(defaultConfig.moduleState.dataEntryDefaultApplied, true)
@@ -299,7 +334,7 @@ try {
   assert.equal(projectState.workForms.length, 16)
   assert.deepEqual(
     projectState.workForms.map((form) => form.formTitle),
-    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...specialTestForms.map(([, formTitle]) => formTitle)],
+    [...fieldRecordForms.map(([, formTitle]) => formTitle), '开土记录', ...normalizedSpecialTestTitles],
   )
   assert.equal(projectState.workForms[3]?.rules[0]?.id, 'mapping-project-default:sequence')
   assert.equal(projectState.workForms[4]?.rules[0]?.id, 'mapping-permeability-variable-project:sequence')
@@ -327,7 +362,7 @@ try {
       ],
       rows: [{ seq: 1, sampleCode: `SPECIAL-${index + 1}` }],
     }))
-    assert.equal(snapshot.formLabel, formTitle)
+    assert.equal(snapshot.formLabel, normalizedFormTitleOverrides[formType] || formTitle)
     assert.deepEqual(snapshot.tableColumns.map((column) => column.title), ['序号', '孔号样号'])
     assert.equal(snapshot.rows[0]?.sampleCode, `SPECIAL-${index + 1}`)
   })
@@ -370,6 +405,7 @@ try {
   assert.match(globalConfigPage, /已保存默认器材管理配置/)
   assert.match(globalConfigPage, /当前配置表为空/)
   assert.match(globalConfigPage, /selectedWorkFormId/)
+  assert.match(globalConfigPage, /人员名单/)
   assert.match(globalConfigPage, /FormHierarchyPicker/)
   assert.match(formHierarchyPicker, /buildFormHierarchy/)
   assert.match(formTaxonomySource, /野外记录/)

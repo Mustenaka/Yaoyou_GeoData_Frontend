@@ -73,6 +73,12 @@ export interface ConfigEquipmentConfigItem extends ConfigSnapshotTable {
   typeName: string
 }
 
+export interface PersonnelRosterEntry {
+  id: string
+  name: string
+  sequence: number
+}
+
 export interface StructuredConfigModuleState {
   schemaVersion: string
   isSchema3: boolean
@@ -105,6 +111,7 @@ export interface StructuredConfig {
   fillConfigs: ConfigFillConfigItem[]
   equipmentTypes: ConfigEquipmentTypeItem[]
   equipmentConfigs: ConfigEquipmentConfigItem[]
+  personnelRoster: PersonnelRosterEntry[]
   configItems: ConfigKeyValueItem[]
   moduleState: StructuredConfigModuleState
 }
@@ -146,6 +153,7 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
       fillConfigs: [],
       equipmentTypes: [],
       equipmentConfigs: [],
+      personnelRoster: [],
       configItems: [],
       moduleState: emptyStructuredConfigModuleState(),
     }
@@ -157,6 +165,7 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
   const fillConfigs = extractFillConfigs(record)
   const equipmentTypes = extractEquipmentTypes(record)
   const equipmentConfigs = extractEquipmentConfigs(record, equipmentTypes)
+  const personnelRoster = extractPersonnelRoster(record)
   return {
     rawText: parsed.rawText,
     error: parsed.error,
@@ -168,6 +177,7 @@ export function parseStructuredConfig(raw?: string | null): StructuredConfig {
     fillConfigs,
     equipmentTypes,
     equipmentConfigs,
+    personnelRoster,
     configItems: extractConfigItems(record),
     moduleState: extractStructuredConfigModuleState(parsed.record, fillConfigs.length, equipmentConfigs.length),
   }
@@ -282,6 +292,7 @@ function normalizeStructuredConfigRecord(record: JsonRecord): JsonRecord {
   setAlias(normalized, 'embeddedConfigs', record.embedded_configs)
   setAlias(normalized, 'configRefs', record.distributed_config_refs)
   setAlias(normalized, 'resolvedDistributedConfigs', record.resolved_distributed_configs)
+  setAlias(normalized, 'personnelRoster', record.personnel_roster)
 
   const modules: JsonRecord = { ...(asRecord(record.modules) || {}) }
   const dataEntryMapping = normalizeSnakeModule(record.data_entry_mapping, {
@@ -746,6 +757,7 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
   add('fillConfigs', '智能填充配置表', arraySummary(record.fillConfigs))
   add('equipmentTypes', '器材类型', arraySummary(record.equipmentTypes))
   add('equipmentConfigs', '器材配置', arraySummary(record.equipmentConfigs))
+  add('personnelRoster', '人员名单', arraySummary(extractPersonnelRoster(record)))
   add('configRefs', '网络配置引用', arraySummary(record.configRefs))
   add('resolvedDistributedConfigs', '已解析网络配置', arraySummary(record.resolvedDistributedConfigs))
   add('modules', '模块配置', objectSummary(record.modules))
@@ -755,6 +767,31 @@ function extractConfigItems(record: JsonRecord): ConfigKeyValueItem[] {
     Object.entries(operationSettings).slice(0, 12).forEach(([key, value]) => add(`operationSettings.${key}`, `操作设置：${key}`, value))
   }
   return items
+}
+
+function extractPersonnelRoster(record: JsonRecord): PersonnelRosterEntry[] {
+  const modules = asRecord(record.modules)
+  const raw = record.personnelRoster !== undefined
+    ? record.personnelRoster
+    : (modules?.personnelRoster !== undefined ? modules.personnelRoster : modules?.personnel_roster)
+  const parsed = parseEmbeddedJSON(raw)
+  const source = asRecord(parsed)
+  const rows = Array.isArray(parsed) ? parsed : asArray(source?.rows)
+  const seen = new Set<string>()
+  const result: PersonnelRosterEntry[] = []
+  rows.forEach((item, index) => {
+    const entry = asRecord(item)
+    const name = entry
+      ? firstNonEmptyString(entry.name, entry.personName, entry.person_name)
+      : stringValue(item)
+    if (!name) return
+    const id = entry ? firstNonEmptyString(entry.id, entry.key) || `person-${index + 1}` : `person-${index + 1}`
+    const signature = `${id}\u0000${name}`
+    if (seen.has(signature)) return
+    seen.add(signature)
+    result.push({ id, name, sequence: result.length + 1 })
+  })
+  return result
 }
 
 const visibleOperationSettingFields: Array<{ key: string; label: string; source: string; scope: 'app' | 'global' }> = [
