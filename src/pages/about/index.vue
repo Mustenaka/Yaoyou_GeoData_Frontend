@@ -45,29 +45,23 @@
           <n-descriptions-item label="提交 SHA">
             <span class="mono">{{ backendInfo?.sha || '-' }}</span>
           </n-descriptions-item>
-          <n-descriptions-item label="健康状态">{{ health?.status || '-' }}</n-descriptions-item>
-          <n-descriptions-item label="检查时间">{{ checkedAt ? formatDateTime(checkedAt) : '-' }}</n-descriptions-item>
         </n-descriptions>
       </section>
 
       <section class="page-card about-card about-card--wide">
         <div class="section-head">
           <div>
-            <strong>云服务授权状态</strong>
-            <span>服务端每 5 分钟校验一次；这里只显示当前状态和统一错误码</span>
+            <strong>健康状态</strong>
+            <span>来自 /api/health</span>
           </div>
-          <n-tag :type="serviceStatusTagType" round>{{ serviceStatusLabel }}</n-tag>
+          <n-tag :type="healthStatusTagType" round>{{ healthStatusLabel }}</n-tag>
         </div>
         <n-descriptions :column="2" label-placement="left" bordered>
-          <n-descriptions-item label="当前状态">{{ serviceStatusLabel }}</n-descriptions-item>
-          <n-descriptions-item label="错误码">
-            <span class="mono">{{ serviceStatusBlocked ? '10086' : '-' }}</span>
-          </n-descriptions-item>
           <n-descriptions-item label="最近检查">
-            {{ managerCheckedAt ? formatDateTime(managerCheckedAt) : '-' }}
+            {{ checkedAt ? formatDateTime(checkedAt) : '-' }}
           </n-descriptions-item>
-          <n-descriptions-item label="授权有效至">
-            {{ managerEffectiveUntil ? formatDateTime(managerEffectiveUntil) : '-' }}
+          <n-descriptions-item label="错误码">
+            <span class="mono">{{ healthErrorCode || '-' }}</span>
           </n-descriptions-item>
         </n-descriptions>
       </section>
@@ -94,44 +88,28 @@
 import { computed, onMounted, ref } from 'vue'
 import { RefreshOutline } from '@vicons/ionicons5'
 import PageHeader from '@/components/PageHeader.vue'
+import { ApiError } from '@/api/request'
 import { systemApi } from '@/api/system'
-import { useAuthStore } from '@/stores/auth'
 import type { HealthStatus, VersionStatus } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 
 const appVersion = __APP_VERSION__
 const buildTime = __BUILD_TIME__
-const authStore = useAuthStore()
 const loading = ref(false)
 const errorText = ref('')
 const checkedAt = ref('')
+const healthErrorCode = ref('')
 const health = ref<HealthStatus | null>(null)
 const versionStatus = ref<VersionStatus | null>(null)
 
 const backendInfo = computed(() => versionStatus.value?.backend || health.value?.backend || null)
-const managerControl = computed(() => authStore.policy.manager_control || null)
-const serviceStatusBlocked = computed(
-  () => Boolean(managerControl.value?.enforced && !managerControl.value.would_allow),
-)
-const serviceStatusLabel = computed(() => {
-  const control = managerControl.value
-  if (!control || control.mode === 'OFF') return '未启用'
-  if (control.would_allow && control.status === 'GRACE') return '宽限期'
-  if (control.would_allow) return '正常'
-  return '已暂停'
+const healthStatusLabel = computed(() => {
+  if (healthErrorCode.value) return '异常'
+  return health.value?.status === 'ok' ? '正常' : health.value?.status || '未知'
 })
-const serviceStatusTagType = computed(() => {
-  if (serviceStatusBlocked.value) return 'error' as const
-  if (managerControl.value?.status === 'GRACE') return 'warning' as const
-  return 'success' as const
-})
-const managerCheckedAt = computed(() => {
-  const value = managerControl.value?.checked_at_ms
-  return value ? new Date(value).toISOString() : ''
-})
-const managerEffectiveUntil = computed(() => {
-  const value = managerControl.value?.effective_until_ms
-  return value ? new Date(value).toISOString() : ''
+const healthStatusTagType = computed(() => {
+  if (healthErrorCode.value) return 'error' as const
+  return health.value?.status === 'ok' ? 'success' as const : 'warning' as const
 })
 
 function formatBuildTime(value?: string | null) {
@@ -143,17 +121,21 @@ function formatBuildTime(value?: string | null) {
 async function loadSystemInfo() {
   loading.value = true
   errorText.value = ''
+  healthErrorCode.value = ''
   try {
-    const [healthResult, versionResult, managerResult] = await Promise.allSettled([
+    const [healthResult, versionResult] = await Promise.allSettled([
       systemApi.health(),
       systemApi.version(),
-      authStore.fetchMe(),
     ])
     const errors: string[] = []
 
     if (healthResult.status === 'fulfilled') {
       health.value = healthResult.value
     } else {
+      health.value = null
+      healthErrorCode.value = healthResult.reason instanceof ApiError
+        ? String(healthResult.reason.code)
+        : 'NETWORK'
       errors.push(healthResult.reason instanceof Error ? healthResult.reason.message : '健康检查失败')
     }
 
@@ -161,10 +143,6 @@ async function loadSystemInfo() {
       versionStatus.value = versionResult.value
     } else {
       errors.push(versionResult.reason instanceof Error ? versionResult.reason.message : '版本信息获取失败')
-    }
-
-    if (managerResult.status === 'rejected') {
-      errors.push(managerResult.reason instanceof Error ? managerResult.reason.message : '云服务授权状态读取失败')
     }
 
     if (errors.length) {
