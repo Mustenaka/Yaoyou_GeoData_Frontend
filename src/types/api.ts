@@ -64,6 +64,15 @@ export interface TokenCompany {
   valid_until?: string | null
 }
 
+export interface ManagerCloudProjection {
+  mode: 'OFF' | 'SHADOW' | 'ENFORCE'
+  enforced: boolean
+  would_allow: boolean
+  status: string
+  effective_until_ms?: number | null
+  checked_at_ms: number
+}
+
 export interface LoginPolicy {
   allow_normal_user_config_edit: boolean
   min_mobile_version: string
@@ -71,6 +80,7 @@ export interface LoginPolicy {
   risk_block_enabled: boolean
   hide_smart_fill?: boolean
   win_features: Record<WinFeatureKey, boolean>
+  manager_control?: ManagerCloudProjection | null
 }
 
 export interface TokenAuthorization {

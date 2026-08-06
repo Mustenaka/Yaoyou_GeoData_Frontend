@@ -42,6 +42,9 @@
         <n-tag size="small" :type="authStore.isSuperAdmin ? 'success' : 'info'" round>
           {{ roleLabel(authStore.roleCode) }}
         </n-tag>
+        <n-tag v-if="serviceStatusBlocked" size="small" type="error" round>
+          云服务已暂停 · 10086
+        </n-tag>
         <span v-if="authStore.companyName" class="topbar__company">{{ authStore.companyName }}</span>
         <div class="topbar__spacer" />
         <n-dropdown trigger="click" :options="themeOptions" @select="handleThemeSelect">
@@ -115,8 +118,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { NIcon, useMessage, type FormInst, type FormRules, type MenuOption } from 'naive-ui'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { NIcon, useDialog, useMessage, type FormInst, type FormRules, type MenuOption } from 'naive-ui'
 import {
   AlertCircleOutline,
   BusinessOutline,
@@ -153,6 +156,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const message = useMessage()
+const dialog = useDialog()
 const collapsed = ref(false)
 const expandedKeys = ref<string[]>([])
 const nowText = ref(new Date().toLocaleString('zh-CN', { hour12: false }))
@@ -164,6 +168,27 @@ const passwordForm = reactive({
   new_password: '',
   confirm_password: '',
 })
+const managerStatusReady = ref(false)
+let serviceStatusDialogShown = false
+
+const managerControl = computed(() => authStore.policy.manager_control || null)
+const serviceStatusBlocked = computed(
+  () => Boolean(managerControl.value?.enforced && !managerControl.value.would_allow),
+)
+
+function showServiceStatusDialog() {
+  if (!serviceStatusBlocked.value) {
+    serviceStatusDialogShown = false
+    return
+  }
+  if (serviceStatusDialogShown) return
+  serviceStatusDialogShown = true
+  dialog.warning({
+    title: '云服务授权状态异常',
+    content: '当前云服务已暂停，Mobile 与 Win 的登录及设备授权暂不可用。错误码：10086。请联系项目管理员处理。',
+    positiveText: '知道了',
+  })
+}
 
 const timer = window.setInterval(() => {
   nowText.value = new Date().toLocaleString('zh-CN', { hour12: false })
@@ -451,6 +476,21 @@ async function submitPasswordChange() {
 
 onBeforeUnmount(() => {
   window.clearInterval(timer)
+})
+
+onMounted(async () => {
+  try {
+    await authStore.fetchMe()
+  } catch {
+    // 保留登录响应中已有的服务状态；其它请求错误仍由全局请求层处理。
+  } finally {
+    managerStatusReady.value = true
+    showServiceStatusDialog()
+  }
+})
+
+watch(managerControl, () => {
+  if (managerStatusReady.value) showServiceStatusDialog()
 })
 
 watch(
