@@ -125,6 +125,18 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'mobile/collab/servers',
+        name: 'mobile-collab-servers',
+        component: () => import('@/pages/collab/servers.vue'),
+        meta: {
+          title: '协作服务器',
+          group: '移动端项目与数据',
+          subGroup: '协作设置与授权',
+          // 登记一台服务器决定了企业的实时流量走向哪里，因此不开放给企业管理员。
+          roles: contentRoles,
+        },
+      },
+      {
         path: 'mobile/collab/settings',
         name: 'mobile-collab-settings',
         component: () => import('@/pages/placeholder/ComingSoon.vue'),
