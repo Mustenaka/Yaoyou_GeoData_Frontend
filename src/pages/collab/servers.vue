@@ -229,8 +229,9 @@ const endpointError = computed(() => {
   const raw = form.base_url.trim()
   if (!raw) return ''
   const matched = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]+)([/?#][\s\S]*)?$/.exec(raw)
-  if (!matched) return '不是合法地址。正确形式：https://主机名:端口'
-  if (matched[1].toLowerCase() !== 'https') return '必须是 HTTPS：移动端已禁用明文传输，http 地址在真机上连不上。'
+  if (!matched) return '不是合法地址。正确形式：http(s)://主机名或IP:端口'
+  const scheme = matched[1].toLowerCase()
+  if (scheme !== 'https' && scheme !== 'http') return '只支持 http:// 和 https://。'
   if (/[\s@]/.test(matched[2])) return '主机名里不能有空格或用户名。'
   const tail = matched[3]
   if (tail && tail !== '/') return '只能填源地址，不能带路径、查询串或片段。'
@@ -240,9 +241,16 @@ const endpointError = computed(() => {
 const endpointWarning = computed(() => {
   const raw = form.base_url.trim()
   if (!raw || endpointError.value) return ''
-  const host = /^https:\/\/([^/?#]+)/.exec(raw)?.[1] ?? ''
+  const matched = /^(https?):\/\/([^/?#]+)/i.exec(raw)
+  const scheme = (matched?.[1] || '').toLowerCase()
+  const host = matched?.[2] ?? ''
   if (!/:\d+$/.test(host)) {
-    return '没有写端口，会按 443 处理。自建服务器通常跑在 8000/8443 上，请确认这就是你要的。'
+    return `没有写端口，会按 ${scheme === 'https' ? 443 : 80} 处理。自建服务器通常跑在 8000/8443 上，请确认这就是你要的。`
+  }
+  if (scheme === 'http') {
+    // http 是被支持的：只有 IP 没有域名的客户，公网 CA 不会给裸 IP 签证书，
+    // 强制 HTTPS 等于把协作挡在门外。但它不加密，这件事必须说出来。
+    return '这是明文 HTTP：协作数据和登录票据在链路上可被看到。内网或可信网络可以这样用；走公网建议后续换成域名 + HTTPS。'
   }
   return ''
 })
@@ -251,7 +259,7 @@ const endpointHint = computed(
   () =>
     endpointError.value ||
     endpointWarning.value ||
-    '只填源地址，必须 HTTPS。与服务器上 --public-url 完全一致，端口不能漏。',
+    '与服务器上 --public-url 完全一致。http 与 https 都支持，端口不能漏。',
 )
 
 const endpointHintClass = computed(() => {
