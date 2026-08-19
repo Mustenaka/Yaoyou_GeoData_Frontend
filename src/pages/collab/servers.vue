@@ -141,6 +141,77 @@
       </template>
     </n-modal>
 
+    <n-modal
+      v-model:show="detailOpen"
+      preset="card"
+      title="协作服务器详情"
+      class="detail-modal"
+    >
+      <template v-if="detailTarget">
+        <!-- 服务器编号排在最前面。登记完之后，这是唯一一个还要被人拿去用的值：
+             它要填进协作服务器自己的面板才能完成安装。 -->
+        <n-alert type="info" :bordered="false" class="detail-hint">
+          <div class="detail-id">
+            <span>服务器编号</span>
+            <strong>{{ detailTarget.id }}</strong>
+            <n-button size="tiny" tertiary @click="copyText(String(detailTarget.id))">复制</n-button>
+          </div>
+          <div class="detail-id-note">
+            把这个编号填进 <code>{{ detailTarget.base_url }}/panel</code> 页面上的「完成登记」输入框，安装就结束了。
+          </div>
+        </n-alert>
+
+        <n-descriptions :column="1" label-placement="left" bordered size="small">
+          <n-descriptions-item label="名称">{{ detailTarget.name }}</n-descriptions-item>
+          <n-descriptions-item label="类型">{{ detailTarget.kind === 'official' ? '官方' : '自建' }}</n-descriptions-item>
+          <n-descriptions-item label="状态">
+            <n-tag :type="statusMeta[detailTarget.status]?.type || 'default'" size="small" round>
+              {{ statusMeta[detailTarget.status]?.text || detailTarget.status }}
+            </n-tag>
+            <n-text depth="3" style="margin-left: 8px; font-size: 12px">
+              {{ statusMeta[detailTarget.status]?.hint }}
+            </n-text>
+          </n-descriptions-item>
+          <n-descriptions-item label="服务器地址">
+            <code class="detail-code">{{ detailTarget.base_url }}</code>
+            <n-button size="tiny" tertiary style="margin-left: 8px" @click="copyText(detailTarget.base_url)">复制</n-button>
+          </n-descriptions-item>
+          <n-descriptions-item label="密钥标识">
+            <code class="detail-code">{{ detailTarget.key_id }}</code>
+          </n-descriptions-item>
+          <n-descriptions-item label="公钥">
+            <code class="detail-code detail-key">{{ detailTarget.public_key_ed25519 }}</code>
+          </n-descriptions-item>
+          <n-descriptions-item label="归属企业">
+            {{ detailTarget.company_id ? companyName(detailTarget.company_id) : '所有企业' }}
+          </n-descriptions-item>
+          <n-descriptions-item label="离线宽限期">{{ detailTarget.grace_seconds }} 秒</n-descriptions-item>
+          <n-descriptions-item label="最后心跳">
+            {{ detailTarget.last_heartbeat_at ? formatDateTime(detailTarget.last_heartbeat_at) : '从未' }}
+          </n-descriptions-item>
+          <n-descriptions-item label="版本">
+            {{ detailTarget.build_version || '—' }}
+            <n-text v-if="detailTarget.build_version" depth="3" style="font-size: 12px">
+              （schema {{ detailTarget.schema_version }} · 协议 {{ detailTarget.proto_versions || '—' }}）
+            </n-text>
+          </n-descriptions-item>
+          <n-descriptions-item label="租约 / 吊销代次">
+            {{ detailTarget.lease_epoch }} / {{ detailTarget.revocation_epoch }}
+          </n-descriptions-item>
+          <n-descriptions-item v-if="detailTarget.revoked_at" label="吊销">
+            {{ formatDateTime(detailTarget.revoked_at) }} — {{ detailTarget.revoke_reason || '未填写理由' }}
+          </n-descriptions-item>
+          <n-descriptions-item label="登记时间">{{ formatDateTime(detailTarget.created_at) }}</n-descriptions-item>
+        </n-descriptions>
+      </template>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="detailOpen = false">关闭</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
     <n-modal v-model:show="revokeOpen" preset="dialog" type="warning" title="吊销这台协作服务器">
       <template #default>
         <p>
@@ -200,6 +271,8 @@ const companyOptions = ref<SelectOption[]>([])
 const registerOpen = ref(false)
 const revokeOpen = ref(false)
 const revokeTarget = ref<CollabServer | null>(null)
+const detailOpen = ref(false)
+const detailTarget = ref<CollabServer | null>(null)
 const revokeReason = ref('')
 const formRef = ref<FormInst | null>(null)
 
@@ -338,17 +411,54 @@ const columns: DataTableColumns<CollabServer> = [
   {
     title: '操作',
     key: 'actions',
-    width: 110,
+    width: 150,
     render: (row) =>
-      row.status === 'revoked'
-        ? h(NText, { depth: 3, style: 'font-size:12px' }, () => row.revoke_reason || '已吊销')
-        : h(NButton, { size: 'small', type: 'error', tertiary: true, onClick: () => openRevoke(row) }, () => '吊销'),
+      h(NSpace, { size: 6 }, () => [
+        // 详情始终可用，包括已吊销的：登记完之后最想看的就是服务器编号，
+        // 而列表里放不下全部字段。
+        h(NButton, { size: 'small', tertiary: true, onClick: () => openDetail(row) }, () => '详情'),
+        row.status === 'revoked'
+          ? null
+          : h(NButton, { size: 'small', type: 'error', tertiary: true, onClick: () => openRevoke(row) }, () => '吊销'),
+      ]),
   },
 ]
 
 function openRegister() {
   Object.assign(form, emptyForm())
   registerOpen.value = true
+}
+
+// 后台是 https 的，所以 navigator.clipboard 在这里是可用的——不像协作服务器
+// 自己的面板常常跑在 http 上。仍然留一个兜底，别让点击毫无反应。
+async function copyText(value: string) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value)
+    } else {
+      const area = document.createElement('textarea')
+      area.value = value
+      area.style.position = 'fixed'
+      area.style.opacity = '0'
+      document.body.appendChild(area)
+      area.select()
+      document.execCommand('copy')
+      document.body.removeChild(area)
+    }
+    message.success('已复制')
+  } catch {
+    message.warning('复制失败，请手动选中复制')
+  }
+}
+
+function companyName(companyId: number) {
+  const found = companyOptions.value.find((option) => option.value === companyId)
+  return (found?.label as string) || `企业 #${companyId}`
+}
+
+function openDetail(row: CollabServer) {
+  detailTarget.value = row
+  detailOpen.value = true
 }
 
 function openRevoke(row: CollabServer) {
@@ -392,7 +502,7 @@ async function submitRegister() {
   }
   saving.value = true
   try {
-    await collabApi.registerServer({
+    const created = await collabApi.registerServer({
       name: form.name.trim(),
       kind: form.kind,
       base_url: form.base_url.trim(),
@@ -401,9 +511,16 @@ async function submitRegister() {
       company_id: form.company_id,
       grace_seconds: form.grace_seconds,
     })
-    message.success('已登记。等这台服务器发来第一次心跳后就会转为「服务中」。')
     registerOpen.value = false
     await load()
+    // 直接把详情弹出来。登记完最需要的就是那个服务器编号——
+    // 之前登记成功后直接跳回列表，编号根本没地方看。
+    if (created && created.id) {
+      openDetail(created)
+      message.success(`已登记，服务器编号 ${created.id}。把它填进协作服务器面板即可完成安装。`)
+    } else {
+      message.success('已登记。等这台服务器发来第一次心跳后就会转为「服务中」。')
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : '登记失败')
   } finally {
@@ -464,6 +581,36 @@ onMounted(() => {
 }
 .register-hint code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.detail-modal {
+  width: min(680px, 94vw);
+}
+.detail-hint {
+  margin-bottom: 18px;
+}
+.detail-id {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.detail-id strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.detail-id-note {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.detail-id-note code,
+.detail-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+.detail-key {
+  display: inline-block;
+  max-width: 100%;
 }
 .hint-bad {
   color: var(--yy-tone-red, #d03050);
