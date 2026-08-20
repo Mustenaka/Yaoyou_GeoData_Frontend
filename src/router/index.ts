@@ -148,17 +148,6 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'mobile/collab/sdk',
-        name: 'mobile-collab-sdk',
-        component: () => import('@/pages/placeholder/ComingSoon.vue'),
-        meta: {
-          title: '授权协作 SDK',
-          group: '移动端项目与数据',
-          subGroup: '协作设置与授权',
-          roles: contentRoles,
-        },
-      },
-      {
         path: 'mobile/logs',
         name: 'mobile-logs',
         component: () => import('@/pages/mobile-logs/index.vue'),

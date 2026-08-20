@@ -257,7 +257,6 @@ const routeIcons: Record<string, unknown> = {
   'mobile-smart-fill-config': OptionsOutline,
   'mobile-equipment-config': SettingsOutline,
   'mobile-collab-settings': OptionsOutline,
-  'mobile-collab-sdk': KeyOutline,
   'mobile-logs': FileTrayFullOutline,
   'win-sky': DocumentTextOutline,
   'win-huaning': DocumentTextOutline,
