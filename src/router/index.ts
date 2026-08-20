@@ -139,7 +139,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'mobile/collab/settings',
         name: 'mobile-collab-settings',
-        component: () => import('@/pages/placeholder/ComingSoon.vue'),
+        component: () => import('@/pages/collab/settings.vue'),
         meta: {
           title: '协作设置',
           group: '移动端项目与数据',
