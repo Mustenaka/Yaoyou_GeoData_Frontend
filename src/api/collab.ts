@@ -1,4 +1,5 @@
 import request from './request'
+import type { PageResult } from '@/types/api'
 
 /**
  * 协作服务器控制面。
@@ -57,6 +58,24 @@ export interface CollabCompanySetting {
   updated_at: string
 }
 
+/** 设置总览的一行：企业 × 生效设置 × 所指服务器身份，由后端合并好。 */
+export interface CollabCompanySettingRow {
+  company_id: number
+  company_name: string
+  company_status: number
+  collab_enabled: boolean
+  server_id?: number | null
+  server_name?: string
+  server_kind?: CollabServerKind
+  server_status?: CollabServerStatus
+  max_devices_per_project: number
+  max_rows_per_project: number
+  max_ops_per_sec: number
+  /** false = 这家企业从未被配置过（区别于「显式配置为关」）。 */
+  configured: boolean
+  updated_at?: string
+}
+
 export interface CollabSettingPayload {
   collab_enabled?: boolean
   server_id?: number | null
@@ -85,6 +104,16 @@ export const collabApi = {
    */
   revokeServer(id: number, reason: string) {
     return request.post<CollabServer, CollabServer>(`/admin/collab/servers/${id}/revoke`, { reason })
+  },
+  /**
+   * 设置总览：每家企业一行，带生效设置与所指服务器的身份。
+   * 这一页应当先回答「谁开了、指向哪」，而不是让人逐家企业去点。
+   */
+  listSettings(params: { page: number; page_size: number; keyword?: string }) {
+    return request.get<PageResult<CollabCompanySettingRow>, PageResult<CollabCompanySettingRow>>(
+      '/admin/collab/settings',
+      { params },
+    )
   },
   companySetting(companyId: number) {
     return request.get<CollabCompanySetting, CollabCompanySetting>(`/admin/collab/settings/${companyId}`)
